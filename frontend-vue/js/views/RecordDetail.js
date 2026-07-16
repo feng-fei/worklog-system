@@ -593,4 +593,4 @@ const RecordDetail = {
   },
 };
 
-window.RecordDetail = RecordDetail;
+window.RecordDetailView = RecordDetail;

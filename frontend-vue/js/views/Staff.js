@@ -72,8 +72,9 @@ const StaffView = {
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="200" fixed="right" v-if="isAdmin">
+          <el-table-column label="操作" width="260" fixed="right" v-if="isAdmin">
             <template #default="{ row }">
+              <el-button link type="primary" size="small" @click="handleView(row)">详情</el-button>
               <el-button link type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
               <el-button
                 link
@@ -134,6 +135,96 @@ const StaffView = {
           <el-button type="primary" @click="handleSubmit" :loading="submitting">确定</el-button>
         </template>
       </el-dialog>
+
+      <el-drawer v-model="detailVisible" title="员工详情" size="600px">
+        <div v-if="currentStaff" style="padding:0 10px;">
+          <div style="margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+              <div style="font-size:18px;font-weight:bold;margin-bottom:8px;">
+                {{ currentStaff.name }}
+              </div>
+              <div style="display:flex;gap:12px;align-items:center;">
+                <el-tag :type="currentStaff.staff_type === 'fixed' ? 'primary' : 'warning'" size="small">
+                  {{ currentStaff.staff_type === 'fixed' ? '固定工' : '临时工' }}
+                </el-tag>
+                <el-tag :type="currentStaff.status === 'active' ? 'success' : 'info'" size="small">
+                  {{ currentStaff.status === 'active' ? '在职' : '离职' }}
+                </el-tag>
+                <span v-if="currentStaff.position" style="color:#909399;">{{ currentStaff.position }}</span>
+              </div>
+            </div>
+          </div>
+          <el-descriptions :column="2" border size="small" style="margin-bottom:20px;">
+            <el-descriptions-item label="姓名">{{ currentStaff.name || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="手机号">{{ currentStaff.phone || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="员工类型">{{ currentStaff.staff_type === 'fixed' ? '固定工' : '临时工' }}</el-descriptions-item>
+            <el-descriptions-item label="职位">{{ currentStaff.position || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="日薪">
+              <span v-if="currentStaff.daily_wage > 0">¥{{ (currentStaff.daily_wage || 0).toFixed(0) }}</span>
+              <span v-else>-</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="月薪">
+              <span v-if="currentStaff.monthly_salary > 0">¥{{ (currentStaff.monthly_salary || 0).toFixed(0) }}</span>
+              <span v-else>-</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="身份证号">{{ currentStaff.id_card || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="入职日期">{{ currentStaff.hire_date || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="所属项目" :span="2">{{ currentStaff.project || '-' }}</el-descriptions-item>
+          </el-descriptions>
+          <div v-if="currentStaff.remark" style="margin-bottom:20px;">
+            <div style="font-weight:bold;margin-bottom:8px;">备注</div>
+            <div style="padding:12px;background:#f5f7fa;border-radius:4px;white-space:pre-wrap;">
+              {{ currentStaff.remark }}
+            </div>
+          </div>
+          <div style="margin-bottom:20px;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+              <span style="font-weight:bold;width:100px;">身份证照片</span>
+              <el-button size="small" type="primary" @click="triggerIdUpload" :loading="idPhotoUploading">上传</el-button>
+            </div>
+            <div style="padding-left:100px;">
+              <el-image
+                v-if="currentStaff.id_photo"
+                :src="currentStaff.id_photo"
+                :preview-src-list="[currentStaff.id_photo]"
+                fit="cover"
+                style="width:150px;height:100px;border-radius:4px;border:1px solid #dcdfe6;"
+              />
+              <span v-else style="color:#909399;">未上传</span>
+            </div>
+            <input
+              ref="idFileInputRef"
+              type="file"
+              accept="image/*"
+              style="display:none;"
+              @change="handleIdFileChange"
+            />
+          </div>
+          <div style="margin-bottom:20px;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+              <span style="font-weight:bold;width:100px;">职业证书</span>
+              <el-button size="small" type="primary" @click="triggerCertUpload" :loading="certPhotoUploading">上传</el-button>
+            </div>
+            <div style="padding-left:100px;">
+              <el-image
+                v-if="currentStaff.cert_photo"
+                :src="currentStaff.cert_photo"
+                :preview-src-list="[currentStaff.cert_photo]"
+                fit="cover"
+                style="width:150px;height:100px;border-radius:4px;border:1px solid #dcdfe6;"
+              />
+              <span v-else style="color:#909399;">未上传</span>
+            </div>
+            <input
+              ref="certFileInputRef"
+              type="file"
+              accept="image/*"
+              style="display:none;"
+              @change="handleCertFileChange"
+            />
+          </div>
+        </div>
+      </el-drawer>
     </div>
   `,
 
@@ -145,8 +236,14 @@ const StaffView = {
     const loading = ref(false);
     const submitting = ref(false);
     const dialogVisible = ref(false);
+    const detailVisible = ref(false);
     const isEdit = ref(false);
     const formRef = ref(null);
+    const idFileInputRef = ref(null);
+    const certFileInputRef = ref(null);
+    const currentStaff = ref(null);
+    const idPhotoUploading = ref(false);
+    const certPhotoUploading = ref(false);
 
     const filters = reactive({
       keyword: '',
@@ -324,6 +421,76 @@ const StaffView = {
         .catch(() => {});
     };
 
+    const loadDetail = (id) => {
+      apiService.getStaff(id)
+        .then((res) => {
+          currentStaff.value = res.data || res;
+        })
+        .catch(() => {
+          ElMessage.error('加载员工详情失败');
+        });
+    };
+
+    const handleView = (row) => {
+      currentStaff.value = row;
+      detailVisible.value = true;
+      loadDetail(row.id);
+    };
+
+    const triggerIdUpload = () => {
+      if (idFileInputRef.value) {
+        idFileInputRef.value.value = '';
+        idFileInputRef.value.click();
+      }
+    };
+
+    const triggerCertUpload = () => {
+      if (certFileInputRef.value) {
+        certFileInputRef.value.value = '';
+        certFileInputRef.value.click();
+      }
+    };
+
+    const handleIdFileChange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append('photo', file);
+      idPhotoUploading.value = true;
+      apiService.uploadStaffIdPhoto(currentStaff.value.id, formData)
+        .then(() => {
+          ElMessage.success('身份证照片上传成功');
+          loadDetail(currentStaff.value.id);
+          loadData();
+        })
+        .catch(() => {
+          ElMessage.error('上传失败');
+        })
+        .finally(() => {
+          idPhotoUploading.value = false;
+        });
+    };
+
+    const handleCertFileChange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append('photo', file);
+      certPhotoUploading.value = true;
+      apiService.uploadStaffCertPhoto(currentStaff.value.id, formData)
+        .then(() => {
+          ElMessage.success('职业证书照片上传成功');
+          loadDetail(currentStaff.value.id);
+          loadData();
+        })
+        .catch(() => {
+          ElMessage.error('上传失败');
+        })
+        .finally(() => {
+          certPhotoUploading.value = false;
+        });
+    };
+
     onMounted(() => {
       loadData();
     });
@@ -334,8 +501,14 @@ const StaffView = {
       loading,
       submitting,
       dialogVisible,
+      detailVisible,
       isEdit,
       formRef,
+      idFileInputRef,
+      certFileInputRef,
+      currentStaff,
+      idPhotoUploading,
+      certPhotoUploading,
       filters,
       form,
       rules,
@@ -349,6 +522,12 @@ const StaffView = {
       handleSubmit,
       handleToggleStatus,
       handleDelete,
+      handleView,
+      loadDetail,
+      triggerIdUpload,
+      triggerCertUpload,
+      handleIdFileChange,
+      handleCertFileChange,
     };
   },
 };

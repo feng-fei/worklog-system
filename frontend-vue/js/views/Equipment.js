@@ -16,157 +16,247 @@ const EquipmentView = {
           </div>
         </div>
 
-        <el-tabs v-model="activeTab" @tab-change="handleTabChange">
-          <el-tab-pane label="设备列表" name="equipment" />
-          <el-tab-pane label="巡检计划" name="inspection" />
-        </el-tabs>
+        <div class="filter-bar">
+          <el-input
+            v-model="filters.keyword"
+            placeholder="搜索品牌/型号/序列号/客户"
+            clearable
+            style="width:260px;"
+            @keyup.enter="handleSearch"
+          >
+            <template #prefix><el-icon><Search /></el-icon></template>
+          </el-input>
 
-        <div v-if="activeTab === 'equipment'">
-          <div class="filter-bar">
-            <el-input
-              v-model="filters.keyword"
-              placeholder="搜索设备名称/型号"
-              clearable
-              style="width:240px;"
-              @keyup.enter="loadData"
-            >
-              <template #prefix><el-icon><Search /></el-icon></template>
-            </el-input>
+          <el-select v-model="filters.equipment_type" placeholder="设备类型" clearable style="width:140px;">
+            <el-option v-for="t in equipmentTypeOptions" :key="t.value" :label="t.label" :value="t.value" />
+          </el-select>
 
-            <el-select v-model="filters.customer_name" placeholder="客户" clearable filterable style="width:160px;">
-              <el-option
-                v-for="c in customerOptions"
-                :key="c.id"
-                :label="c.name"
-                :value="c.name"
-              />
-            </el-select>
+          <el-select v-model="filters.status" placeholder="状态" clearable style="width:120px;">
+            <el-option label="正常" value="normal" />
+            <el-option label="故障" value="faulty" />
+            <el-option label="报废" value="scrapped" />
+          </el-select>
 
-            <el-select v-model="filters.status" placeholder="状态" clearable style="width:140px;">
-              <el-option label="全部" value="" />
-              <el-option label="正常" value="normal" />
-              <el-option label="故障" value="faulty" />
-              <el-option label="报废" value="scrapped" />
-            </el-select>
-
-            <el-button type="primary" @click="loadData">查询</el-button>
-            <el-button @click="resetFilters">重置</el-button>
-          </div>
-
-          <el-table :data="equipmentList" style="width:100%;" v-loading="loading" stripe>
-            <el-table-column prop="equipment_type" label="设备名称" min-width="160" show-overflow-tooltip />
-            <el-table-column prop="model" label="型号" width="140" show-overflow-tooltip />
-            <el-table-column prop="customer_name" label="客户" width="140" show-overflow-tooltip />
-            <el-table-column prop="serial_no" label="序列号" width="140" show-overflow-tooltip />
-            <el-table-column label="状态" width="100">
-              <template #default="{ row }">
-                <el-tag :type="getStatusType(row.status)" size="small">
-                  {{ getStatusText(row.status) }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="install_date" label="安装日期" width="120" />
-            <el-table-column prop="last_maintenance" label="上次维护" width="120" />
-            <el-table-column prop="next_maintenance" label="下次维护" width="120">
-              <template #default="{ row }">
-                <span :style="{ color: isOverdue(row.next_maintenance) ? '#f56c6c' : '' }">
-                  {{ row.next_maintenance || '-' }}
-                </span>
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="220" fixed="right">
-              <template #default="{ row }">
-                <el-button link type="primary" size="small" @click="handleView(row)">详情</el-button>
-                <el-button link type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
-                <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-
-          <div class="pagination-bar">
-            <el-pagination
-              v-model:current-page="pagination.page"
-              v-model:page-size="pagination.per_page"
-              :page-sizes="[10, 20, 50, 100]"
-              :total="pagination.total"
-              layout="total, sizes, prev, pager, next, jumper"
-              @size-change="handleSizeChange"
-              @current-change="handlePageChange"
+          <el-select v-model="filters.customer_name" placeholder="客户" clearable filterable style="width:180px;">
+            <el-option
+              v-for="c in customerOptions"
+              :key="c.id"
+              :label="c.name"
+              :value="c.name"
             />
-          </div>
+          </el-select>
+
+          <el-button type="primary" @click="handleSearch">查询</el-button>
+          <el-button @click="resetFilters">重置</el-button>
         </div>
 
-        <div v-else>
-          <div style="padding:40px;text-align:center;color:#909399;">
-            <el-icon style="font-size:48px;margin-bottom:16px;"><Setting /></el-icon>
-            <div>巡检计划功能开发中...</div>
-          </div>
+        <el-table :data="equipmentList" style="width:100%;" v-loading="loading" stripe>
+          <el-table-column prop="equipment_type" label="设备类型" width="100" show-overflow-tooltip />
+          <el-table-column prop="system_type" label="系统类型" width="100" show-overflow-tooltip />
+          <el-table-column prop="brand" label="品牌" width="100" show-overflow-tooltip />
+          <el-table-column prop="model" label="型号" width="120" show-overflow-tooltip />
+          <el-table-column prop="serial_no" label="序列号" width="140" show-overflow-tooltip />
+          <el-table-column prop="customer_name" label="客户" width="120" show-overflow-tooltip />
+          <el-table-column prop="location" label="位置" width="120" show-overflow-tooltip />
+          <el-table-column prop="quantity" label="数量" width="70" align="center" />
+          <el-table-column label="状态" width="80" align="center">
+            <template #default="{ row }">
+              <el-tag :type="getStatusType(row.status)" size="small">
+                {{ getStatusText(row.status) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="install_date" label="安装日期" width="110" />
+          <el-table-column label="保修到期" width="110">
+            <template #default="{ row }">
+              <span :style="{ color: getWarrantyColor(row.warranty_end), fontWeight: getWarrantyColor(row.warranty_end) ? 'bold' : 'normal' }">
+                {{ row.warranty_end || '-' }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column label="下次维护" width="110">
+            <template #default="{ row }">
+              <span :style="{ color: getMaintenanceColor(row.next_maintenance), fontWeight: getMaintenanceColor(row.next_maintenance) ? 'bold' : 'normal' }">
+                {{ row.next_maintenance || '-' }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="200" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" size="small" @click="handleView(row)">详情</el-button>
+              <el-button link type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
+              <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div class="pagination-bar">
+          <el-pagination
+            v-model:current-page="pagination.page"
+            v-model:page-size="pagination.per_page"
+            :page-sizes="[10, 20, 50, 100]"
+            :total="pagination.total"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleSizeChange"
+            @current-change="handlePageChange"
+          />
         </div>
       </div>
 
-      <el-dialog v-model="dialogVisible" :title="dialogTitle" width="600px">
+      <el-dialog v-model="dialogVisible" :title="dialogTitle" width="800px" :close-on-click-modal="false">
         <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
-          <el-form-item label="设备名称" prop="equipment_type">
-            <el-input v-model="form.equipment_type" placeholder="请输入设备名称" />
-          </el-form-item>
-          <el-form-item label="客户" prop="customer_name">
-            <el-select v-model="form.customer_select_id" placeholder="请选择客户" filterable style="width:100%;">
-              <el-option
-                v-for="c in customerOptions"
-                :key="c.id"
-                :label="c.name"
-                :value="c.id"
-              />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="设备型号">
-            <el-input v-model="form.model" placeholder="请输入设备型号" />
-          </el-form-item>
-          <el-form-item label="序列号">
-            <el-input v-model="form.serial_no" placeholder="请输入序列号" />
-          </el-form-item>
-          <el-form-item label="设备状态" prop="status">
-            <el-select v-model="form.status" placeholder="请选择状态" style="width:100%;">
-              <el-option label="正常" value="normal" />
-              <el-option label="故障" value="faulty" />
-              <el-option label="报废" value="scrapped" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="安装日期">
-            <el-date-picker
-              v-model="form.install_date"
-              type="date"
-              placeholder="选择安装日期"
-              value-format="YYYY-MM-DD"
-              style="width:100%;"
-            />
-          </el-form-item>
-          <el-form-item label="维护周期(天)">
-            <el-input-number v-model="form.maintenance_cycle" :min="0" style="width:100%;" />
-          </el-form-item>
-          <el-form-item label="上次维护日期">
-            <el-date-picker
-              v-model="form.last_maintenance"
-              type="date"
-              placeholder="选择上次维护日期"
-              value-format="YYYY-MM-DD"
-              style="width:100%;"
-            />
-          </el-form-item>
-          <el-form-item label="下次维护日期">
-            <el-date-picker
-              v-model="form.next_maintenance"
-              type="date"
-              placeholder="选择下次维护日期"
-              value-format="YYYY-MM-DD"
-              style="width:100%;"
-            />
-          </el-form-item>
-          <el-form-item label="设备位置">
-            <el-input v-model="form.location" placeholder="请输入设备位置" />
-          </el-form-item>
+          <el-row :gutter="20">
+            <el-col :span="12">
+              <el-form-item label="客户名称" prop="customer_name">
+                <el-select v-model="form.customer_name" placeholder="请选择或输入客户" filterable allow-create default-first-option style="width:100%;">
+                  <el-option
+                    v-for="c in customerOptions"
+                    :key="c.id"
+                    :label="c.name"
+                    :value="c.name"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="设备类型" prop="equipment_type">
+                <el-select v-model="form.equipment_type" placeholder="请选择设备类型" style="width:100%;">
+                  <el-option v-for="t in equipmentTypeOptions" :key="t.value" :label="t.label" :value="t.value" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row :gutter="20">
+            <el-col :span="12">
+              <el-form-item label="系统类型">
+                <el-select v-model="form.system_type" placeholder="请选择系统类型" clearable style="width:100%;">
+                  <el-option v-for="t in systemTypeOptions" :key="t.value" :label="t.label" :value="t.value" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="品牌">
+                <el-input v-model="form.brand" placeholder="请输入品牌" />
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row :gutter="20">
+            <el-col :span="12">
+              <el-form-item label="型号">
+                <el-input v-model="form.model" placeholder="请输入型号" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="序列号">
+                <el-input v-model="form.serial_no" placeholder="请输入序列号/设备编号" />
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row :gutter="20">
+            <el-col :span="12">
+              <el-form-item label="数量">
+                <el-input-number v-model="form.quantity" :min="1" style="width:100%;" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="安装位置">
+                <el-input v-model="form.location" placeholder="请输入安装位置" />
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row :gutter="20">
+            <el-col :span="12">
+              <el-form-item label="安装日期">
+                <el-date-picker
+                  v-model="form.install_date"
+                  type="date"
+                  placeholder="选择安装日期"
+                  value-format="YYYY-MM-DD"
+                  style="width:100%;"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="状态" prop="status">
+                <el-select v-model="form.status" placeholder="请选择状态" style="width:100%;">
+                  <el-option label="正常" value="normal" />
+                  <el-option label="故障" value="faulty" />
+                  <el-option label="报废" value="scrapped" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row :gutter="20">
+            <el-col :span="12">
+              <el-form-item label="保修开始">
+                <el-date-picker
+                  v-model="form.warranty_start"
+                  type="date"
+                  placeholder="选择保修开始日期"
+                  value-format="YYYY-MM-DD"
+                  style="width:100%;"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="保修结束">
+                <el-date-picker
+                  v-model="form.warranty_end"
+                  type="date"
+                  placeholder="选择保修结束日期"
+                  value-format="YYYY-MM-DD"
+                  style="width:100%;"
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row :gutter="20">
+            <el-col :span="12">
+              <el-form-item label="联系人">
+                <el-input v-model="form.contact_name" placeholder="请输入联系人" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="联系电话">
+                <el-input v-model="form.contact_phone" placeholder="请输入联系电话" />
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row :gutter="20">
+            <el-col :span="12">
+              <el-form-item label="上次维护">
+                <el-date-picker
+                  v-model="form.last_maintenance"
+                  type="date"
+                  placeholder="选择上次维护日期"
+                  value-format="YYYY-MM-DD"
+                  style="width:100%;"
+                  @change="calcNextMaintenance"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="下次维护">
+                <el-date-picker
+                  v-model="form.next_maintenance"
+                  type="date"
+                  placeholder="选择下次维护日期"
+                  value-format="YYYY-MM-DD"
+                  style="width:100%;"
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row :gutter="20">
+            <el-col :span="12">
+              <el-form-item label="维护周期(天)">
+                <el-input-number v-model="form.maintenance_cycle" :min="0" placeholder="如90=3个月一次" style="width:100%;" @change="calcNextMaintenance" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="12"></el-col>
+          </el-row>
           <el-form-item label="备注">
-            <el-input v-model="form.remark" type="textarea" :rows="2" placeholder="请输入备注" />
+            <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="请输入备注" />
           </el-form-item>
         </el-form>
         <template #footer>
@@ -175,33 +265,50 @@ const EquipmentView = {
         </template>
       </el-dialog>
 
-      <el-drawer v-model="detailVisible" title="设备详情" size="500px">
+      <el-drawer v-model="detailVisible" title="设备详情" size="600px">
         <div v-if="currentEquipment" style="padding:0 10px;">
-          <div style="margin-bottom:20px;">
-            <div style="font-size:18px;font-weight:bold;margin-bottom:10px;">{{ currentEquipment.equipment_type }}</div>
-            <div style="display:flex;gap:12px;align-items:center;">
-              <el-tag :type="getStatusType(currentEquipment.status)" size="small">
-                {{ getStatusText(currentEquipment.status) }}
-              </el-tag>
-              <span style="color:#909399;">型号：{{ currentEquipment.model || '-' }}</span>
+          <div style="margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+              <div style="font-size:18px;font-weight:bold;margin-bottom:8px;">
+                {{ currentEquipment.brand ? currentEquipment.brand + ' ' : '' }}{{ currentEquipment.model || currentEquipment.equipment_type }}
+              </div>
+              <div style="display:flex;gap:12px;align-items:center;">
+                <el-tag :type="getStatusType(currentEquipment.status)" size="small">
+                  {{ getStatusText(currentEquipment.status) }}
+                </el-tag>
+                <span style="color:#909399;">{{ currentEquipment.equipment_type }}</span>
+                <span v-if="currentEquipment.system_type" style="color:#909399;">| {{ currentEquipment.system_type }}</span>
+              </div>
             </div>
           </div>
           <el-descriptions :column="2" border size="small" style="margin-bottom:20px;">
-            <el-descriptions-item label="客户">{{ currentEquipment.customer_name || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="客户名称">{{ currentEquipment.customer_name || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="数量">{{ currentEquipment.quantity || 1 }}</el-descriptions-item>
+            <el-descriptions-item label="品牌">{{ currentEquipment.brand || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="型号">{{ currentEquipment.model || '-' }}</el-descriptions-item>
             <el-descriptions-item label="序列号">{{ currentEquipment.serial_no || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="安装位置">{{ currentEquipment.location || '-' }}</el-descriptions-item>
             <el-descriptions-item label="安装日期">{{ currentEquipment.install_date || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="设备位置">{{ currentEquipment.location || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="保修到期">
+              <span :style="{ color: getWarrantyColor(currentEquipment.warranty_end), fontWeight: getWarrantyColor(currentEquipment.warranty_end) ? 'bold' : 'normal' }">
+                {{ currentEquipment.warranty_end || '-' }}
+              </span>
+            </el-descriptions-item>
+            <el-descriptions-item label="联系人">{{ currentEquipment.contact_name || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="联系电话">{{ currentEquipment.contact_phone || '-' }}</el-descriptions-item>
             <el-descriptions-item label="上次维护">{{ currentEquipment.last_maintenance || '-' }}</el-descriptions-item>
             <el-descriptions-item label="下次维护">
-              <span :style="{ color: isOverdue(currentEquipment.next_maintenance) ? '#f56c6c' : '' }">
+              <span :style="{ color: getMaintenanceColor(currentEquipment.next_maintenance), fontWeight: getMaintenanceColor(currentEquipment.next_maintenance) ? 'bold' : 'normal' }">
                 {{ currentEquipment.next_maintenance || '-' }}
               </span>
             </el-descriptions-item>
+            <el-descriptions-item label="维护周期">{{ currentEquipment.maintenance_cycle ? currentEquipment.maintenance_cycle + '天' : '-' }}</el-descriptions-item>
+            <el-descriptions-item label="创建时间">{{ currentEquipment.created_at || '-' }}</el-descriptions-item>
           </el-descriptions>
-          <div>
+          <div v-if="currentEquipment.remark">
             <div style="font-weight:bold;margin-bottom:8px;">备注</div>
             <div style="padding:12px;background:#f5f7fa;border-radius:4px;white-space:pre-wrap;">
-              {{ currentEquipment.remark || '暂无备注' }}
+              {{ currentEquipment.remark }}
             </div>
           </div>
         </div>
@@ -211,7 +318,6 @@ const EquipmentView = {
   setup() {
     const { ref, reactive, computed, onMounted } = Vue;
 
-    const activeTab = ref('equipment');
     const equipmentList = ref([]);
     const customerOptions = ref([]);
     const loading = ref(false);
@@ -222,10 +328,30 @@ const EquipmentView = {
     const currentEquipment = ref(null);
     const formRef = ref(null);
 
+    const equipmentTypeOptions = [
+      { label: '监控', value: '监控' },
+      { label: '门禁', value: '门禁' },
+      { label: '网络', value: '网络' },
+      { label: '服务器', value: '服务器' },
+      { label: '电脑', value: '电脑' },
+      { label: '打印机', value: '打印机' },
+      { label: '其他', value: '其他' },
+    ];
+
+    const systemTypeOptions = [
+      { label: '监控系统', value: '监控系统' },
+      { label: '门禁系统', value: '门禁系统' },
+      { label: '网络系统', value: '网络系统' },
+      { label: '报警系统', value: '报警系统' },
+      { label: '楼宇对讲', value: '楼宇对讲' },
+      { label: '其他', value: '其他' },
+    ];
+
     const filters = reactive({
       keyword: '',
-      customer_name: '',
+      equipment_type: '',
       status: '',
+      customer_name: '',
     });
 
     const pagination = reactive({
@@ -236,53 +362,69 @@ const EquipmentView = {
 
     const form = reactive({
       id: null,
-      equipment_type: '',
       customer_name: '',
-      customer_select_id: null,
+      equipment_type: '',
+      system_type: '',
+      brand: '',
       model: '',
       serial_no: '',
-      status: 'normal',
+      quantity: 1,
       install_date: '',
-      maintenance_cycle: 90,
+      warranty_start: '',
+      warranty_end: '',
+      location: '',
+      contact_name: '',
+      contact_phone: '',
+      status: 'normal',
       last_maintenance: '',
       next_maintenance: '',
-      location: '',
+      maintenance_cycle: null,
       remark: '',
     });
 
     const rules = {
-      equipment_type: [{ required: true, message: '请输入设备名称', trigger: 'blur' }],
-      customer_name: [{ required: true, message: '请选择客户', trigger: 'change' }],
+      customer_name: [{ required: true, message: '请选择或输入客户名称', trigger: 'change' }],
+      equipment_type: [{ required: true, message: '请选择设备类型', trigger: 'change' }],
       status: [{ required: true, message: '请选择状态', trigger: 'change' }],
     };
 
     const dialogTitle = computed(() => (isEdit.value ? '编辑设备' : '新增设备'));
 
     const getStatusText = (status) => {
-      const map = {
-        normal: '正常',
-        faulty: '故障',
-        scrapped: '报废',
-      };
+      const map = { normal: '正常', faulty: '故障', scrapped: '报废' };
       return map[status] || status;
     };
 
     const getStatusType = (status) => {
-      const map = {
-        normal: 'success',
-        faulty: 'danger',
-        scrapped: 'info',
-      };
+      const map = { normal: 'success', faulty: 'danger', scrapped: 'info' };
       return map[status] || 'info';
     };
 
-    const isOverdue = (dateStr) => {
-      if (!dateStr) return false;
-      return dayjs(dateStr).isBefore(dayjs(), 'day');
+    const getWarrantyColor = (dateStr) => {
+      if (!dateStr) return '';
+      const today = dayjs().startOf('day');
+      const date = dayjs(dateStr).startOf('day');
+      if (date.isBefore(today)) return '#f56c6c';
+      if (date.diff(today, 'day') <= 30) return '#e6a23c';
+      return '';
+    };
+
+    const getMaintenanceColor = (dateStr) => {
+      if (!dateStr) return '';
+      const today = dayjs().startOf('day');
+      const date = dayjs(dateStr).startOf('day');
+      if (date.isBefore(today)) return '#f56c6c';
+      if (date.diff(today, 'day') <= 7) return '#e6a23c';
+      return '';
+    };
+
+    const calcNextMaintenance = () => {
+      if (form.last_maintenance && form.maintenance_cycle && form.maintenance_cycle > 0) {
+        form.next_maintenance = dayjs(form.last_maintenance).add(form.maintenance_cycle, 'day').format('YYYY-MM-DD');
+      }
     };
 
     const loadData = () => {
-      if (activeTab.value !== 'equipment') return;
       loading.value = true;
       const params = {
         page: pagination.page,
@@ -291,9 +433,9 @@ const EquipmentView = {
       };
       apiService.getEquipments(params)
         .then((res) => {
-          const data = res && res.records ? res.records : [];
-          equipmentList.value = Array.isArray(data) ? data : [];
-          pagination.total = (res && res.total) || 0;
+          const { list, total } = parseListResponse(res);
+          equipmentList.value = list;
+          pagination.total = total;
         })
         .catch(() => {
           ElementPlus.ElMessage.error('加载设备列表失败');
@@ -306,21 +448,22 @@ const EquipmentView = {
     const loadCustomers = () => {
       apiService.getCustomers({ per_page: 1000 })
         .then((res) => {
-          const data = res && res.records ? res.records : [];
-          customerOptions.value = Array.isArray(data) ? data : [];
+          const { list } = parseListResponse(res);
+          customerOptions.value = list;
         })
         .catch(() => {});
     };
 
-    const resetFilters = () => {
-      filters.keyword = '';
-      filters.customer_name = '';
-      filters.status = '';
+    const handleSearch = () => {
       pagination.page = 1;
       loadData();
     };
 
-    const handleTabChange = () => {
+    const resetFilters = () => {
+      filters.keyword = '';
+      filters.equipment_type = '';
+      filters.status = '';
+      filters.customer_name = '';
       pagination.page = 1;
       loadData();
     };
@@ -336,40 +479,57 @@ const EquipmentView = {
       loadData();
     };
 
-    const handleCreate = () => {
-      isEdit.value = false;
+    const resetForm = () => {
       form.id = null;
-      form.equipment_type = '';
       form.customer_name = '';
-      form.customer_select_id = null;
+      form.equipment_type = '';
+      form.system_type = '';
+      form.brand = '';
       form.model = '';
       form.serial_no = '';
-      form.status = 'normal';
+      form.quantity = 1;
       form.install_date = '';
-      form.maintenance_cycle = 90;
+      form.warranty_start = '';
+      form.warranty_end = '';
+      form.location = '';
+      form.contact_name = '';
+      form.contact_phone = '';
+      form.status = 'normal';
       form.last_maintenance = '';
       form.next_maintenance = '';
-      form.location = '';
+      form.maintenance_cycle = null;
       form.remark = '';
+    };
+
+    const handleCreate = () => {
+      isEdit.value = false;
+      resetForm();
       dialogVisible.value = true;
     };
 
     const handleEdit = (row) => {
       isEdit.value = true;
-      form.id = row.id;
-      form.equipment_type = row.equipment_type;
-      form.customer_name = row.customer_name;
-      const customer = customerOptions.value.find(c => c.name === row.customer_name);
-      form.customer_select_id = customer ? customer.id : null;
-      form.model = row.model || '';
-      form.serial_no = row.serial_no || '';
-      form.status = row.status;
-      form.install_date = row.install_date || '';
-      form.maintenance_cycle = row.maintenance_cycle || 90;
-      form.last_maintenance = row.last_maintenance || '';
-      form.next_maintenance = row.next_maintenance || '';
-      form.location = row.location || '';
-      form.remark = row.remark || '';
+      Object.assign(form, {
+        id: row.id,
+        customer_name: row.customer_name || '',
+        equipment_type: row.equipment_type || '',
+        system_type: row.system_type || '',
+        brand: row.brand || '',
+        model: row.model || '',
+        serial_no: row.serial_no || '',
+        quantity: row.quantity || 1,
+        install_date: row.install_date || '',
+        warranty_start: row.warranty_start || '',
+        warranty_end: row.warranty_end || '',
+        location: row.location || '',
+        contact_name: row.contact_name || '',
+        contact_phone: row.contact_phone || '',
+        status: row.status || 'normal',
+        last_maintenance: row.last_maintenance || '',
+        next_maintenance: row.next_maintenance || '',
+        maintenance_cycle: row.maintenance_cycle || null,
+        remark: row.remark || '',
+      });
       dialogVisible.value = true;
     };
 
@@ -384,14 +544,6 @@ const EquipmentView = {
         if (!valid) return;
         submitting.value = true;
         const data = { ...form };
-        if (data.customer_select_id) {
-          const customer = customerOptions.value.find(c => c.id === data.customer_select_id);
-          if (customer) {
-            data.customer_name = customer.name;
-          }
-        }
-        delete data.customer_select_id;
-
         const request = isEdit.value
           ? apiService.updateEquipment(form.id, data)
           : apiService.createEquipment(data);
@@ -409,8 +561,9 @@ const EquipmentView = {
     };
 
     const handleDelete = (row) => {
+      const name = row.brand || row.model || row.equipment_type;
       ElementPlus.ElMessageBox.confirm(
-        `确定要删除设备「${row.equipment_type}」吗？`,
+        `确定要删除设备「${name}」吗？`,
         '警告',
         { type: 'warning' }
       )
@@ -430,9 +583,10 @@ const EquipmentView = {
     });
 
     return {
-      activeTab,
       equipmentList,
       customerOptions,
+      equipmentTypeOptions,
+      systemTypeOptions,
       loading,
       submitting,
       dialogVisible,
@@ -447,10 +601,12 @@ const EquipmentView = {
       dialogTitle,
       getStatusText,
       getStatusType,
-      isOverdue,
+      getWarrantyColor,
+      getMaintenanceColor,
+      calcNextMaintenance,
       loadData,
+      handleSearch,
       resetFilters,
-      handleTabChange,
       handleSizeChange,
       handlePageChange,
       handleCreate,

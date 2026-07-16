@@ -92,12 +92,15 @@ const AppLayout = {
       <el-container>
         <el-header class="main-header">
           <div class="header-left">
-            <el-icon
+            <span
               class="header-icon-btn"
               @click="toggleSidebar"
+              style="display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:8px;cursor:pointer;"
             >
-              <component :is="sidebarIcon" />
-            </el-icon>
+              <el-icon :size="20">
+                <component :is="sidebarIcon" />
+              </el-icon>
+            </span>
             <div class="header-title-area">
               <div class="breadcrumb" v-if="breadcrumbItems.length > 1">
                 <span v-for="(item, index) in breadcrumbItems" :key="index" :class="{ 'breadcrumb-current': index === breadcrumbItems.length - 1 }">

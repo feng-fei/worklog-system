@@ -2,7 +2,7 @@ const CustomerView = {
   template: `
     <div>
       <div class="page-card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
           <div class="section-title" style="margin:0;">客户管理</div>
           <div style="display:flex;gap:8px;">
             <el-button type="primary" @click="handleCreate">
@@ -19,24 +19,23 @@ const CustomerView = {
         <div class="filter-bar">
           <el-input
             v-model="filters.keyword"
-            placeholder="搜索客户名称/联系人/电话"
+            placeholder="搜索客户名称/简称/联系人/税号"
             clearable
-            style="width:240px;"
+            style="width:280px;"
             @keyup.enter="loadData"
           >
             <template #prefix><el-icon><Search /></el-icon></template>
           </el-input>
-
           <el-button type="primary" @click="loadData">查询</el-button>
           <el-button @click="resetFilters">重置</el-button>
         </div>
 
-        <el-table :data="customers" style="width:100%;" v-loading="loading" stripe>
+        <el-table :data="filteredCustomers" v-loading="loading" stripe>
           <el-table-column prop="name" label="客户名称" min-width="160" show-overflow-tooltip />
           <el-table-column prop="short_name" label="简称" width="120" show-overflow-tooltip />
           <el-table-column prop="contact_name" label="联系人" width="100" />
-          <el-table-column prop="contact_phone" label="联系电话" width="140" />
-          <el-table-column prop="tax_number" label="税号" width="180" show-overflow-tooltip />
+          <el-table-column prop="phone" label="联系电话" width="140" />
+          <el-table-column prop="credit_code" label="税号/信用代码" width="180" show-overflow-tooltip />
           <el-table-column prop="address" label="地址" min-width="200" show-overflow-tooltip />
           <el-table-column prop="created_at" label="创建时间" width="160">
             <template #default="{ row }">
@@ -45,45 +44,32 @@ const CustomerView = {
           </el-table-column>
           <el-table-column label="操作" width="180" fixed="right">
             <template #default="{ row }">
-              <el-button link type="primary" size="small" @click="handleView(row)">查看</el-button>
               <el-button link type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
               <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>
-
-        <div class="pagination-bar">
-          <el-pagination
-            v-model:current-page="pagination.page"
-            v-model:page-size="pagination.per_page"
-            :page-sizes="[10, 20, 50, 100]"
-            :total="pagination.total"
-            layout="total, sizes, prev, pager, next, jumper"
-            @size-change="handleSizeChange"
-            @current-change="handlePageChange"
-          />
-        </div>
       </div>
 
-      <el-dialog v-model="dialogVisible" :title="dialogTitle" width="600px">
-        <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
+      <el-dialog v-model="dialogVisible" :title="dialogTitle" width="600px" @closed="resetForm">
+        <el-form :model="form" :rules="rules" ref="formRef" label-width="110px">
           <el-form-item label="客户名称" prop="name">
-            <el-input v-model="form.name" placeholder="请输入客户名称" />
+            <el-input v-model="form.name" placeholder="请输入客户全称" />
           </el-form-item>
           <el-form-item label="客户简称">
-            <el-input v-model="form.short_name" placeholder="请输入客户简称" />
+            <el-input v-model="form.short_name" placeholder="用于工单快速选择" />
           </el-form-item>
-          <el-form-item label="联系人">
-            <el-input v-model="form.contact_name" placeholder="请输入联系人" />
+          <el-form-item label="联系人" prop="contact_name">
+            <el-input v-model="form.contact_name" placeholder="请输入联系人姓名" />
           </el-form-item>
-          <el-form-item label="联系电话">
-            <el-input v-model="form.contact_phone" placeholder="请输入联系电话" />
+          <el-form-item label="联系电话" prop="phone">
+            <el-input v-model="form.phone" placeholder="请输入联系电话" />
           </el-form-item>
-          <el-form-item label="税号">
-            <el-input v-model="form.tax_number" placeholder="请输入税号" />
+          <el-form-item label="税号/信用代码">
+            <el-input v-model="form.credit_code" placeholder="请输入税号或统一社会信用代码" />
           </el-form-item>
           <el-form-item label="地址">
-            <el-input v-model="form.address" type="textarea" :rows="3" placeholder="请输入地址" />
+            <el-input v-model="form.address" type="textarea" :rows="2" placeholder="请输入客户地址" />
           </el-form-item>
           <el-form-item label="备注">
             <el-input v-model="form.remark" type="textarea" :rows="2" placeholder="请输入备注" />
@@ -97,12 +83,12 @@ const CustomerView = {
     </div>
   `,
   setup() {
-    const { ref, reactive, onMounted } = Vue;
+    const { ref, reactive, computed, onMounted, nextTick } = Vue;
     const { ElMessage, ElMessageBox } = ElementPlus;
 
     const loading = ref(false);
     const submitting = ref(false);
-    const customers = ref([]);
+    const customerList = ref([]);
     const dialogVisible = ref(false);
     const dialogTitle = ref('新增客户');
     const formRef = ref(null);
@@ -112,118 +98,120 @@ const CustomerView = {
       keyword: '',
     });
 
-    const pagination = reactive({
-      page: 1,
-      per_page: 20,
-      total: 0,
+    const filteredCustomers = computed(() => {
+      if (!filters.keyword) return customerList.value;
+      const kw = filters.keyword.toLowerCase();
+      return customerList.value.filter(c =>
+        (c.name || '').toLowerCase().includes(kw) ||
+        (c.short_name || '').toLowerCase().includes(kw) ||
+        (c.contact_name || '').toLowerCase().includes(kw) ||
+        (c.phone || '').includes(kw) ||
+        (c.credit_code || '').includes(kw)
+      );
     });
 
-    const form = reactive({
+    const defaultForm = () => ({
       id: null,
       name: '',
       short_name: '',
       contact_name: '',
-      contact_phone: '',
-      tax_number: '',
+      phone: '',
+      credit_code: '',
       address: '',
       remark: '',
     });
 
+    const form = reactive(defaultForm());
+
     const rules = {
       name: [
         { required: true, message: '请输入客户名称', trigger: 'blur' },
-        { min: 1, max: 100, message: '长度在 1 到 100 个字符', trigger: 'blur' }
+        { min: 1, max: 100, message: '客户名称长度1-100个字符', trigger: 'blur' },
       ],
-      short_name: Validators.length(0, 50, '简称不超过 50 个字符'),
-      contact_name: Validators.length(0, 50, '联系人不超过 50 个字符'),
-      contact_phone: Validators.phone(false),
-      email: Validators.email(false),
-      credit_code: Validators.length(0, 50, '统一社会信用代码不超过 50 个字符')
+      contact_name: [{ required: true, message: '请输入联系人', trigger: 'blur' }],
+      phone: [{ required: true, message: '请输入联系电话', trigger: 'blur' }],
     };
 
     const formatDateTime = (date) => {
       if (!date) return '-';
-      const d = new Date(date);
-      if (isNaN(d.getTime())) return date;
-      return d.toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+      try {
+        return dayjs(date).format('YYYY-MM-DD HH:mm');
+      } catch (e) {
+        return date;
+      }
     };
 
-    const loadData = async () => {
+    const loadData = () => {
       loading.value = true;
-      try {
-        const params = {
-          page: pagination.page,
-          per_page: pagination.per_page,
-        };
-        if (filters.keyword) params.keyword = filters.keyword;
-        const res = await apiService.getCustomers(params);
-        const data = res && res.records ? res.records : [];
-        customers.value = Array.isArray(data) ? data : [];
-        pagination.total = (res && res.total) || 0;
-      } catch (e) {
-        console.error('加载客户列表失败', e);
-      } finally {
-        loading.value = false;
-      }
+      const params = {};
+      if (filters.keyword) params.q = filters.keyword;
+      apiService.getCustomers(params)
+        .then((res) => {
+          const { list } = parseListResponse(res);
+          customerList.value = list;
+        })
+        .catch(() => {
+          ElMessage.error('加载客户列表失败');
+        })
+        .finally(() => {
+          loading.value = false;
+        });
     };
 
     const resetFilters = () => {
       filters.keyword = '';
-      pagination.page = 1;
       loadData();
     };
 
-    const handlePageChange = (page) => {
-      pagination.page = page;
-      loadData();
-    };
-
-    const handleSizeChange = (size) => {
-      pagination.per_page = size;
-      pagination.page = 1;
-      loadData();
+    const resetForm = () => {
+      Object.assign(form, defaultForm());
+      nextTick(() => {
+        if (formRef.value) {
+          formRef.value.clearValidate();
+          formRef.value.resetFields();
+        }
+      });
     };
 
     const handleCreate = () => {
+      Object.assign(form, defaultForm());
       isEdit.value = false;
       dialogTitle.value = '新增客户';
-      Object.assign(form, {
-        id: null,
-        name: '',
-        short_name: '',
-        contact_name: '',
-        contact_phone: '',
-        tax_number: '',
-        address: '',
-        remark: '',
-      });
       dialogVisible.value = true;
+      nextTick(() => formRef.value && formRef.value.clearValidate());
     };
 
     const handleEdit = (row) => {
+      Object.assign(form, defaultForm(), {
+        id: row.id,
+        name: row.name || '',
+        short_name: row.short_name || '',
+        contact_name: row.contact_name || '',
+        phone: row.phone || '',
+        credit_code: row.credit_code || '',
+        address: row.address || '',
+        remark: row.remark || '',
+      });
       isEdit.value = true;
       dialogTitle.value = '编辑客户';
-      Object.assign(form, { ...row });
       dialogVisible.value = true;
+      nextTick(() => formRef.value && formRef.value.clearValidate());
     };
 
-    const handleView = (row) => {
-      ElMessage.info('查看客户: ' + row.name);
-    };
-
-    const handleDelete = async (row) => {
-      try {
-        await ElMessageBox.confirm(`确定删除客户"${row.name}"吗？删除前请确保该客户没有关联工单、待办、项目等数据。`, '提示', {
-          type: 'warning',
-          confirmButtonText: '确定删除',
-          cancelButtonText: '取消',
-        });
-        await apiService.deleteCustomer(row.id);
-        ElMessage.success('删除成功');
-        loadData();
-      } catch (e) {
-        // 取消
-      }
+    const handleDelete = (row) => {
+      ElMessageBox.confirm(`确定删除客户「${row.name}」吗？删除前请确保该客户没有关联工单、待办或项目。`, '提示', {
+        type: 'warning',
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+      })
+        .then(async () => {
+          try {
+            await apiService.deleteCustomer(row.id);
+            ElMessage.success('删除成功');
+            loadData();
+          } catch (e) {}
+        })
+        .catch(() => {});
     };
 
     const handleSubmit = async () => {
@@ -235,17 +223,25 @@ const CustomerView = {
       }
       submitting.value = true;
       try {
+        const data = {
+          name: form.name,
+          short_name: form.short_name,
+          contact_name: form.contact_name,
+          phone: form.phone,
+          credit_code: form.credit_code,
+          address: form.address,
+          remark: form.remark,
+        };
         if (isEdit.value) {
-          await apiService.updateCustomer(form.id, form);
+          await apiService.updateCustomer(form.id, data);
           ElMessage.success('更新成功');
         } else {
-          await apiService.createCustomer(form);
+          await apiService.createCustomer(data);
           ElMessage.success('创建成功');
         }
         dialogVisible.value = false;
         loadData();
       } catch (e) {
-        console.error('提交失败', e);
       } finally {
         submitting.value = false;
       }
@@ -258,22 +254,21 @@ const CustomerView = {
     return {
       loading,
       submitting,
-      customers,
-      filters,
-      pagination,
+      customerList,
+      filteredCustomers,
       dialogVisible,
       dialogTitle,
       formRef,
+      isEdit,
+      filters,
       form,
       rules,
       formatDateTime,
       loadData,
       resetFilters,
-      handlePageChange,
-      handleSizeChange,
+      resetForm,
       handleCreate,
       handleEdit,
-      handleView,
       handleDelete,
       handleSubmit,
     };

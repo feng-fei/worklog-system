@@ -27,6 +27,12 @@ const routes = [
         meta: { title: '工单管理' },
       },
       {
+        path: 'records/create',
+        name: 'RecordCreate',
+        component: RecordCreate,
+        meta: { title: '新建工单' },
+      },
+      {
         path: 'records/:id',
         name: 'RecordDetail',
         component: RecordDetailView,
@@ -98,6 +104,42 @@ const routes = [
         component: ExpenseCategoryView,
         meta: { title: '支出分类' },
       },
+      {
+        path: 'calendar',
+        name: 'Calendar',
+        component: CalendarView,
+        meta: { title: '工单日历' },
+      },
+      {
+        path: 'reports',
+        name: 'Reports',
+        component: ReportView,
+        meta: { title: '统计报表' },
+      },
+      {
+        path: 'oplogs',
+        name: 'OpLogs',
+        component: OpLogView,
+        meta: { title: '操作日志', adminOnly: true },
+      },
+      {
+        path: 'notifications',
+        name: 'Notifications',
+        component: NotificationView,
+        meta: { title: '消息中心' },
+      },
+      {
+        path: 'users',
+        name: 'Users',
+        component: UserView,
+        meta: { title: '账号管理', adminOnly: true },
+      },
+      {
+        path: 'maintenance-plans',
+        name: 'MaintenancePlans',
+        component: MaintenancePlanView,
+        meta: { title: '维护计划', adminOnly: true },
+      },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/dashboard' },
@@ -114,6 +156,15 @@ router.beforeEach((to, from, next) => {
     next();
   } else if (!token) {
     next({ path: '/login' });
+  } else if (to.meta.adminOnly) {
+    const userStr = localStorage.getItem('userInfo') || localStorage.getItem('user');
+    let user = null;
+    try { user = userStr ? JSON.parse(userStr) : null; } catch (e) {}
+    if (user && (user.role === 'admin' || user.is_admin)) {
+      next();
+    } else {
+      next({ path: '/dashboard' });
+    }
   } else {
     next();
   }
@@ -143,6 +194,15 @@ app.use(ElementPlus);
 for (const [key, comp] of Object.entries(ElementPlusIconsVue || {})) {
   app.component(key, comp);
 }
+
+app.component('OfflineStatus', OfflineStatus);
+app.component('PWAInstall', PWAInstall);
+app.component('GlobalLoading', GlobalLoading);
+app.component('MobileDock', MobileDock);
+app.component('PhotoUpload', PhotoUpload);
+app.component('BatchActions', BatchActions);
+app.component('ExportButtons', ExportButtons);
+app.component('PrintRepair', PrintRepair);
 
 app.config.globalProperties.$api = apiService;
 app.config.globalProperties.$store = appStore;

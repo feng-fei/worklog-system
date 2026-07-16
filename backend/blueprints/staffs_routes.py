@@ -34,12 +34,13 @@ def create_staff():
             name=data.get('name'),
             phone=data.get('phone', ''),
             staff_type=data.get('staff_type', 'fixed'),
-            daily_wage=float(data.get('daily_wage', 0)),
-            monthly_salary=float(data.get('monthly_salary', 0)),
+            daily_wage=float(data.get('daily_wage', 0) or 0),
+            monthly_salary=float(data.get('monthly_salary', 0) or 0),
             project=data.get('project', ''),
             position=data.get('position', ''),
             id_card=data.get('id_card', ''),
             hire_date=data.get('hire_date', ''),
+            status=data.get('status', 'active'),
             remark=data.get('remark', '')
         )
         db.session.add(staff)
@@ -69,13 +70,14 @@ def update_staff(staff_id):
         if 'name' in data: staff.name = data['name']
         if 'phone' in data: staff.phone = data['phone']
         if 'staff_type' in data: staff.staff_type = data['staff_type']
-        if 'daily_wage' in data: staff.daily_wage = float(data['daily_wage'])
-        if 'monthly_salary' in data: staff.monthly_salary = float(data['monthly_salary'])
+        if 'daily_wage' in data: staff.daily_wage = float(data['daily_wage'] or 0)
+        if 'monthly_salary' in data: staff.monthly_salary = float(data['monthly_salary'] or 0)
         if 'project' in data: staff.project = data['project']
         if 'position' in data: staff.position = data['position']
         if 'id_card' in data: staff.id_card = data['id_card']
         if 'hire_date' in data: staff.hire_date = data['hire_date']
         if 'remark' in data: staff.remark = data['remark']
+        if 'status' in data: staff.status = data['status']
         db.session.commit()
         return jsonify(staff.to_dict())
     except Exception as e:

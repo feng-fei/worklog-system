@@ -157,11 +157,11 @@ const RecordDetailView = {
                     </el-form-item>
                   </el-col>
                 </el-row>
-                <el-form-item label="工单标题" v-if="form.record_type === 'maintenance'">
+                <el-form-item label="工单标题" v-if="form.record_type === 'repair'">
                   <template v-if="!isEdit">{{ form.title || '-' }}</template>
                   <el-input v-else v-model="form.title" placeholder="请输入工单标题" />
                 </el-form-item>
-                <el-form-item label="故障描述" v-if="form.record_type === 'maintenance'">
+                <el-form-item label="故障描述" v-if="form.record_type === 'repair'">
                   <template v-if="!isEdit">{{ form.fault_description || '-' }}</template>
                   <el-input v-else v-model="form.fault_description" type="textarea" :rows="3" placeholder="请输入故障描述" />
                 </el-form-item>
@@ -234,7 +234,7 @@ const RecordDetailView = {
               </div>
             </el-tab-pane>
 
-            <el-tab-pane label="设备物料" name="material" v-if="form.record_type === 'maintenance'">
+            <el-tab-pane label="设备物料" name="material" v-if="form.record_type === 'repair'">
               <div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
                 <div style="font-weight:bold;">使用物料</div>
                 <el-button type="primary" size="small" @click="addMaterialItem" v-if="isEdit">
@@ -272,6 +272,60 @@ const RecordDetailView = {
               </el-table>
             </el-tab-pane>
 
+            <el-tab-pane label="收款记录" name="payments">
+              <div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
+                <div style="display:flex;align-items:center;gap:16px;">
+                  <span style="font-weight:bold;">收款明细</span>
+                  <span>工单总额：<strong style="color:#f56c6c;">¥{{ totalFee.toFixed(2) }}</strong></span>
+                  <span>已收款：<strong style="color:#67c23a;">¥{{ totalPaid.toFixed(2) }}</strong></span>
+                  <span>待收款：<strong :style="{color: unpaidAmount > 0 ? '#e6a23c' : '#909399'}">¥{{ unpaidAmount.toFixed(2) }}</strong></span>
+                </div>
+                <el-button type="primary" size="small" @click="handleAddPayment" v-if="recordInfo && !isEdit">
+                  <el-icon style="margin-right:4px;"><Plus /></el-icon>
+                  添加收款
+                </el-button>
+              </div>
+              <el-table :data="recordPayments" border size="small" v-if="recordPayments.length > 0">
+                <el-table-column prop="payment_date" label="收款日期" width="120" />
+                <el-table-column prop="amount" label="金额" width="120" align="right">
+                  <template #default="{ row }">
+                    <span style="color:#67c23a;font-weight:600;">¥{{ Number(row.amount || 0).toFixed(2) }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="payment_method" label="支付方式" width="100" />
+                <el-table-column prop="remark" label="备注" min-width="150" show-overflow-tooltip />
+                <el-table-column prop="operator" label="收款人" width="100" />
+                <el-table-column label="操作" width="100">
+                  <template #default="{ row }">
+                    <el-button link type="danger" size="small" @click="handleDeletePayment(row)">删除</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <el-empty v-else description="暂无收款记录" :image-size="80" />
+            </el-tab-pane>
+
+            <el-tab-pane label="编辑历史" name="edits">
+              <el-timeline>
+                <el-timeline-item
+                  v-for="(log, idx) in editHistory"
+                  :key="idx"
+                  :timestamp="formatDateTime(log.created_at)"
+                  placement="top"
+                >
+                  <el-card shadow="never" style="margin-bottom:0;">
+                    <div style="font-weight:bold;">{{ log.action || '修改' }}</div>
+                    <div style="color:#606266;font-size:13px;margin-top:4px;" v-if="log.description">
+                      {{ log.description }}
+                    </div>
+                    <div style="color:#909399;font-size:12px;margin-top:4px;">
+                      操作人：{{ log.operator || '-' }}
+                    </div>
+                  </el-card>
+                </el-timeline-item>
+              </el-timeline>
+              <el-empty description="暂无编辑历史" v-if="!editHistory || editHistory.length === 0" :image-size="80" />
+            </el-tab-pane>
+
             <el-tab-pane label="附件" name="attachments">
               <el-empty description="暂无附件" v-if="!form.attachments || form.attachments.length === 0" />
               <div v-else style="display:flex;flex-wrap:wrap;gap:12px;">
@@ -283,28 +337,36 @@ const RecordDetailView = {
                 </div>
               </div>
             </el-tab-pane>
-
-            <el-tab-pane label="操作日志" name="logs">
-              <el-timeline>
-                <el-timeline-item
-                  v-for="(log, idx) in operationLogs"
-                  :key="idx"
-                  :timestamp="formatDateTime(log.created_at)"
-                  placement="top"
-                >
-                  <el-card shadow="never" style="margin-bottom:0;">
-                    <div style="font-weight:bold;">{{ log.action }}</div>
-                    <div style="color:#909399;font-size:12px;margin-top:4px;">
-                      操作人：{{ log.operator }}
-                    </div>
-                  </el-card>
-                </el-timeline-item>
-              </el-timeline>
-              <el-empty description="暂无操作日志" v-if="!operationLogs || operationLogs.length === 0" />
-            </el-tab-pane>
           </el-tabs>
         </div>
       </div>
+
+      <el-dialog v-model="paymentDialogVisible" title="添加收款" width="450px">
+        <el-form :model="paymentForm" label-width="100px">
+          <el-form-item label="收款日期">
+            <el-date-picker v-model="paymentForm.payment_date" type="date" value-format="YYYY-MM-DD" style="width:100%;" />
+          </el-form-item>
+          <el-form-item label="收款金额">
+            <el-input-number v-model="paymentForm.amount" :min="0" :precision="2" style="width:100%;" />
+          </el-form-item>
+          <el-form-item label="支付方式">
+            <el-select v-model="paymentForm.payment_method" style="width:100%;">
+              <el-option label="现金" value="cash" />
+              <el-option label="银行转账" value="bank" />
+              <el-option label="微信" value="wechat" />
+              <el-option label="支付宝" value="alipay" />
+              <el-option label="其他" value="other" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="备注">
+            <el-input v-model="paymentForm.remark" type="textarea" :rows="2" placeholder="请输入备注" />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="paymentDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="handleSubmitPayment" :loading="paymentSubmitting">确定收款</el-button>
+        </template>
+      </el-dialog>
     </div>
   `,
   setup() {
@@ -323,12 +385,21 @@ const RecordDetailView = {
     const customerOptions = ref([]);
     const staffOptions = ref([]);
     const materialOptions = ref([]);
-    const operationLogs = ref([]);
+    const recordPayments = ref([]);
+    const editHistory = ref([]);
+    const paymentDialogVisible = ref(false);
+    const paymentSubmitting = ref(false);
+    const paymentForm = reactive({
+      payment_date: '',
+      amount: 0,
+      payment_method: 'cash',
+      remark: '',
+    });
 
     const form = reactive({
       id: null,
-      record_no: '',
-      record_type: 'maintenance',
+      order_no: '',
+      record_type: 'repair',
       customer_id: null,
       customer_name: '',
       status: 'pending',
@@ -363,6 +434,14 @@ const RecordDetailView = {
       return (form.fee_items || []).reduce((sum, item) => {
         return sum + (item.quantity || 0) * (item.unit_price || 0);
       }, 0);
+    });
+
+    const totalPaid = computed(() => {
+      return (recordPayments.value || []).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    });
+
+    const unpaidAmount = computed(() => {
+      return Math.max(0, totalFee.value - totalPaid.value);
     });
 
     const getRecordTypeText = (type) => {
@@ -404,16 +483,22 @@ const RecordDetailView = {
     const loadRecord = (id) => {
       if (!id) return;
       loading.value = true;
-      apiService.getRecord(id)
-        .then((res) => {
-          recordInfo.value = res || null;
-          if (res) {
-            Object.assign(form, res);
+      Promise.all([
+        apiService.getRecord(id),
+        apiService.getRecordPayments(id).catch(() => []),
+        apiService.getRecordEdits(id).catch(() => []),
+      ])
+        .then(([recordRes, paymentsRes, editsRes]) => {
+          recordInfo.value = recordRes || null;
+          if (recordRes) {
+            Object.assign(form, recordRes);
           }
           if (!Array.isArray(form.fee_items)) form.fee_items = [];
           if (!Array.isArray(form.material_items)) form.material_items = [];
           if (!Array.isArray(form.attachments)) form.attachments = [];
           if (!Array.isArray(form.staff_names)) form.staff_names = [];
+          recordPayments.value = Array.isArray(paymentsRes) ? paymentsRes : (paymentsRes?.records || []);
+          editHistory.value = Array.isArray(editsRes) ? editsRes : (editsRes?.edits || []);
         })
         .catch(() => {
           ElementPlus.ElMessage.error('加载工单详情失败');
@@ -502,6 +587,45 @@ const RecordDetailView = {
       }
     };
 
+    const handleAddPayment = () => {
+      Object.assign(paymentForm, {
+        payment_date: dayjs().format('YYYY-MM-DD'),
+        amount: unpaidAmount.value > 0 ? unpaidAmount.value : 0,
+        payment_method: 'cash',
+        remark: '',
+        record_id: form.id,
+      });
+      paymentDialogVisible.value = true;
+    };
+
+    const handleSubmitPayment = async () => {
+      if (!paymentForm.amount || paymentForm.amount <= 0) {
+        ElementPlus.ElMessage.warning('请输入收款金额');
+        return;
+      }
+      paymentSubmitting.value = true;
+      try {
+        await apiService.createPayment({ ...paymentForm, record_id: form.id });
+        ElementPlus.ElMessage.success('收款添加成功');
+        paymentDialogVisible.value = false;
+        loadRecord(form.id);
+      } catch (e) {} finally {
+        paymentSubmitting.value = false;
+      }
+    };
+
+    const handleDeletePayment = (row) => {
+      ElementPlus.ElMessageBox.confirm('确定删除该收款记录吗？', '提示', { type: 'warning' })
+        .then(async () => {
+          try {
+            await apiService.deletePayment(row.id);
+            ElementPlus.ElMessage.success('删除成功');
+            loadRecord(form.id);
+          } catch (e) {}
+        })
+        .catch(() => {});
+    };
+
     onMounted(() => {
       const id = route.params.id;
       if (id) {
@@ -534,9 +658,15 @@ const RecordDetailView = {
       customerOptions,
       staffOptions,
       materialOptions,
-      operationLogs,
+      recordPayments,
+      editHistory,
+      paymentDialogVisible,
+      paymentSubmitting,
+      paymentForm,
       statusOptions,
       totalFee,
+      totalPaid,
+      unpaidAmount,
       getRecordTypeText,
       getStatusText,
       getStatusType,
@@ -551,6 +681,9 @@ const RecordDetailView = {
       addMaterialItem,
       removeMaterialItem,
       onMaterialChange,
+      handleAddPayment,
+      handleSubmitPayment,
+      handleDeletePayment,
     };
   },
 };

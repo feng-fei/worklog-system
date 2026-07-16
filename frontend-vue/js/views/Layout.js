@@ -1,17 +1,19 @@
 const AppLayout = {
   template: `
     <el-container class="app-layout">
-      <el-aside :width="store.sidebarCollapsed ? '64px' : '210px'">
+      <div class="sidebar-overlay" :class="{ show: mobileMenuOpen }" @click="closeMobileMenu"></div>
+
+      <el-aside :width="sidebarWidth" :class="{ 'mobile-open': mobileMenuOpen }">
         <div class="sidebar-logo">
           <el-icon><Tools /></el-icon>
-          <span v-show="!store.sidebarCollapsed">工单管理</span>
+          <span v-show="!store.sidebarCollapsed || isMobile">工单管理</span>
         </div>
         <el-menu
           :default-active="activeMenu"
-          background-color="#304156"
-          text-color="#bfcbd9"
-          active-text-color="#409eff"
-          :collapse="store.sidebarCollapsed"
+          background-color="transparent"
+          text-color="#cbd5e1"
+          active-text-color="#ffffff"
+          :collapse="!isMobile && store.sidebarCollapsed"
           @select="handleMenuSelect"
         >
           <el-menu-item index="/dashboard">
@@ -22,6 +24,14 @@ const AppLayout = {
             <el-icon><Document /></el-icon>
             <template #title>工单管理</template>
           </el-menu-item>
+          <el-menu-item index="/pending">
+            <el-icon><Clock /></el-icon>
+            <template #title>待办任务</template>
+          </el-menu-item>
+          <el-menu-item index="/calendar">
+            <el-icon><Calendar /></el-icon>
+            <template #title>工单日历</template>
+          </el-menu-item>
           <el-sub-menu index="business" v-if="isAdmin">
             <template #title>
               <el-icon><Briefcase /></el-icon>
@@ -29,11 +39,8 @@ const AppLayout = {
             </template>
             <el-menu-item index="/templates">工单模板</el-menu-item>
             <el-menu-item index="/equipments">客户设备</el-menu-item>
+            <el-menu-item index="/maintenance-plans">维护计划</el-menu-item>
           </el-sub-menu>
-          <el-menu-item index="/pending">
-            <el-icon><Bell /></el-icon>
-            <template #title>待办任务</template>
-          </el-menu-item>
           <el-menu-item index="/customers">
             <el-icon><UserFilled /></el-icon>
             <template #title>客户管理</template>
@@ -42,8 +49,12 @@ const AppLayout = {
             <el-icon><User /></el-icon>
             <template #title>员工管理</template>
           </el-menu-item>
+          <el-menu-item index="/users" v-if="isAdmin">
+            <el-icon><Avatar /></el-icon>
+            <template #title>账号管理</template>
+          </el-menu-item>
           <el-menu-item index="/projects">
-            <el-icon><List /></el-icon>
+            <el-icon><Folder /></el-icon>
             <template #title>项目管理</template>
           </el-menu-item>
           <el-menu-item index="/materials">
@@ -59,6 +70,18 @@ const AppLayout = {
             <el-menu-item index="/salary" v-if="isAdmin">工资管理</el-menu-item>
             <el-menu-item index="/expense-categories" v-if="isAdmin">支出分类</el-menu-item>
           </el-sub-menu>
+          <el-menu-item index="/reports">
+            <el-icon><DataAnalysis /></el-icon>
+            <template #title>统计报表</template>
+          </el-menu-item>
+          <el-menu-item index="/notifications">
+            <el-icon><Bell /></el-icon>
+            <template #title>消息中心</template>
+          </el-menu-item>
+          <el-menu-item v-if="isAdmin" index="/oplogs">
+            <el-icon><DocumentCopy /></el-icon>
+            <template #title>操作日志</template>
+          </el-menu-item>
           <el-menu-item v-if="isAdmin" index="/settings">
             <el-icon><Setting /></el-icon>
             <template #title>系统设置</template>
@@ -70,27 +93,27 @@ const AppLayout = {
         <el-header class="main-header">
           <div class="header-left">
             <el-icon
-              style="font-size:20px;cursor:pointer;color:#606266;"
-              @click="appStore.toggleSidebar()"
+              style="font-size:20px;cursor:pointer;color:#64748b;"
+              @click="toggleSidebar"
             >
-              <component :is="store.sidebarCollapsed ? 'Expand' : 'Fold'" />
+              <component :is="sidebarIcon" />
             </el-icon>
             <span class="header-title">{{ pageTitle }}</span>
           </div>
           <div class="header-right">
             <el-icon
-              style="font-size:18px;cursor:pointer;color:#606266;"
+              style="font-size:18px;cursor:pointer;color:#64748b;"
               @click="appStore.toggleTheme()"
-              :title="isDark ? '切换到浅色模式' : '切换到深色模式'"
+              :title="isDark ? '浅色模式' : '深色模式'"
             >
               <component :is="isDark ? 'Sunny' : 'Moon'" />
             </el-icon>
-            <el-badge :value="unreadCount" :hidden="unreadCount === 0" class="notification-badge">
-              <el-icon style="font-size:18px;cursor:pointer;color:#606266;"><Bell /></el-icon>
+            <el-badge :value="unreadCount" :hidden="unreadCount === 0" class="notification-badge" @click="navTo('/notifications')" style="cursor:pointer;">
+              <el-icon style="font-size:18px;color:#64748b;"><Bell /></el-icon>
             </el-badge>
             <el-dropdown @command="handleCommand">
-              <span style="display:flex;align-items:center;gap:8px;cursor:pointer;color:#606266;">
-                <el-avatar :size="32" style="background:#409eff;">
+              <span style="display:flex;align-items:center;gap:8px;cursor:pointer;color:#64748b;">
+                <el-avatar :size="30" style="background:#3b82f6;">
                   {{ store.user?.staff_name?.charAt(0) || store.user?.username?.charAt(0) || 'U' }}
                 </el-avatar>
                 <span>{{ store.user?.staff_name || store.user?.username || '用户' }}</span>
@@ -110,10 +133,52 @@ const AppLayout = {
           <router-view />
         </el-main>
       </el-container>
+
+      <div class="bottom-nav" v-if="isMobile">
+        <div class="bottom-nav-inner">
+          <div class="bottom-nav-item" :class="{ active: activeMenu === '/dashboard' }" @click="navTo('/dashboard')">
+            <el-icon><Odometer /></el-icon>
+            <span>工作台</span>
+          </div>
+          <div class="bottom-nav-item" :class="{ active: activeMenu === '/records' }" @click="navTo('/records')">
+            <el-icon><Document /></el-icon>
+            <span>工单</span>
+          </div>
+          <div class="bottom-nav-item add-btn" @click="navTo('/records/create')">
+            <el-icon><Plus /></el-icon>
+          </div>
+          <div class="bottom-nav-item" :class="{ active: activeMenu === '/pending' }" @click="navTo('/pending')">
+            <el-icon><Clock /></el-icon>
+            <span>待办</span>
+          </div>
+          <div class="bottom-nav-item" :class="{ active: activeMenu.startsWith('/finance') }" @click="navTo('/finance')">
+            <el-icon><Money /></el-icon>
+            <span>财务</span>
+          </div>
+        </div>
+      </div>
+
+      <el-dialog v-model="passwordDialogVisible" title="修改密码" width="420px">
+        <el-form :model="passwordForm" :rules="passwordRules" ref="passwordFormRef" label-width="100px">
+          <el-form-item label="原密码" prop="old_password">
+            <el-input v-model="passwordForm.old_password" type="password" placeholder="请输入原密码" show-password />
+          </el-form-item>
+          <el-form-item label="新密码" prop="new_password">
+            <el-input v-model="passwordForm.new_password" type="password" placeholder="请输入新密码（至少4位）" show-password />
+          </el-form-item>
+          <el-form-item label="确认新密码" prop="confirm_password">
+            <el-input v-model="passwordForm.confirm_password" type="password" placeholder="请再次输入新密码" show-password />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="passwordDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="handleChangePassword" :loading="passwordSubmitting">确定</el-button>
+        </template>
+      </el-dialog>
     </el-container>
   `,
   setup() {
-    const { computed, ref, onMounted } = Vue;
+    const { computed, ref, reactive, onMounted, onUnmounted } = Vue;
     const { useRoute, useRouter } = VueRouter;
     const { ElMessageBox, ElMessage } = ElementPlus;
 
@@ -127,27 +192,119 @@ const AppLayout = {
 
     const activeMenu = computed(() => route.path);
 
+    const isMobile = ref(false);
+    const mobileMenuOpen = ref(false);
+
+    const checkMobile = () => {
+      isMobile.value = window.innerWidth <= 1024;
+      if (!isMobile.value) mobileMenuOpen.value = false;
+    };
+
+    onMounted(() => {
+      checkMobile();
+      window.addEventListener('resize', checkMobile);
+    });
+
+    onUnmounted(() => {
+      window.removeEventListener('resize', checkMobile);
+    });
+
+    const sidebarWidth = computed(() => {
+      if (isMobile.value) return '240px';
+      return store.sidebarCollapsed ? '64px' : '220px';
+    });
+
+    const sidebarIcon = computed(() => {
+      if (isMobile.value) return mobileMenuOpen.value ? 'Close' : 'Menu';
+      return store.sidebarCollapsed ? 'Expand' : 'Fold';
+    });
+
+    const toggleSidebar = () => {
+      if (isMobile.value) {
+        mobileMenuOpen.value = !mobileMenuOpen.value;
+      } else {
+        appStore.toggleSidebar();
+      }
+    };
+
+    const closeMobileMenu = () => {
+      mobileMenuOpen.value = false;
+    };
+
     const pageTitles = {
       '/dashboard': '仪表盘',
       '/records': '工单管理',
+      '/records/create': '新建工单',
       '/templates': '工单模板',
       '/equipments': '客户设备',
+      '/maintenance-plans': '维护计划',
       '/pending': '待办任务',
       '/customers': '客户管理',
       '/staff': '员工管理',
+      '/users': '账号管理',
       '/projects': '项目管理',
       '/materials': '物料库存',
       '/finance': '财务概览',
       '/salary': '工资管理',
       '/expense-categories': '支出分类',
+      '/calendar': '工单日历',
+      '/reports': '统计报表',
+      '/notifications': '消息中心',
+      '/oplogs': '操作日志',
       '/settings': '系统设置',
     };
 
-    const pageTitle = computed(() => pageTitles[route.path] || '');
+    const passwordDialogVisible = ref(false);
+    const passwordSubmitting = ref(false);
+    const passwordFormRef = ref(null);
+    const passwordForm = reactive({
+      old_password: '',
+      new_password: '',
+      confirm_password: '',
+    });
+
+    const validateConfirmPassword = (rule, value, callback) => {
+      if (value !== passwordForm.new_password) {
+        callback(new Error('两次输入的密码不一致'));
+      } else {
+        callback();
+      }
+    };
+
+    const passwordRules = {
+      old_password: [{ required: true, message: '请输入原密码', trigger: 'blur' }],
+      new_password: [
+        { required: true, message: '请输入新密码', trigger: 'blur' },
+        { min: 4, message: '密码至少4位', trigger: 'blur' },
+      ],
+      confirm_password: [
+        { required: true, message: '请确认新密码', trigger: 'blur' },
+        { validator: validateConfirmPassword, trigger: 'blur' },
+      ],
+    };
+
+    const loadUnreadCount = () => {
+      if (apiService.getUnreadNotificationCount) {
+        apiService.getUnreadNotificationCount().then(res => {
+          unreadCount.value = (res && (res.unread_count != null ? res.unread_count : res.count)) || 0;
+        }).catch(() => {});
+      }
+    };
+
+    const pageTitle = computed(() => {
+      return pageTitles[route.path] || '';
+    });
 
     const handleMenuSelect = (index) => {
       if (index !== route.path) {
         router.push(index);
+        if (isMobile.value) closeMobileMenu();
+      }
+    };
+
+    const navTo = (path) => {
+      if (path !== route.path) {
+        router.push(path);
       }
     };
 
@@ -166,11 +323,39 @@ const AppLayout = {
           // 取消
         }
       } else if (command === 'password') {
-        ElMessage.info('修改密码功能开发中');
+        Object.assign(passwordForm, { old_password: '', new_password: '', confirm_password: '' });
+        if (passwordFormRef.value) passwordFormRef.value.clearValidate();
+        passwordDialogVisible.value = true;
       } else if (command === 'profile') {
         ElMessage.info('个人中心开发中');
       }
     };
+
+    const handleChangePassword = async () => {
+      if (!passwordFormRef.value) return;
+      try {
+        await passwordFormRef.value.validate();
+      } catch (e) {
+        return;
+      }
+      passwordSubmitting.value = true;
+      try {
+        await apiService.changePassword({
+          old_password: passwordForm.old_password,
+          new_password: passwordForm.new_password,
+        });
+        ElMessage.success('密码修改成功，请重新登录');
+        passwordDialogVisible.value = false;
+        setTimeout(() => {
+          appStore.logout();
+          router.push('/login');
+        }, 1000);
+      } catch (e) {} finally {
+        passwordSubmitting.value = false;
+      }
+    };
+
+    let unreadTimer = null;
 
     onMounted(() => {
       if (!store.user) {
@@ -179,16 +364,36 @@ const AppLayout = {
           if (user) appStore.setUser(user);
         }).catch(() => {});
       }
+      loadUnreadCount();
+      unreadTimer = setInterval(loadUnreadCount, 60000);
+    });
+
+    onUnmounted(() => {
+      if (unreadTimer) clearInterval(unreadTimer);
     });
 
     return {
       store,
       isAdmin,
+      isDark,
       activeMenu,
       pageTitle,
       unreadCount,
+      isMobile,
+      mobileMenuOpen,
+      sidebarWidth,
+      sidebarIcon,
+      toggleSidebar,
+      closeMobileMenu,
       handleMenuSelect,
+      navTo,
       handleCommand,
+      passwordDialogVisible,
+      passwordSubmitting,
+      passwordFormRef,
+      passwordForm,
+      passwordRules,
+      handleChangePassword,
       ...appStore,
     };
   },

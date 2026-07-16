@@ -2,7 +2,7 @@ const API_BASE = '/api';
 
 const api = axios.create({
   baseURL: API_BASE,
-  timeout: 15000,
+  timeout: 30000,
   withCredentials: true,
 });
 
@@ -28,7 +28,7 @@ api.interceptors.response.use(
       }
     }
     const msg = error.response?.data?.error || error.message || '请求失败';
-    if (window.ElementPlus) {
+    if (window.ElementPlus && !error.config?.silent) {
       ElementPlus.ElMessage.error(msg);
     }
     return Promise.reject(error);
@@ -46,6 +46,26 @@ const apiService = {
 
   changePassword(data) {
     return api.post('/auth/change-password', data);
+  },
+
+  getUsers(params) {
+    return api.get('/auth/users', { params });
+  },
+
+  createUser(data) {
+    return api.post('/auth/users', data);
+  },
+
+  updateUser(id, data) {
+    return api.put(`/auth/users/${id}`, data);
+  },
+
+  deleteUser(id) {
+    return api.delete(`/auth/users/${id}`);
+  },
+
+  resetUserPassword(id, data) {
+    return api.post(`/auth/reset-password-by-admin/${id}`, data);
   },
 
   getDashboard() {
@@ -72,8 +92,48 @@ const apiService = {
     return api.delete(`/records/${id}`);
   },
 
+  getRecordPayments(id, params) {
+    return api.get(`/records/${id}/payments`, { params });
+  },
+
+  getRecordEdits(id) {
+    return api.get(`/records/${id}/edits`);
+  },
+
+  batchRecords(data) {
+    return api.post('/records/batch', data);
+  },
+
+  exportRecords(params) {
+    return api.get('/export/records', { params, responseType: 'blob' });
+  },
+
+  exportRecordPDF(id) {
+    return api.get(`/export/pdf/${id}`, { responseType: 'blob' });
+  },
+
+  getCalendarData(params) {
+    return api.get('/calendar', { params });
+  },
+
   getCustomers(params) {
     return api.get('/customers', { params });
+  },
+
+  createCustomer(data) {
+    return api.post('/customers', data);
+  },
+
+  updateCustomer(id, data) {
+    return api.put(`/customers/${id}`, data);
+  },
+
+  deleteCustomer(id) {
+    return api.delete(`/customers/${id}`);
+  },
+
+  getCustomer(id) {
+    return api.get(`/customers/${id}`);
   },
 
   getStaffs(params) {
@@ -96,16 +156,24 @@ const apiService = {
     return api.delete(`/staffs/${id}`);
   },
 
-  toggleStaffEnabled(id) {
-    return api.post(`/staffs/${id}/toggle-enabled`);
+  uploadStaffIdPhoto(id, formData) {
+    return api.post(`/staffs/${id}/id_photo`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
   },
 
-  resetStaffPassword(id, data) {
-    return api.post(`/staffs/${id}/reset-password`, data);
+  uploadStaffCertPhoto(id, formData) {
+    return api.post(`/staffs/${id}/cert_photo`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
   },
 
   getPayments(params) {
     return api.get('/payments', { params });
+  },
+
+  getPaymentStats(params) {
+    return api.get('/payments/stats', { params });
   },
 
   createPayment(data) {
@@ -124,14 +192,6 @@ const apiService = {
     return api.get('/pending', { params });
   },
 
-  getProfitStatistics(params) {
-    return api.get('/statistics/profit', { params });
-  },
-
-  getMaterials(params) {
-    return api.get('/materials', { params });
-  },
-
   createPendingWork(data) {
     return api.post('/pending', data);
   },
@@ -145,7 +205,7 @@ const apiService = {
   },
 
   completePendingWork(id, data) {
-    return api.post(`/pending/${id}/complete`, data);
+    return api.post(`/pending/${id}/complete`, data || {});
   },
 
   batchDeletePendingWorks(ids) {
@@ -160,20 +220,8 @@ const apiService = {
     return api.post('/pending/batch', { ids, action: 'update_status', status: 'assigned', assignee: staffName });
   },
 
-  createCustomer(data) {
-    return api.post('/customers', data);
-  },
-
-  updateCustomer(id, data) {
-    return api.put(`/customers/${id}`, data);
-  },
-
-  deleteCustomer(id) {
-    return api.delete(`/customers/${id}`);
-  },
-
-  getCustomer(id) {
-    return api.get(`/customers/${id}`);
+  getMaterials(params) {
+    return api.get('/materials', { params });
   },
 
   createMaterial(data) {
@@ -204,6 +252,10 @@ const apiService = {
     return api.get('/expenses', { params });
   },
 
+  getExpenseStats(params) {
+    return api.get('/expenses/stats', { params });
+  },
+
   createExpense(data) {
     return api.post('/expenses', data);
   },
@@ -218,6 +270,18 @@ const apiService = {
 
   getExpenseCategories() {
     return api.get('/expense-categories');
+  },
+
+  createExpenseCategory(data) {
+    return api.post('/expense-categories', data);
+  },
+
+  updateExpenseCategory(id, data) {
+    return api.put(`/expense-categories/${id}`, data);
+  },
+
+  deleteExpenseCategory(id) {
+    return api.delete(`/expense-categories/${id}`);
   },
 
   getSalaries(params) {
@@ -237,7 +301,7 @@ const apiService = {
   },
 
   settleSalary(id, data) {
-    return api.post(`/salaries/${id}/settle`, data);
+    return api.post(`/salaries/${id}/settle`, data || {});
   },
 
   getStatistics(params) {
@@ -248,52 +312,120 @@ const apiService = {
     return api.get('/statistics/advanced', { params });
   },
 
-  getOperationLogs(params) {
-    return api.get('/operation-logs', { params });
+  getProfitStatistics(params) {
+    return api.get('/statistics/profit', { params });
   },
 
-  cleanupOperationLogs(days) {
-    return api.post('/operation-logs/cleanup', { days });
+  getProjects(params) {
+    return api.get('/projects', { params });
   },
 
-  getSystemSettings() {
-    return api.get('/settings');
+  createProject(data) {
+    return api.post('/projects', data);
   },
 
-  updateSystemSettings(settings) {
-    return api.post('/settings', settings);
+  updateProject(id, data) {
+    return api.put(`/projects/${id}`, data);
   },
 
-  getNotifications(params) {
-    return api.get('/notifications', { params });
+  deleteProject(id) {
+    return api.delete(`/projects/${id}`);
   },
 
-  getUnreadNotificationCount() {
-    return api.get('/notifications/unread-count');
+  getProject(id) {
+    return api.get(`/projects/${id}`);
   },
 
-  markNotificationRead(id) {
-    return api.post(`/notifications/${id}/read`);
+  updateProjectStage(id, data) {
+    return api.put(`/projects/${id}/stage`, data);
   },
 
-  markAllNotificationsRead() {
-    return api.post('/notifications/read-all');
+  getProjectRecords(id, params) {
+    return api.get(`/projects/${id}/records`, { params });
   },
 
-  clearReadNotifications() {
-    return api.post('/notifications/clear-read');
+  addProjectRecord(id, data) {
+    return api.post(`/projects/${id}/records`, data);
   },
 
-  getBackupList() {
-    return api.get('/backup/list');
+  updateProjectRecord(projectId, recordId, data) {
+    return api.put(`/projects/${projectId}/records/${recordId}`, data);
   },
 
-  createBackup() {
-    return api.post('/backup/create');
+  deleteProjectRecord(projectId, recordId) {
+    return api.delete(`/projects/${projectId}/records/${recordId}`);
   },
 
-  deleteBackup(filename) {
-    return api.delete(`/backup/${filename}`);
+  getProjectExpenses(id, params) {
+    return api.get(`/projects/${id}/expenses`, { params });
+  },
+
+  addProjectExpense(id, data) {
+    return api.post(`/projects/${id}/expenses`, data);
+  },
+
+  updateProjectExpense(projectId, expenseId, data) {
+    return api.put(`/projects/${projectId}/expenses/${expenseId}`, data);
+  },
+
+  deleteProjectExpense(projectId, expenseId) {
+    return api.delete(`/projects/${projectId}/expenses/${expenseId}`);
+  },
+
+  getProjectSalaries(id, params) {
+    return api.get(`/projects/${id}/salaries`, { params });
+  },
+
+  addProjectSalary(id, data) {
+    return api.post(`/projects/${id}/salaries`, data);
+  },
+
+  updateProjectSalary(projectId, salaryId, data) {
+    return api.put(`/projects/${projectId}/salaries/${salaryId}`, data);
+  },
+
+  deleteProjectSalary(projectId, salaryId) {
+    return api.delete(`/projects/${projectId}/salaries/${salaryId}`);
+  },
+
+  getEquipments(params) {
+    return api.get('/customer-equipments', { params });
+  },
+
+  getEquipment(id) {
+    return api.get(`/customer-equipments/${id}`);
+  },
+
+  createEquipment(data) {
+    return api.post('/customer-equipments', data);
+  },
+
+  updateEquipment(id, data) {
+    return api.put(`/customer-equipments/${id}`, data);
+  },
+
+  deleteEquipment(id) {
+    return api.delete(`/customer-equipments/${id}`);
+  },
+
+  getMaintenancePlans(params) {
+    return api.get('/maintenance-plans', { params });
+  },
+
+  createMaintenancePlan(data) {
+    return api.post('/maintenance-plans', data);
+  },
+
+  updateMaintenancePlan(id, data) {
+    return api.put(`/maintenance-plans/${id}`, data);
+  },
+
+  deleteMaintenancePlan(id) {
+    return api.delete(`/maintenance-plans/${id}`);
+  },
+
+  generateMaintenanceTodos() {
+    return api.post('/maintenance-plans/generate-todos');
   },
 
   getWorkTemplates(params) {
@@ -320,73 +452,97 @@ const apiService = {
     return api.post(`/templates/${id}/apply`);
   },
 
-  getProjects(params) {
-    return api.get('/projects', { params });
+  getSystemSettings() {
+    return api.get('/settings');
   },
 
-  createProject(data) {
-    return api.post('/projects', data);
+  updateSystemSettings(settings) {
+    return api.post('/settings', settings);
   },
 
-  updateProject(id, data) {
-    return api.put(`/projects/${id}`, data);
+  getBackupList() {
+    return api.get('/backup/list');
   },
 
-  deleteProject(id) {
-    return api.delete(`/projects/${id}`);
+  createBackup() {
+    return api.post('/backup/create');
   },
 
-  getProject(id) {
-    return api.get(`/projects/${id}`);
+  downloadBackupUrl(filename) {
+    return `${API_BASE}/backup/download/${encodeURIComponent(filename)}`;
   },
 
-  getEquipments(params) {
-    return api.get('/customer-equipments', { params });
+  restoreBackup(formData) {
+    return api.post('/backup/restore', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
   },
 
-  getEquipment(id) {
-    return api.get(`/customer-equipments/${id}`);
+  deleteBackup(filename) {
+    return api.delete(`/backup/${encodeURIComponent(filename)}`);
   },
 
-  createEquipment(data) {
-    return api.post('/customer-equipments', data);
+  getOperationLogs(params) {
+    return api.get('/operation-logs', { params });
   },
 
-  updateEquipment(id, data) {
-    return api.put(`/customer-equipments/${id}`, data);
+  cleanupOperationLogs(data) {
+    return api.post('/operation-logs/cleanup', data || {});
   },
 
-  deleteEquipment(id) {
-    return api.delete(`/customer-equipments/${id}`);
+  getNotifications(params) {
+    return api.get('/notifications', { params });
   },
 
-  getInspectionPlans(params) {
-    return api.get('/maintenance-plans', { params });
+  getUnreadNotificationCount() {
+    return api.get('/notifications/unread-count');
   },
 
-  createInspectionPlan(data) {
-    return api.post('/maintenance-plans', data);
+  markNotificationRead(id) {
+    return api.post(`/notifications/${id}/read`);
   },
 
-  updateInspectionPlan(id, data) {
-    return api.put(`/maintenance-plans/${id}`, data);
+  markAllNotificationsRead() {
+    return api.post('/notifications/read-all');
   },
 
-  deleteInspectionPlan(id) {
-    return api.delete(`/maintenance-plans/${id}`);
+  deleteNotification(id) {
+    return api.delete(`/notifications/${id}`);
   },
 
-  createExpenseCategory(data) {
-    return api.post('/expense-categories', data);
+  clearReadNotifications() {
+    return api.post('/notifications/clear-read');
   },
 
-  updateExpenseCategory(id, data) {
-    return api.put(`/expense-categories/${id}`, data);
-  },
-
-  deleteExpenseCategory(id) {
-    return api.delete(`/expense-categories/${id}`);
+  uploadFile(formData) {
+    return api.post('/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
   },
 };
 
 window.apiService = apiService;
+
+function parseListResponse(res) {
+  if (Array.isArray(res)) {
+    return { list: res, total: res.length };
+  }
+  if (res && Array.isArray(res.records)) {
+    return { list: res.records, total: res.total || res.records.length };
+  }
+  if (res && Array.isArray(res.data)) {
+    return { list: res.data, total: res.total || res.data.length };
+  }
+  if (res && Array.isArray(res.users)) {
+    return { list: res.users, total: res.total || res.users.length };
+  }
+  if (res && Array.isArray(res.customers)) {
+    return { list: res.customers, total: res.total || res.customers.length };
+  }
+  if (res && Array.isArray(res.staffs)) {
+    return { list: res.staffs, total: res.total || res.staffs.length };
+  }
+  return { list: [], total: 0 };
+}
+
+window.parseListResponse = parseListResponse;

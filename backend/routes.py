@@ -690,8 +690,8 @@ def update_staff(staff_id):
         if 'name' in data: staff.name = data['name']
         if 'phone' in data: staff.phone = data['phone']
         if 'staff_type' in data: staff.staff_type = data['staff_type']
-        if 'daily_wage' in data: staff.daily_wage = float(data['daily_wage'])
-        if 'monthly_salary' in data: staff.monthly_salary = float(data['monthly_salary'])
+        if 'daily_wage' in data: staff.daily_wage = float(data['daily_wage'] or 0)
+        if 'monthly_salary' in data: staff.monthly_salary = float(data['monthly_salary'] or 0)
         if 'project' in data: staff.project = data['project']
         if 'position' in data: staff.position = data['position']
         if 'id_card' in data: staff.id_card = data['id_card']

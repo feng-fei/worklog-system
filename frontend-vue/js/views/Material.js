@@ -250,15 +250,19 @@ const MaterialView = {
         };
         if (filters.keyword) params.keyword = filters.keyword;
         if (filters.category) params.category = filters.category;
-        if (filters.low_stock) params.low_stock = filters.low_stock;
+        if (filters.low_stock === '1') params.low_stock_only = 'true';
         const res = await apiService.getMaterials(params);
-        const data = res && res.records ? res.records : [];
-        materials.value = Array.isArray(data) ? data : [];
-        pagination.total = (res && res.total) || 0;
-        const catSet = new Set(materials.value.map(m => m.category).filter(Boolean));
-        categories.value = Array.from(catSet);
+        const { list, total } = parseListResponse(res);
+        materials.value = list;
+        pagination.total = total;
+        if (pagination.page === 1) {
+          const allRes = await apiService.getMaterials({ per_page: 1000 });
+          const { list: allList } = parseListResponse(allRes);
+          const catSet = new Set(allList.map(m => m.category).filter(Boolean));
+          categories.value = Array.from(catSet);
+        }
       } catch (e) {
-        console.error('加载物料列表失败', e);
+        ElMessage.error('加载物料列表失败');
       } finally {
         loading.value = false;
       }

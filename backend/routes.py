@@ -1732,7 +1732,10 @@ def create_pending_work():
         data = request.get_json()
         if not data or not data.get('customer_name'):
             return jsonify({'error': '客户名称不能为空'}), 400
-        reminder_date = datetime.strptime(data.get('reminder_date'), '%Y-%m-%d')
+        reminder_date_str = data.get('reminder_date') or data.get('due_date')
+        reminder_date = None
+        if reminder_date_str:
+            reminder_date = datetime.strptime(reminder_date_str, '%Y-%m-%d').date()
         pending = PendingWork(
             title=data.get('title', ''),
             customer_name=data.get('customer_name'),
@@ -1753,13 +1756,15 @@ def create_pending_work():
             for staff in staff_list:
                 staff_user = WorkerUser.query.filter_by(staff_name=staff, enabled=True).first()
                 if staff_user:
+                    date_str = pending.reminder_date.strftime('%m-%d') if pending.reminder_date else '未设置'
                     _create_notification(staff_user.username,
                         f'新待办: {pending.title or pending.customer_name}',
-                        f'{pending.customer_name}有新的{pending.todo_type}待办，日期{pending.reminder_date.strftime("%m-%d")}',
+                        f'{pending.customer_name}有新的{pending.todo_type}待办，日期{date_str}',
                         'info', 'pending_work', pending.id)
         else:
+            date_str = pending.reminder_date.strftime('%m-%d') if pending.reminder_date else '未设置'
             _notify_admins(f'新待办: {pending.title or pending.customer_name}',
-                f'{pending.customer_name}创建了新的{pending.todo_type}待办，请及时指派',
+                f'{pending.customer_name}创建了新的{pending.todo_type}待办，请及时指派，日期{date_str}',
                 'info', 'pending_work', pending.id)
         db.session.commit()
         return jsonify(pending.to_dict()), 201
@@ -2857,8 +2862,18 @@ def _generate_pdf(records):
     from fpdf import FPDF
     import os
     
-    font_path = os.path.join('/app/fonts', 'SourceHanSansSC-Regular.otf')
-    font_ok = os.path.exists(font_path)
+    font_candidates = [
+        ('/app/fonts/SourceHanSansSC-Regular.otf', None),
+        ('/usr/share/fonts/wqy-zenhei/wqy-zenhei.ttc', 0),
+    ]
+    font_path = None
+    font_index = None
+    for fp, fi in font_candidates:
+        if os.path.exists(fp):
+            font_path = fp
+            font_index = fi
+            break
+    font_ok = font_path is not None
     upload_dir = '/app/uploads'
     company_name = os.environ.get('COMPANY_NAME', '珠海市瑞翼智能科技有限公司')
     
@@ -2883,9 +2898,21 @@ def _generate_pdf(records):
         else:
             pdf.set_font('Helvetica', style, size)
     
-    # 首次导入在 add_page 前
     if font_ok:
-        pdf.add_font('CJK', '', font_path, uni=True)
+        try:
+            if font_path.endswith('.ttc'):
+                from fontTools.ttLib import TTFont
+                ttf = TTFont(font_path, fontNumber=font_index or 0)
+                import tempfile
+                tmp_font = tempfile.NamedTemporaryFile(suffix='.ttf', delete=False)
+                ttf.save(tmp_font.name)
+                tmp_font.close()
+                pdf.add_font('CJK', '', tmp_font.name)
+            else:
+                pdf.add_font('CJK', '', font_path)
+        except Exception as e:
+            print(f'PDF字体加载失败: {e}')
+            font_ok = False
     
     for idx, r in enumerate(records):
         if idx > 0:

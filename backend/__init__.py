@@ -259,6 +259,55 @@ def create_app():
             db.session.rollback()
             print(f'⚠️ v3.3索引优化跳过: {e}')
         
+        # v3.4 维修设备表字段补充 + 待办表日期可空
+        try:
+            from sqlalchemy import inspect
+            insp = inspect(db.engine)
+            def add_col(table, col, ddl):
+                if col not in [c['name'] for c in insp.get_columns(table)]:
+                    db.session.execute(db.text(f'ALTER TABLE {table} ADD COLUMN {ddl}'))
+            
+            add_col('repair_equipments', 'material_id', 'material_id INTEGER')
+            
+            # 待办表 reminder_date 改为可空（SQLite 需要重建表）
+            cols = insp.get_columns('pending_works')
+            reminder_col = next((c for c in cols if c['name'] == 'reminder_date'), None)
+            if reminder_col and not reminder_col.get('nullable', True):
+                col_names = [c['name'] for c in cols]
+                db.session.execute(db.text(f'''
+                    CREATE TABLE pending_works_new (
+                        id INTEGER PRIMARY KEY,
+                        title VARCHAR(200) DEFAULT '',
+                        customer_name VARCHAR(100) NOT NULL,
+                        contact_name VARCHAR(100) DEFAULT '',
+                        work_address VARCHAR(200) NOT NULL,
+                        staff_name VARCHAR(100) NOT NULL,
+                        work_content TEXT NOT NULL,
+                        reminder_date DATETIME,
+                        created_at DATETIME,
+                        status VARCHAR(20) DEFAULT 'pending',
+                        todo_type VARCHAR(30) DEFAULT '客户报修',
+                        contact_phone VARCHAR(20) DEFAULT '',
+                        priority VARCHAR(20) DEFAULT 'normal',
+                        related_record_type VARCHAR(20) DEFAULT '',
+                        related_record_id INTEGER
+                    )
+                '''))
+                col_str = ', '.join(col_names)
+                db.session.execute(db.text(f'''
+                    INSERT INTO pending_works_new ({col_str})
+                    SELECT {col_str} FROM pending_works
+                '''))
+                db.session.execute(db.text('DROP TABLE pending_works'))
+                db.session.execute(db.text('ALTER TABLE pending_works_new RENAME TO pending_works'))
+            
+            db.session.commit()
+            db.create_all()
+            print('✅ v3.4维修设备表字段已检查')
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ v3.4维修设备字段迁移跳过: {e}')
+        
         # 创建默认管理员账号
         from .models import WorkerUser
         admin = WorkerUser.query.filter_by(username='admin').first()

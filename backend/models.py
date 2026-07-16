@@ -163,7 +163,7 @@ class PendingWork(db.Model):
     work_address = db.Column(db.String(200), nullable=False)
     staff_name = db.Column(db.String(100), nullable=False)
     work_content = db.Column(db.Text, nullable=False)
-    reminder_date = db.Column(db.DateTime, nullable=False)
+    reminder_date = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.now)
     status = db.Column(db.String(20), default='pending')
     todo_type = db.Column(db.String(30), default='客户报修')
@@ -172,7 +172,7 @@ class PendingWork(db.Model):
     related_record_type = db.Column(db.String(20), default='')
     related_record_id = db.Column(db.Integer)
     def to_dict(self):
-        return {'id':self.id,'title':self.title,'customer_name':self.customer_name,'contact_name':self.contact_name or '','work_address':self.work_address,'staff_name':self.staff_name,'work_content':self.work_content,'reminder_date':self.reminder_date.isoformat(),'status':self.status,'todo_type':self.todo_type or '客户报修','contact_phone':self.contact_phone or '','priority':self.priority or 'normal','related_record_type':self.related_record_type or '','related_record_id':self.related_record_id}
+        return {'id':self.id,'title':self.title,'customer_name':self.customer_name,'contact_name':self.contact_name or '','work_address':self.work_address,'staff_name':self.staff_name,'work_content':self.work_content,'reminder_date':self.reminder_date.isoformat() if self.reminder_date else None,'status':self.status,'todo_type':self.todo_type or '客户报修','contact_phone':self.contact_phone or '','priority':self.priority or 'normal','related_record_type':self.related_record_type or '','related_record_id':self.related_record_id}
 
 class WorkerUser(db.Model):
     __tablename__ = 'worker_users'

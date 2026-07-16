@@ -45,7 +45,10 @@ def create_pending_work():
         data = request.get_json()
         if not data or not data.get('customer_name'):
             return jsonify({'error': '客户名称不能为空'}), 400
-        reminder_date = datetime.strptime(data.get('reminder_date'), '%Y-%m-%d')
+        reminder_date_str = data.get('reminder_date') or data.get('due_date')
+        reminder_date = None
+        if reminder_date_str:
+            reminder_date = datetime.strptime(reminder_date_str, '%Y-%m-%d').date()
         pending = PendingWork(
             title=data.get('title', ''),
             customer_name=data.get('customer_name'),
@@ -66,13 +69,15 @@ def create_pending_work():
             for staff in staff_list:
                 staff_user = WorkerUser.query.filter_by(staff_name=staff, enabled=True).first()
                 if staff_user:
+                    date_str = pending.reminder_date.strftime('%m-%d') if pending.reminder_date else '未设置'
                     _create_notification(staff_user.username,
                         f'新待办: {pending.title or pending.customer_name}',
-                        f'{pending.customer_name}有新的{pending.todo_type}待办，日期{pending.reminder_date.strftime("%m-%d")}',
+                        f'{pending.customer_name}有新的{pending.todo_type}待办，日期{date_str}',
                         'info', 'pending_work', pending.id)
         else:
+            date_str = pending.reminder_date.strftime('%m-%d') if pending.reminder_date else '未设置'
             _notify_admins(f'新待办: {pending.title or pending.customer_name}',
-                f'{pending.customer_name}创建了新的{pending.todo_type}待办，请及时指派',
+                f'{pending.customer_name}创建了新的{pending.todo_type}待办，请及时指派，日期{date_str}',
                 'info', 'pending_work', pending.id)
         db.session.commit()
         return jsonify(pending.to_dict()), 201

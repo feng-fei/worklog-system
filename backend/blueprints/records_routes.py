@@ -607,8 +607,18 @@ def _generate_pdf(records):
     from fpdf import FPDF
     import os
     
-    font_path = os.path.join('/app/fonts', 'SourceHanSansSC-Regular.otf')
-    font_ok = os.path.exists(font_path)
+    font_candidates = [
+        ('/app/fonts/SourceHanSansSC-Regular.otf', None),
+        ('/usr/share/fonts/wqy-zenhei/wqy-zenhei.ttc', 0),
+    ]
+    font_path = None
+    font_index = None
+    for fp, fi in font_candidates:
+        if os.path.exists(fp):
+            font_path = fp
+            font_index = fi
+            break
+    font_ok = font_path is not None
     upload_dir = '/app/uploads'
     company_name = os.environ.get('COMPANY_NAME', '珠海市瑞翼智能科技有限公司')
     
@@ -633,9 +643,21 @@ def _generate_pdf(records):
         else:
             pdf.set_font('Helvetica', style, size)
     
-    # 首次导入在 add_page 前
     if font_ok:
-        pdf.add_font('CJK', '', font_path, uni=True)
+        try:
+            if font_path.endswith('.ttc'):
+                from fontTools.ttLib import TTFont
+                ttf = TTFont(font_path, fontNumber=font_index or 0)
+                import tempfile
+                tmp_font = tempfile.NamedTemporaryFile(suffix='.ttf', delete=False)
+                ttf.save(tmp_font.name)
+                tmp_font.close()
+                pdf.add_font('CJK', '', tmp_font.name)
+            else:
+                pdf.add_font('CJK', '', font_path)
+        except Exception as e:
+            print(f'PDF字体加载失败: {e}')
+            font_ok = False
     
     for idx, r in enumerate(records):
         if idx > 0:

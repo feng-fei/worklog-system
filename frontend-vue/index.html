@@ -7,9 +7,11 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="工单管理">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <title>工单管理系统</title>
   <link rel="stylesheet" href="https://unpkg.com/element-plus@2.4.4/dist/index.css">
-  <link rel="stylesheet" href="css/style.css?v=14">
+  <link rel="stylesheet" href="css/style.css?v=15">
 </head>
 <body>
   <div id="app">
@@ -18,7 +20,6 @@
       <pwa-install></pwa-install>
       <global-loading></global-loading>
       <router-view v-if="appReady"></router-view>
-      <mobile-dock></mobile-dock>
     </el-config-provider>
   </div>
 
@@ -37,42 +38,42 @@
     dayjs.extend(dayjs_plugin_relativeTime);
   </script>
 
-  <script src="js/api.js?v=14"></script>
-  <script src="js/validators.js?v=14"></script>
-  <script src="js/store.js?v=14"></script>
+  <script src="js/api.js?v=15"></script>
+  <script src="js/validators.js?v=15"></script>
+  <script src="js/store.js?v=15"></script>
 
-  <script src="js/components/PhotoUpload.js?v=14"></script>
-  <script src="js/components/BatchActions.js?v=14"></script>
-  <script src="js/components/ExportButtons.js?v=14"></script>
-  <script src="js/components/MobileDock.js?v=14"></script>
-  <script src="js/components/PWAInstall.js?v=14"></script>
-  <script src="js/components/GlobalLoading.js?v=14"></script>
-  <script src="js/components/OfflineStatus.js?v=14"></script>
-  <script src="js/components/PrintRepair.js?v=14"></script>
+  <script src="js/components/PhotoUpload.js?v=15"></script>
+  <script src="js/components/BatchActions.js?v=15"></script>
+  <script src="js/components/ExportButtons.js?v=15"></script>
+  <script src="js/components/MobileDock.js?v=15"></script>
+  <script src="js/components/PWAInstall.js?v=15"></script>
+  <script src="js/components/GlobalLoading.js?v=15"></script>
+  <script src="js/components/OfflineStatus.js?v=15"></script>
+  <script src="js/components/PrintRepair.js?v=15"></script>
 
-  <script src="js/views/Login.js?v=14"></script>
-  <script src="js/views/Dashboard.js?v=14"></script>
-  <script src="js/views/RecordList.js?v=14"></script>
-  <script src="js/views/RecordDetail.js?v=14"></script>
-  <script src="js/views/RecordCreate.js?v=14"></script>
-  <script src="js/views/CalendarView.js?v=14"></script>
-  <script src="js/views/ReportView.js?v=14"></script>
-  <script src="js/views/PendingWork.js?v=14"></script>
-  <script src="js/views/Customer.js?v=14"></script>
-  <script src="js/views/Material.js?v=14"></script>
-  <script src="js/views/Finance.js?v=14"></script>
-  <script src="js/views/Settings.js?v=14"></script>
-  <script src="js/views/Staff.js?v=14"></script>
-  <script src="js/views/Project.js?v=14"></script>
-  <script src="js/views/Salary.js?v=14"></script>
-  <script src="js/views/Template.js?v=14"></script>
-  <script src="js/views/Equipment.js?v=14"></script>
-  <script src="js/views/ExpenseCategory.js?v=14"></script>
-  <script src="js/views/OpLog.js?v=14"></script>
-  <script src="js/views/Notification.js?v=14"></script>
-  <script src="js/views/User.js?v=14"></script>
-  <script src="js/views/MaintenancePlan.js?v=14"></script>
-  <script src="js/views/Layout.js?v=14"></script>
-  <script src="js/app.js?v=14"></script>
+  <script src="js/views/Login.js?v=15"></script>
+  <script src="js/views/Dashboard.js?v=15"></script>
+  <script src="js/views/RecordList.js?v=15"></script>
+  <script src="js/views/RecordDetail.js?v=15"></script>
+  <script src="js/views/RecordCreate.js?v=15"></script>
+  <script src="js/views/CalendarView.js?v=15"></script>
+  <script src="js/views/ReportView.js?v=15"></script>
+  <script src="js/views/PendingWork.js?v=15"></script>
+  <script src="js/views/Customer.js?v=15"></script>
+  <script src="js/views/Material.js?v=15"></script>
+  <script src="js/views/Finance.js?v=15"></script>
+  <script src="js/views/Settings.js?v=15"></script>
+  <script src="js/views/Staff.js?v=15"></script>
+  <script src="js/views/Project.js?v=15"></script>
+  <script src="js/views/Salary.js?v=15"></script>
+  <script src="js/views/Template.js?v=15"></script>
+  <script src="js/views/Equipment.js?v=15"></script>
+  <script src="js/views/ExpenseCategory.js?v=15"></script>
+  <script src="js/views/OpLog.js?v=15"></script>
+  <script src="js/views/Notification.js?v=15"></script>
+  <script src="js/views/User.js?v=15"></script>
+  <script src="js/views/MaintenancePlan.js?v=15"></script>
+  <script src="js/views/Layout.js?v=15"></script>
+  <script src="js/app.js?v=15"></script>
 </body>
 </html>

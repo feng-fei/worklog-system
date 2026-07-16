@@ -14,7 +14,7 @@ const CalendarView = {
           </div>
         </div>
 
-        <div class="calendar-grid">
+        <div class="calendar-grid" v-loading="loading">
           <div v-for="day in weekDays" :key="day" class="calendar-weekday">{{ day }}</div>
           <div
             v-for="(day, index) in calendarDays"
@@ -42,7 +42,13 @@ const CalendarView = {
           <el-table :data="selectedDay.records || []" size="small" stripe v-if="(selectedDay.records || []).length > 0">
             <el-table-column prop="order_no" label="工单号" width="160" />
             <el-table-column prop="customer_name" label="客户" />
-            <el-table-column prop="type_label" label="类型" width="80" />
+            <el-table-column prop="record_type" label="类型" width="80">
+              <template #default="{ row }">
+                <el-tag size="small" :type="row.record_type === 'repair' ? 'danger' : 'primary'">
+                  {{ row.record_type === 'repair' ? '维修' : '施工' }}
+                </el-tag>
+              </template>
+            </el-table-column>
             <el-table-column prop="status" label="状态" width="90">
               <template #default="{ row }">
                 <el-tag size="small" :type="getStatusType(row.status)">{{ getStatusLabel(row.status) }}</el-tag>
@@ -133,10 +139,10 @@ const CalendarView = {
         const res = await apiService.getRecords({
           start_date: startDate,
           end_date: endDate,
-          per_page: 200,
+          per_page: 500,
         });
-        const data = res && res.records ? res.records : [];
-        records.value = Array.isArray(data) ? data : [];
+        const parsed = parseListResponse(res);
+        records.value = parsed.list;
       } catch (e) {
         records.value = [];
       } finally {
@@ -173,6 +179,12 @@ const CalendarView = {
         in_progress: 'primary',
         completed: 'success',
         cancelled: 'info',
+        settlement: 'warning',
+        dispatched: '',
+        callback: 'warning',
+        unable: 'danger',
+        rework: 'danger',
+        incomplete: 'danger',
       };
       return map[status] || 'info';
     };
@@ -180,9 +192,15 @@ const CalendarView = {
     const getStatusLabel = (status) => {
       const map = {
         pending: '待处理',
-        in_progress: '处理中',
+        in_progress: '进行中',
         completed: '已完成',
         cancelled: '已取消',
+        settlement: '待结算',
+        dispatched: '已派单',
+        callback: '待回访',
+        unable: '无法维修',
+        rework: '返工',
+        incomplete: '未完成',
       };
       return map[status] || status || '-';
     };
@@ -214,4 +232,3 @@ const CalendarView = {
 };
 
 window.CalendarView = CalendarView;
-CalendarView;

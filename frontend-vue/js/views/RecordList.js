@@ -9,6 +9,10 @@ const RecordListView = {
               <el-icon style="margin-right:4px;"><Plus /></el-icon>
               新建工单
             </el-button>
+            <el-button type="success" @click="handleExport" :loading="exporting">
+              <el-icon style="margin-right:4px;"><Download /></el-icon>
+              导出
+            </el-button>
             <el-button @click="loadData">
               <el-icon style="margin-right:4px;"><Refresh /></el-icon>
               刷新
@@ -62,9 +66,18 @@ const RecordListView = {
           <el-button @click="resetFilters">重置</el-button>
         </div>
 
-        <el-table :data="records" style="width:100%;" v-loading="loading" stripe>
+        <BatchActions
+          :selected-rows="selectedRows"
+          @update-status="handleBatchUpdateStatus"
+          @delete="handleBatchDelete"
+          @clear-selection="clearSelection"
+        />
+
+        <el-table :data="records" style="width:100%;" v-loading="loading" stripe @selection-change="handleSelectionChange">
+          <el-table-column type="selection" width="42" />
           <el-table-column prop="order_no" label="工单号" width="180" />
           <el-table-column prop="customer_name" label="客户名称" min-width="140" />
+          <el-table-column prop="work_address" label="工作地址" min-width="160" show-overflow-tooltip />
           <el-table-column prop="record_type" label="类型" width="80">
             <template #default="{ row }">
               <el-tag size="small" :type="row.record_type === 'repair' ? 'danger' : 'primary'">
@@ -122,11 +135,15 @@ const RecordListView = {
   `,
   setup() {
     const { ref, reactive, onMounted, computed } = Vue;
+    const { useRouter } = VueRouter;
     const { ElMessage, ElMessageBox } = ElementPlus;
+    const router = useRouter();
 
     const loading = ref(false);
+    const exporting = ref(false);
     const records = ref([]);
     const dateRange = ref([]);
+    const selectedRows = ref([]);
 
     const filters = reactive({
       keyword: '',
@@ -200,25 +217,30 @@ const RecordListView = {
       return map[status] || 'info';
     };
 
+    const buildParams = () => {
+      const params = {
+        page: pagination.page,
+        per_page: pagination.per_page,
+      };
+      if (filters.keyword) params.keyword = filters.keyword;
+      if (filters.record_type) params.record_type = filters.record_type;
+      if (filters.status) params.status = filters.status;
+      if (filters.payment_status) params.payment_status = filters.payment_status;
+      if (dateRange.value && dateRange.value.length === 2) {
+        params.start_date = dateRange.value[0];
+        params.end_date = dateRange.value[1];
+      }
+      return params;
+    };
+
     const loadData = async () => {
       loading.value = true;
       try {
-        const params = {
-          page: pagination.page,
-          per_page: pagination.per_page,
-        };
-        if (filters.keyword) params.keyword = filters.keyword;
-        if (filters.record_type) params.record_type = filters.record_type;
-        if (filters.status) params.status = filters.status;
-        if (filters.payment_status) params.payment_status = filters.payment_status;
-        if (dateRange.value && dateRange.value.length === 2) {
-          params.start_date = dateRange.value[0];
-          params.end_date = dateRange.value[1];
-        }
-        const res = await apiService.getRecords(params);
-        const data = res && res.records ? res.records : [];
-        records.value = Array.isArray(data) ? data : [];
-        pagination.total = (res && res.total) || 0;
+        const res = await apiService.getRecords(buildParams());
+        const parsed = parseListResponse(res);
+        records.value = parsed.list;
+        pagination.total = parsed.total;
+        selectedRows.value = [];
       } catch (e) {
         console.error('加载工单列表失败', e);
       } finally {
@@ -247,6 +269,53 @@ const RecordListView = {
       loadData();
     };
 
+    const handleSelectionChange = (selection) => {
+      selectedRows.value = selection;
+    };
+
+    const clearSelection = () => {
+      selectedRows.value = [];
+    };
+
+    const handleBatchUpdateStatus = async ({ ids, status }) => {
+      try {
+        await apiService.batchRecords({ ids, action: 'update_status', status });
+        ElMessage.success('批量更新成功');
+        loadData();
+      } catch (e) {}
+    };
+
+    const handleBatchDelete = async ({ ids }) => {
+      try {
+        await apiService.batchRecords({ ids, action: 'delete' });
+        ElMessage.success('批量删除成功');
+        loadData();
+      } catch (e) {}
+    };
+
+    const handleExport = async () => {
+      exporting.value = true;
+      try {
+        const params = { ...buildParams() };
+        delete params.page;
+        delete params.per_page;
+        const blob = await apiService.exportRecords(params);
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `工单列表_${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        ElMessage.success('导出成功');
+      } catch (e) {
+        console.error('导出失败', e);
+      } finally {
+        exporting.value = false;
+      }
+    };
+
     const handleCreate = () => {
       router.push('/records/create');
     };
@@ -270,7 +339,6 @@ const RecordListView = {
         ElMessage.success('删除成功');
         loadData();
       } catch (e) {
-        // 取消
       }
     };
 
@@ -280,10 +348,12 @@ const RecordListView = {
 
     return {
       loading,
+      exporting,
       records,
       filters,
       pagination,
       dateRange,
+      selectedRows,
       formatMoney,
       formatDate,
       getStatusType,
@@ -294,6 +364,11 @@ const RecordListView = {
       resetFilters,
       handlePageChange,
       handleSizeChange,
+      handleSelectionChange,
+      clearSelection,
+      handleBatchUpdateStatus,
+      handleBatchDelete,
+      handleExport,
       handleCreate,
       handleView,
       handleEdit,

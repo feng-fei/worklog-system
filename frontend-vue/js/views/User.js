@@ -140,17 +140,8 @@ const UserView = {
       loading.value = true;
       apiService.getUsers()
         .then((res) => {
-          if (Array.isArray(res)) {
-            users.value = res;
-          } else if (res && Array.isArray(res.users)) {
-            users.value = res.users;
-          } else if (res && Array.isArray(res.data)) {
-            users.value = res.data;
-          } else if (res && Array.isArray(res.records)) {
-            users.value = res.records;
-          } else {
-            users.value = [];
-          }
+          const parsed = parseListResponse(res);
+          users.value = parsed.list;
         })
         .catch(() => {
           users.value = [];
@@ -311,4 +302,3 @@ const UserView = {
 };
 
 window.UserView = UserView;
-UserView;

@@ -198,7 +198,6 @@ for (const [key, comp] of Object.entries(ElementPlusIconsVue || {})) {
 app.component('OfflineStatus', OfflineStatus);
 app.component('PWAInstall', PWAInstall);
 app.component('GlobalLoading', GlobalLoading);
-app.component('MobileDock', MobileDock);
 app.component('PhotoUpload', PhotoUpload);
 app.component('BatchActions', BatchActions);
 app.component('ExportButtons', ExportButtons);

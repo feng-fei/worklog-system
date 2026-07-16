@@ -418,8 +418,10 @@ const RecordCreate = {
 
   setup() {
     const { ref, reactive, computed, onMounted, watch } = Vue;
+    const { useRouter } = VueRouter;
     const { ElMessage } = ElementPlus;
 
+    const router = useRouter();
     const formRef = ref(null);
     const submitting = ref(false);
     const selectedTemplateId = ref(null);

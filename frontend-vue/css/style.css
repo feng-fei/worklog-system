@@ -9,6 +9,7 @@
 
   --bg-page: #f0f2f5;
   --bg-card: #ffffff;
+  --bg-secondary: #f8fafc;
   --bg-sidebar: #1e293b;
   --bg-sidebar-hover: #334155;
   --bg-header: #ffffff;
@@ -785,6 +786,7 @@ html.dark {
   color-scheme: dark;
   --bg-page: #0f172a;
   --bg-card: #1e293b;
+  --bg-secondary: #1a2332;
   --bg-header: #1e293b;
   --bg-input: #334155;
 
@@ -1155,4 +1157,102 @@ html.dark .oplog-type.other { background: #334155; color: #cbd5e1; }
 
 html.dark .calendar-day.today {
   background: rgba(59, 130, 246, 0.1);
+}
+
+/* ========== PWA 安装横幅 ========== */
+.pwa-install-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  color: white;
+  padding: 12px 16px;
+  z-index: 9999;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.pwa-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 14px;
+}
+
+/* ========== 通知徽章 ========== */
+.dock-badge {
+  position: absolute;
+  top: 2px;
+  right: 8px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: var(--color-danger);
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bottom-nav-item {
+  position: relative;
+}
+
+/* ========== 离线状态提示 ========== */
+.offline-status-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: var(--color-warning);
+  color: white;
+  text-align: center;
+  padding: 8px;
+  font-size: 13px;
+  z-index: 9998;
+}
+
+/* ========== 全局加载遮罩 ========== */
+.global-loading-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+/* ========== 移动端横屏优化 (≤900px 宽且高度 < 宽度) ========== */
+@media screen and (max-width: 900px) and (orientation: landscape) {
+  .el-aside {
+    display: none !important;
+  }
+
+  .main-header {
+    height: 40px;
+    padding: 0 8px;
+  }
+
+  .header-title {
+    font-size: 14px;
+  }
+
+  .main-content {
+    padding: 8px;
+    padding-bottom: 0;
+  }
+
+  .bottom-nav {
+    display: none !important;
+  }
+
+  .page-card {
+    padding: 10px;
+  }
 }

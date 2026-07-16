@@ -9,9 +9,35 @@ const store = reactive({
 
 const isLoggedIn = computed(() => !!store.token && !!store.user);
 
-const isAdmin = computed(() => store.user?.role === 'admin');
+const isAdmin = computed(() => {
+  if (!store.user) return false;
+  return store.user.role === 'admin' || store.user.is_admin === true || store.user.is_admin === 1;
+});
 
 const isDark = computed(() => store.theme === 'dark');
+
+function usePermission() {
+  const canAdmin = computed(() => isAdmin.value);
+  const canEdit = computed(() => isLoggedIn.value);
+  const canView = computed(() => isLoggedIn.value);
+
+  const requireAdmin = () => {
+    if (!isAdmin.value) {
+      if (window.ElementPlus) {
+        ElementPlus.ElMessage.error('您没有权限执行此操作');
+      }
+      return false;
+    }
+    return true;
+  };
+
+  return {
+    isAdmin: canAdmin,
+    canEdit,
+    canView,
+    requireAdmin,
+  };
+}
 
 function setUser(userData) {
   store.user = userData;
@@ -64,6 +90,7 @@ window.appStore = {
   isLoggedIn,
   isAdmin,
   isDark,
+  usePermission,
   setUser,
   setToken,
   logout,

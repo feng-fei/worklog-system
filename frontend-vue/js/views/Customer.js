@@ -33,6 +33,7 @@ const CustomerView = {
         <el-table :data="filteredCustomers" v-loading="loading" stripe>
           <el-table-column prop="name" label="客户名称" min-width="160" show-overflow-tooltip />
           <el-table-column prop="short_name" label="简称" width="120" show-overflow-tooltip />
+          <el-table-column prop="full_name" label="全称" width="180" show-overflow-tooltip />
           <el-table-column prop="contact_name" label="联系人" width="100" />
           <el-table-column prop="phone" label="联系电话" width="140" />
           <el-table-column prop="credit_code" label="税号/信用代码" width="180" show-overflow-tooltip />
@@ -58,6 +59,9 @@ const CustomerView = {
           </el-form-item>
           <el-form-item label="客户简称">
             <el-input v-model="form.short_name" placeholder="用于工单快速选择" />
+          </el-form-item>
+          <el-form-item label="客户全称">
+            <el-input v-model="form.full_name" placeholder="请输入客户全称（公司全称等）" />
           </el-form-item>
           <el-form-item label="联系人" prop="contact_name">
             <el-input v-model="form.contact_name" placeholder="请输入联系人姓名" />
@@ -104,6 +108,7 @@ const CustomerView = {
       return customerList.value.filter(c =>
         (c.name || '').toLowerCase().includes(kw) ||
         (c.short_name || '').toLowerCase().includes(kw) ||
+        (c.full_name || '').toLowerCase().includes(kw) ||
         (c.contact_name || '').toLowerCase().includes(kw) ||
         (c.phone || '').includes(kw) ||
         (c.credit_code || '').includes(kw)
@@ -114,6 +119,7 @@ const CustomerView = {
       id: null,
       name: '',
       short_name: '',
+      full_name: '',
       contact_name: '',
       phone: '',
       credit_code: '',
@@ -186,6 +192,7 @@ const CustomerView = {
         id: row.id,
         name: row.name || '',
         short_name: row.short_name || '',
+        full_name: row.full_name || '',
         contact_name: row.contact_name || '',
         phone: row.phone || '',
         credit_code: row.credit_code || '',
@@ -226,6 +233,7 @@ const CustomerView = {
         const data = {
           name: form.name,
           short_name: form.short_name,
+          full_name: form.full_name,
           contact_name: form.contact_name,
           phone: form.phone,
           credit_code: form.credit_code,

@@ -68,12 +68,15 @@ const MaterialView = {
               {{ formatDateTime(row.created_at) }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="200" fixed="right" v-if="isAdmin">
+          <el-table-column label="操作" width="280" fixed="right">
             <template #default="{ row }">
-              <el-button link type="primary" size="small" @click="handleView(row)">查看</el-button>
-              <el-button link type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
-              <el-button link type="warning" size="small" @click="handleAdjust(row)">库存调整</el-button>
-              <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
+              <el-button link type="primary" size="small" @click="handleStockLogs(row)">流水</el-button>
+              <template v-if="isAdmin">
+                <el-button link type="primary" size="small" @click="handleView(row)">查看</el-button>
+                <el-button link type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
+                <el-button link type="warning" size="small" @click="handleAdjust(row)">调整</el-button>
+                <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
+              </template>
             </template>
           </el-table-column>
         </el-table>
@@ -163,6 +166,105 @@ const MaterialView = {
           <el-button type="primary" @click="handleAdjustSubmit" :loading="adjustSubmitting">确定</el-button>
         </template>
       </el-dialog>
+
+      <el-drawer v-model="stockDrawerVisible" :title="'库存流水 - ' + (currentMaterial ? currentMaterial.name : '')" size="600px">
+        <div style="margin-bottom:16px;display:flex;gap:8px;" v-if="isAdmin">
+          <el-button type="success" @click="handleStockIn">
+            <el-icon style="margin-right:4px;"><Plus /></el-icon>
+            新增入库
+          </el-button>
+          <el-button type="danger" @click="handleStockOut">
+            <el-icon style="margin-right:4px;"><Minus /></el-icon>
+            新增出库
+          </el-button>
+        </div>
+
+        <el-table :data="stockLogs" style="width:100%;" v-loading="stockLogsLoading" stripe max-height="calc(100vh - 240px)">
+          <el-table-column prop="created_at" label="日期" width="150">
+            <template #default="{ row }">
+              {{ formatDateTime(row.created_at) }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="log_type" label="类型" width="80">
+            <template #default="{ row }">
+              <el-tag v-if="row.log_type === 'in'" type="success" size="small">入库</el-tag>
+              <el-tag v-else-if="row.log_type === 'out'" type="danger" size="small">出库</el-tag>
+              <el-tag v-else type="info" size="small">调整</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="quantity" label="数量" width="80" align="right">
+            <template #default="{ row }">
+              <span :style="{ color: row.log_type === 'in' ? '#67c23a' : row.log_type === 'out' ? '#f56c6c' : '#909399' }">
+                {{ row.log_type === 'in' ? '+' : row.log_type === 'out' ? '-' : '' }}{{ row.quantity }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="unit_price" label="单价" width="90" align="right">
+            <template #default="{ row }">
+              {{ row.unit_price ? '¥' + formatMoney(row.unit_price) : '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column label="金额" width="100" align="right">
+            <template #default="{ row }">
+              {{ (row.unit_price && row.quantity) ? '¥' + formatMoney(row.unit_price * row.quantity) : '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="ref_no" label="关联单号" width="120" show-overflow-tooltip>
+            <template #default="{ row }">
+              {{ row.ref_no || '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="operator" label="操作人" width="90" show-overflow-tooltip>
+            <template #default="{ row }">
+              {{ row.operator || '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="remark" label="备注" min-width="120" show-overflow-tooltip>
+            <template #default="{ row }">
+              {{ row.remark || '-' }}
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div style="margin-top:16px;padding:12px;background:#f5f7fa;border-radius:4px;display:flex;gap:24px;">
+          <div>
+            <span style="color:#909399;">入库总数：</span>
+            <span style="color:#67c23a;font-weight:bold;">{{ stockSummary.totalIn }}</span>
+          </div>
+          <div>
+            <span style="color:#909399;">出库总数：</span>
+            <span style="color:#f56c6c;font-weight:bold;">{{ stockSummary.totalOut }}</span>
+          </div>
+          <div>
+            <span style="color:#909399;">当前库存：</span>
+            <span style="color:#409eff;font-weight:bold;font-size:16px;">{{ currentMaterial ? currentMaterial.stock : 0 }}</span>
+          </div>
+        </div>
+      </el-drawer>
+
+      <el-dialog v-model="stockDialogVisible" :title="stockDialogTitle" width="450px">
+        <el-form :model="stockForm" :rules="stockRules" ref="stockFormRef" label-width="100px">
+          <el-form-item label="物料">
+            <span>{{ currentMaterial ? currentMaterial.name : '' }}</span>
+          </el-form-item>
+          <el-form-item label="当前库存">
+            <span>{{ currentMaterial ? currentMaterial.stock : 0 }}</span>
+          </el-form-item>
+          <el-form-item label="数量" prop="quantity">
+            <el-input-number v-model="stockForm.quantity" :min="0.01" :precision="2" style="width:100%;" placeholder="请输入数量" />
+          </el-form-item>
+          <el-form-item label="单价">
+            <el-input-number v-model="stockForm.unit_price" :min="0" :precision="2" style="width:100%;" placeholder="请输入单价（可选）" />
+          </el-form-item>
+          <el-form-item label="备注">
+            <el-input v-model="stockForm.remark" type="textarea" :rows="2" placeholder="请输入备注" />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="stockDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="handleStockSubmit" :loading="stockSubmitting">确定</el-button>
+        </template>
+      </el-dialog>
     </div>
   `,
   setup() {
@@ -172,14 +274,22 @@ const MaterialView = {
     const loading = ref(false);
     const submitting = ref(false);
     const adjustSubmitting = ref(false);
+    const stockSubmitting = ref(false);
+    const stockLogsLoading = ref(false);
     const materials = ref([]);
     const categories = ref([]);
+    const stockLogs = ref([]);
     const dialogVisible = ref(false);
     const dialogTitle = ref('新增物料');
+    const adjustDialogVisible = ref(false);
+    const stockDrawerVisible = ref(false);
+    const stockDialogVisible = ref(false);
+    const stockDialogTitle = ref('新增入库');
     const formRef = ref(null);
     const adjustFormRef = ref(null);
+    const stockFormRef = ref(null);
     const isEdit = ref(false);
-    const adjustDialogVisible = ref(false);
+    const currentMaterial = ref(null);
 
     const isAdmin = computed(() => appStore.isAdmin.value);
 
@@ -220,6 +330,13 @@ const MaterialView = {
       remark: '',
     });
 
+    const stockForm = reactive({
+      log_type: 'in',
+      quantity: 0,
+      unit_price: null,
+      remark: '',
+    });
+
     const rules = {
       name: [{ required: true, message: '请输入物料名称', trigger: 'blur' }],
     };
@@ -228,6 +345,33 @@ const MaterialView = {
       adjust_type: [{ required: true, message: '请选择调整类型', trigger: 'change' }],
       quantity: [{ required: true, message: '请输入调整数量', trigger: 'blur' }],
     };
+
+    const stockRules = {
+      quantity: [{ required: true, message: '请输入数量', trigger: 'blur', validator: (rule, value, callback) => {
+        if (!value || value <= 0) {
+          callback(new Error('数量必须大于0'));
+        } else {
+          callback();
+        }
+      }}],
+    };
+
+    const stockSummary = computed(() => {
+      let totalIn = 0;
+      let totalOut = 0;
+      stockLogs.value.forEach(log => {
+        const qty = parseFloat(log.quantity) || 0;
+        if (log.log_type === 'in') {
+          totalIn += qty;
+        } else if (log.log_type === 'out') {
+          totalOut += qty;
+        }
+      });
+      return {
+        totalIn: totalIn.toFixed(2),
+        totalOut: totalOut.toFixed(2),
+      };
+    });
 
     const formatMoney = (val) => {
       const num = parseFloat(val) || 0;
@@ -391,6 +535,85 @@ const MaterialView = {
       }
     };
 
+    const loadStockLogs = async () => {
+      if (!currentMaterial.value) return;
+      stockLogsLoading.value = true;
+      try {
+        const res = await apiService.getMaterialStockLogs({ material_id: currentMaterial.value.id });
+        const { list } = parseListResponse(res);
+        stockLogs.value = list;
+      } catch (e) {
+        ElMessage.error('加载库存流水失败');
+      } finally {
+        stockLogsLoading.value = false;
+      }
+    };
+
+    const handleStockLogs = (row) => {
+      currentMaterial.value = { ...row };
+      stockDrawerVisible.value = true;
+      loadStockLogs();
+    };
+
+    const handleStockIn = () => {
+      stockDialogTitle.value = '新增入库';
+      Object.assign(stockForm, {
+        log_type: 'in',
+        quantity: 0,
+        unit_price: null,
+        remark: '',
+      });
+      stockDialogVisible.value = true;
+    };
+
+    const handleStockOut = () => {
+      stockDialogTitle.value = '新增出库';
+      Object.assign(stockForm, {
+        log_type: 'out',
+        quantity: 0,
+        unit_price: null,
+        remark: '',
+      });
+      stockDialogVisible.value = true;
+    };
+
+    const handleStockSubmit = async () => {
+      if (!stockFormRef.value) return;
+      try {
+        await stockFormRef.value.validate();
+      } catch (e) {
+        return;
+      }
+      if (stockForm.log_type === 'out' && currentMaterial.value && stockForm.quantity > currentMaterial.value.stock) {
+        ElMessage.warning('出库数量不能大于当前库存');
+        return;
+      }
+      stockSubmitting.value = true;
+      try {
+        const data = {
+          log_type: stockForm.log_type,
+          quantity: stockForm.quantity,
+          remark: stockForm.remark,
+        };
+        if (stockForm.unit_price !== null && stockForm.unit_price !== undefined) {
+          data.unit_price = stockForm.unit_price;
+        }
+        await apiService.adjustMaterialStock(currentMaterial.value.id, data);
+        ElMessage.success(stockForm.log_type === 'in' ? '入库成功' : '出库成功');
+        stockDialogVisible.value = false;
+        await loadStockLogs();
+        await loadData();
+        const updatedMaterial = materials.value.find(m => m.id === currentMaterial.value.id);
+        if (updatedMaterial) {
+          currentMaterial.value = { ...updatedMaterial };
+        }
+      } catch (e) {
+        console.error('提交失败', e);
+      } finally {
+        stockSubmitting.value = false;
+      }
+    };
+
     onMounted(() => {
       loadData();
     });
@@ -399,20 +622,31 @@ const MaterialView = {
       loading,
       submitting,
       adjustSubmitting,
+      stockSubmitting,
+      stockLogsLoading,
       materials,
       categories,
+      stockLogs,
       isAdmin,
       filters,
       pagination,
       dialogVisible,
       dialogTitle,
+      adjustDialogVisible,
+      stockDrawerVisible,
+      stockDialogVisible,
+      stockDialogTitle,
       formRef,
       adjustFormRef,
-      adjustDialogVisible,
+      stockFormRef,
+      currentMaterial,
       form,
       adjustForm,
+      stockForm,
       rules,
       adjustRules,
+      stockRules,
+      stockSummary,
       formatMoney,
       formatDateTime,
       loadData,
@@ -426,6 +660,10 @@ const MaterialView = {
       handleDelete,
       handleSubmit,
       handleAdjustSubmit,
+      handleStockLogs,
+      handleStockIn,
+      handleStockOut,
+      handleStockSubmit,
     };
   },
 };

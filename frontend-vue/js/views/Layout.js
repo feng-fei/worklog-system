@@ -93,31 +93,39 @@ const AppLayout = {
         <el-header class="main-header">
           <div class="header-left">
             <el-icon
-              style="font-size:20px;cursor:pointer;color:#64748b;"
+              class="header-icon-btn"
               @click="toggleSidebar"
             >
               <component :is="sidebarIcon" />
             </el-icon>
-            <span class="header-title">{{ pageTitle }}</span>
+            <div class="header-title-area">
+              <div class="breadcrumb" v-if="breadcrumbItems.length > 1">
+                <span v-for="(item, index) in breadcrumbItems" :key="index" :class="{ 'breadcrumb-current': index === breadcrumbItems.length - 1 }">
+                  {{ item }}
+                </span>
+              </div>
+              <span class="header-title">{{ pageTitle }}</span>
+            </div>
+            <div class="header-search" v-if="!isMobile">
+              <el-input v-model="searchQuery" placeholder="搜索工单、客户、物料..." clearable size="default" @keyup.enter="handleSearch">
+                <template #prefix><el-icon><Search /></el-icon></template>
+              </el-input>
+            </div>
           </div>
           <div class="header-right">
-            <el-icon
-              style="font-size:18px;cursor:pointer;color:#64748b;"
-              @click="appStore.toggleTheme()"
-              :title="isDark ? '浅色模式' : '深色模式'"
-            >
+            <el-icon class="header-icon-btn" @click="appStore.toggleTheme()" :title="isDark ? '浅色模式' : '深色模式'">
               <component :is="isDark ? 'Sunny' : 'Moon'" />
             </el-icon>
-            <el-badge :value="unreadCount" :hidden="unreadCount === 0" class="notification-badge" @click="navTo('/notifications')" style="cursor:pointer;">
-              <el-icon style="font-size:18px;color:#64748b;"><Bell /></el-icon>
+            <el-badge :value="unreadCount" :hidden="unreadCount === 0" class="notification-badge" @click="navTo('/notifications')">
+              <el-icon class="header-icon-btn"><Bell /></el-icon>
             </el-badge>
             <el-dropdown @command="handleCommand">
-              <span style="display:flex;align-items:center;gap:8px;cursor:pointer;color:#64748b;">
-                <el-avatar :size="30" style="background:#3b82f6;">
+              <span class="header-user-dropdown">
+                <el-avatar :size="32" class="header-avatar">
                   {{ store.user?.staff_name?.charAt(0) || store.user?.username?.charAt(0) || 'U' }}
                 </el-avatar>
-                <span>{{ store.user?.staff_name || store.user?.username || '用户' }}</span>
-                <el-icon><ArrowDown /></el-icon>
+                <span class="header-username">{{ store.user?.staff_name || store.user?.username || '用户' }}</span>
+                <el-icon class="header-arrow-icon"><ArrowDown /></el-icon>
               </span>
               <template #dropdown>
                 <el-dropdown-menu>
@@ -189,6 +197,41 @@ const AppLayout = {
     const isAdmin = appStore.isAdmin;
     const isDark = appStore.isDark;
     const unreadCount = ref(0);
+    const searchQuery = ref('');
+
+    const breadcrumbMap = {
+      '/dashboard': ['首页', '仪表盘'],
+      '/records': ['首页', '工单管理'],
+      '/records/create': ['首页', '工单管理', '新建工单'],
+      '/templates': ['首页', '业务管理', '工单模板'],
+      '/equipments': ['首页', '业务管理', '客户设备'],
+      '/maintenance-plans': ['首页', '业务管理', '维护计划'],
+      '/pending': ['首页', '待办任务'],
+      '/customers': ['首页', '客户管理'],
+      '/staff': ['首页', '员工管理'],
+      '/users': ['首页', '系统管理', '账号管理'],
+      '/projects': ['首页', '项目管理'],
+      '/materials': ['首页', '物料库存'],
+      '/finance': ['首页', '财务统计'],
+      '/salary': ['首页', '财务统计', '工资管理'],
+      '/expense-categories': ['首页', '财务统计', '支出分类'],
+      '/calendar': ['首页', '工单日历'],
+      '/reports': ['首页', '统计报表'],
+      '/notifications': ['首页', '消息中心'],
+      '/oplogs': ['首页', '系统管理', '操作日志'],
+      '/settings': ['首页', '系统管理', '系统设置'],
+    };
+
+    const breadcrumbItems = computed(() => {
+      return breadcrumbMap[route.path] || [pageTitle.value];
+    });
+
+    const handleSearch = () => {
+      if (!searchQuery.value.trim()) return;
+      if (route.path !== '/records') {
+        router.push('/records');
+      }
+    };
 
     const activeMenu = computed(() => route.path);
 
@@ -378,6 +421,7 @@ const AppLayout = {
       isDark,
       activeMenu,
       pageTitle,
+      breadcrumbItems,
       unreadCount,
       isMobile,
       mobileMenuOpen,
@@ -388,6 +432,8 @@ const AppLayout = {
       handleMenuSelect,
       navTo,
       handleCommand,
+      searchQuery,
+      handleSearch,
       passwordDialogVisible,
       passwordSubmitting,
       passwordFormRef,

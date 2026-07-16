@@ -113,9 +113,29 @@ const AppLayout = {
             </div>
           </div>
           <div class="header-right">
-            <el-icon class="header-icon-btn" @click="appStore.toggleTheme()" :title="isDark ? '浅色模式' : '深色模式'">
-              <component :is="isDark ? 'Sunny' : 'Moon'" />
-            </el-icon>
+            <el-dropdown trigger="click" @command="handleThemeCommand">
+              <span class="header-icon-btn" :title="currentThemeName" style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;cursor:pointer;">
+                <el-icon :size="18">
+                  <component :is="themeIcon" />
+                </el-icon>
+              </span>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="light" :disabled="store.theme === 'light'">
+                    <el-icon><Sunny /></el-icon>
+                    <span style="margin-left:8px;">浅色模式</span>
+                  </el-dropdown-item>
+                  <el-dropdown-item command="dark" :disabled="store.theme === 'dark'">
+                    <el-icon><Moon /></el-icon>
+                    <span style="margin-left:8px;">深色模式</span>
+                  </el-dropdown-item>
+                  <el-dropdown-item command="auto" :disabled="store.theme === 'auto'" divided>
+                    <el-icon><Monitor /></el-icon>
+                    <span style="margin-left:8px;">跟随系统</span>
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
             <el-badge :value="unreadCount" :hidden="unreadCount === 0" class="notification-badge" @click="navTo('/notifications')">
               <el-icon class="header-icon-btn"><Bell /></el-icon>
             </el-badge>
@@ -166,6 +186,10 @@ const AppLayout = {
         </div>
       </div>
 
+      <button class="fab-button" v-if="!isMobile" @click="navTo('/records/create')" title="新建工单">
+        <el-icon><Plus /></el-icon>
+      </button>
+
       <el-dialog v-model="passwordDialogVisible" title="修改密码" width="420px">
         <el-form :model="passwordForm" :rules="passwordRules" ref="passwordFormRef" label-width="100px">
           <el-form-item label="原密码" prop="old_password">
@@ -196,8 +220,19 @@ const AppLayout = {
     const store = appStore.store;
     const isAdmin = appStore.isAdmin;
     const isDark = appStore.isDark;
+    const currentThemeName = appStore.currentThemeName;
     const unreadCount = ref(0);
     const searchQuery = ref('');
+
+    const themeIcon = computed(() => {
+      if (store.theme === 'light') return 'Sunny';
+      if (store.theme === 'dark') return 'Moon';
+      return 'Monitor';
+    });
+
+    const handleThemeCommand = (cmd) => {
+      appStore.setTheme(cmd);
+    };
 
     const breadcrumbMap = {
       '/dashboard': ['首页', '仪表盘'],
@@ -419,6 +454,9 @@ const AppLayout = {
       store,
       isAdmin,
       isDark,
+      currentThemeName,
+      themeIcon,
+      handleThemeCommand,
       activeMenu,
       pageTitle,
       breadcrumbItems,

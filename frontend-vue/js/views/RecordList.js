@@ -78,7 +78,7 @@ const RecordListView = {
           <el-table-column prop="order_no" label="工单号" width="180" />
           <el-table-column prop="customer_name" label="客户名称" min-width="140" />
           <el-table-column prop="work_address" label="工作地址" min-width="160" show-overflow-tooltip />
-          <el-table-column prop="record_type" label="类型" width="80">
+          <el-table-column prop="record_type" label="类型" width="90">
             <template #default="{ row }">
               <el-tag size="small" :type="row.record_type === 'repair' ? 'danger' : 'primary'">
               {{ row.record_type === 'repair' ? '维修' : '施工' }}

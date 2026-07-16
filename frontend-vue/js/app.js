@@ -176,6 +176,7 @@ const app = createApp({
     const zhCn = ElementPlusLocaleZhCn.default || ElementPlusLocaleZhCn;
 
     onMounted(() => {
+      appStore.initResponsive();
       appStore.initTheme();
       appStore.initUserFromStorage();
       appReady.value = true;

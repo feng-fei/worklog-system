@@ -15,7 +15,7 @@ const DashboardView = {
       </div>
 
       <div class="dashboard-stats">
-        <div class="stat-card-large stat-card-primary">
+        <div class="stat-card-large stat-card-primary" @click="$router.push('/records')">
           <div class="stat-card-header">
             <div class="stat-card-icon">
               <el-icon><Document /></el-icon>
@@ -32,7 +32,7 @@ const DashboardView = {
           </div>
         </div>
 
-        <div class="stat-card-large stat-card-success">
+        <div class="stat-card-large stat-card-success" @click="$router.push('/finance')">
           <div class="stat-card-header">
             <div class="stat-card-icon">
               <el-icon><Money /></el-icon>
@@ -45,11 +45,11 @@ const DashboardView = {
           <div class="stat-card-value">¥{{ formatMoney(stats.month_payment || 0) }}</div>
           <div class="stat-card-label">本月收入</div>
           <div class="stat-card-progress">
-            <div class="stat-card-progress-bar" style="width: 72%"></div>
+            <div class="stat-card-progress-bar" style="width: 72%; background: var(--mt-success);"></div>
           </div>
         </div>
 
-        <div class="stat-card-large stat-card-warning">
+        <div class="stat-card-large stat-card-warning" @click="$router.push('/pending')">
           <div class="stat-card-header">
             <div class="stat-card-icon">
               <el-icon><Clock /></el-icon>
@@ -62,11 +62,11 @@ const DashboardView = {
           <div class="stat-card-value">{{ stats.pending_count || 0 }}</div>
           <div class="stat-card-label">待办任务</div>
           <div class="stat-card-progress">
-            <div class="stat-card-progress-bar" style="width: 45%"></div>
+            <div class="stat-card-progress-bar" style="width: 45%; background: var(--mt-warning);"></div>
           </div>
         </div>
 
-        <div class="stat-card-large stat-card-danger">
+        <div class="stat-card-large stat-card-danger" @click="$router.push('/records?status=unpaid')">
           <div class="stat-card-header">
             <div class="stat-card-icon">
               <el-icon><Warning /></el-icon>
@@ -79,7 +79,64 @@ const DashboardView = {
           <div class="stat-card-value">¥{{ formatMoney(stats.unpaid_amount || 0) }}</div>
           <div class="stat-card-label">未收账款</div>
           <div class="stat-card-progress">
-            <div class="stat-card-progress-bar" style="width: 38%"></div>
+            <div class="stat-card-progress-bar" style="width: 38%; background: var(--mt-danger);"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-stats dashboard-stats-secondary">
+        <div class="stat-card-mini" @click="$router.push('/customers')">
+          <div class="stat-mini-icon" style="background: rgba(14, 165, 233, 0.15); color: var(--mt-primary-light);">
+            <el-icon><UserFilled /></el-icon>
+          </div>
+          <div class="stat-mini-info">
+            <div class="stat-mini-value">{{ stats.customer_count || 0 }}</div>
+            <div class="stat-mini-label">客户总数</div>
+          </div>
+        </div>
+        <div class="stat-card-mini" @click="$router.push('/staff')">
+          <div class="stat-mini-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--mt-success-light);">
+            <el-icon><User /></el-icon>
+          </div>
+          <div class="stat-mini-info">
+            <div class="stat-mini-value">{{ stats.staff_count || 0 }}</div>
+            <div class="stat-mini-label">员工数量</div>
+          </div>
+        </div>
+        <div class="stat-card-mini" @click="$router.push('/materials')">
+          <div class="stat-mini-icon" style="background: rgba(139, 92, 246, 0.15); color: #a78bfa;">
+            <el-icon><Box /></el-icon>
+          </div>
+          <div class="stat-mini-info">
+            <div class="stat-mini-value">{{ stats.material_count || 0 }}</div>
+            <div class="stat-mini-label">物料种类</div>
+          </div>
+        </div>
+        <div class="stat-card-mini" @click="$router.push('/projects')">
+          <div class="stat-mini-icon" style="background: rgba(245, 158, 11, 0.15); color: var(--mt-warning-light);">
+            <el-icon><Folder /></el-icon>
+          </div>
+          <div class="stat-mini-info">
+            <div class="stat-mini-value">{{ stats.project_count || 0 }}</div>
+            <div class="stat-mini-label">进行项目</div>
+          </div>
+        </div>
+        <div class="stat-card-mini" @click="$router.push('/finance')">
+          <div class="stat-mini-icon" style="background: rgba(239, 68, 68, 0.15); color: var(--mt-danger-light);">
+            <el-icon><Wallet /></el-icon>
+          </div>
+          <div class="stat-mini-info">
+            <div class="stat-mini-value">¥{{ formatMoney(stats.month_expense || 0) }}</div>
+            <div class="stat-mini-label">本月支出</div>
+          </div>
+        </div>
+        <div class="stat-card-mini" @click="$router.push('/equipments')">
+          <div class="stat-mini-icon" style="background: rgba(6, 182, 212, 0.15); color: var(--mt-accent-light);">
+            <el-icon><Cpu /></el-icon>
+          </div>
+          <div class="stat-mini-info">
+            <div class="stat-mini-value">{{ stats.equipment_count || 0 }}</div>
+            <div class="stat-mini-label">客户设备</div>
           </div>
         </div>
       </div>

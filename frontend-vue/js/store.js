@@ -1,10 +1,12 @@
-const { reactive, computed } = Vue;
+const { reactive, computed, watch } = Vue;
 
 const store = reactive({
   user: null,
   token: localStorage.getItem('token') || '',
   sidebarCollapsed: false,
-  theme: localStorage.getItem('theme') || 'light',
+  theme: localStorage.getItem('theme') || 'auto',
+  isLandscape: false,
+  isMobile: window.innerWidth < 768,
 });
 
 const isLoggedIn = computed(() => !!store.token && !!store.user);
@@ -14,7 +16,19 @@ const isAdmin = computed(() => {
   return store.user.role === 'admin' || store.user.is_admin === true || store.user.is_admin === 1;
 });
 
-const isDark = computed(() => store.theme === 'dark');
+const systemDark = computed(() => {
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+});
+
+const isDark = computed(() => {
+  if (store.theme === 'auto') return systemDark.value;
+  return store.theme === 'dark';
+});
+
+const currentThemeName = computed(() => {
+  if (store.theme === 'auto') return systemDark.value ? '深色（跟随系统）' : '浅色（跟随系统）';
+  return store.theme === 'dark' ? '深色' : '浅色';
+});
 
 function usePermission() {
   const canAdmin = computed(() => isAdmin.value);
@@ -67,22 +81,61 @@ function initUserFromStorage() {
   }
 }
 
-function initTheme() {
-  if (store.theme === 'dark') {
-    document.documentElement.classList.add('dark');
-  } else {
-    document.documentElement.classList.remove('dark');
+function applyTheme() {
+  const dark = isDark.value;
+  document.documentElement.classList.toggle('dark', dark);
+  document.body.classList.toggle('light-theme', !dark);
+  document.body.classList.toggle('dark-theme', dark);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) {
+    meta.content = dark ? '#0f172a' : '#ffffff';
   }
 }
 
+function setTheme(mode) {
+  store.theme = mode;
+  localStorage.setItem('theme', mode);
+  applyTheme();
+}
+
+function cycleTheme() {
+  const modes = ['light', 'dark', 'auto'];
+  const current = modes.indexOf(store.theme);
+  const next = modes[(current + 1) % modes.length];
+  setTheme(next);
+  return next;
+}
+
 function toggleTheme() {
-  store.theme = store.theme === 'dark' ? 'light' : 'dark';
-  localStorage.setItem('theme', store.theme);
-  initTheme();
+  cycleTheme();
+}
+
+function initTheme() {
+  if (window.matchMedia) {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    mq.addEventListener('change', () => {
+      if (store.theme === 'auto') {
+        applyTheme();
+      }
+    });
+  }
+  applyTheme();
 }
 
 function toggleSidebar() {
   store.sidebarCollapsed = !store.sidebarCollapsed;
+}
+
+function handleResize() {
+  store.isMobile = window.innerWidth < 768;
+  store.isLandscape = window.innerWidth > window.innerHeight;
+  document.body.classList.toggle('landscape', store.isLandscape && store.isMobile);
+}
+
+function initResponsive() {
+  handleResize();
+  window.addEventListener('resize', handleResize);
+  window.addEventListener('orientationchange', handleResize);
 }
 
 window.appStore = {
@@ -90,12 +143,19 @@ window.appStore = {
   isLoggedIn,
   isAdmin,
   isDark,
+  systemDark,
+  currentThemeName,
   usePermission,
   setUser,
   setToken,
   logout,
   initUserFromStorage,
   initTheme,
+  applyTheme,
+  setTheme,
+  cycleTheme,
   toggleTheme,
   toggleSidebar,
+  initResponsive,
+  handleResize,
 };

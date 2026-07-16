@@ -103,6 +103,35 @@ api.getRecords(params).then(data => { ... }).catch(err => { ... })
 - 访问端口: `8085` → 容器内 `5000`
 - 数据卷: `/vol1/1000/docker/work-log-system/`（db + uploads）
 
+### 部署方式（Python Paramiko）
+**重要：Windows环境下使用Python paramiko库连接NAS，不要用sshpass或scp命令**
+
+项目根目录已有 `deploy_nas.py` 脚本，可直接运行：
+```python
+python deploy_nas.py
+```
+
+如需手动编写：
+```python
+import paramiko
+
+ssh = paramiko.SSHClient()
+ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+ssh.connect('172.28.10.2', username='root', password='feng1021', timeout=30)
+
+# SFTP上传文件
+sftp = ssh.open_sftp()
+sftp.put(local_path, remote_path)
+sftp.close()
+
+# 执行命令
+stdin, stdout, stderr = ssh.exec_command('cd /path && docker compose down && docker compose up -d', get_pty=True)
+for line in stdout:
+    print(line.strip())
+
+ssh.close()
+```
+
 ### 部署步骤
 1. **上传文件**：使用SFTP上传修改的文件
    - 前端文件 → `frontend-vue/` 目录
@@ -117,6 +146,7 @@ api.getRecords(params).then(data => { ... }).catch(err => { ... })
 - 数据库和上传文件通过volume挂载持久化，不会因重建丢失
 - 前端静态文件通过镜像内COPY方式打包，不在volume中挂载
 - 旧前端保留在 `/app/frontend/` 作为回退，访问 `/old/` 路径
+- Windows PowerShell下sshpass命令不可用，必须用paramiko
 
 ## 常见问题排查
 

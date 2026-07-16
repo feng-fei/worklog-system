@@ -1,0 +1,266 @@
+<div class="tab-pane fade" id="tab-work">
+<div class="container py-3">
+<div class="card card-accent-green shadow-sm mb-3">
+<div class="card-header d-flex align-items-center gap-2"><i class="bi bi-plus-circle-fill"></i><span class="fw-semibold">新增施工 / 维修记录</span></div>
+<div class="card-body">
+<form id="workForm" enctype="multipart/form-data">
+<div class="row g-3">
+
+<!-- 客户信息区 -->
+<div class="col-md-6">
+<label class="form-label fw500">客户 <span class="text-danger">*</span></label>
+<div class="input-group">
+<div class="customer-select-wrap">
+<input type="text" class="form-control" id="woCustomerName" name="customer_name" required autocomplete="off" placeholder="输入或选择" oninput="showCustomerDropdown(this)" onfocus="showCustomerDropdown(this)">
+<div class="customer-dropdown" id="customerDropdown"></div>
+</div>
+<button type="button" class="btn btn-outline-primary" onclick="openCustomerQuickAdd('work')" title="添加客户" aria-label="添加客户"><i class="bi bi-plus-lg" aria-hidden="true"></i></button>
+</div>
+<input type="hidden" name="customer_phone" id="woCustomerPhone">
+</div>
+<div class="col-md-3">
+<label class="form-label fw500">联系人</label>
+<input type="text" class="form-control" name="contact_name" id="woContactName" placeholder="自动填入">
+</div>
+<div class="col-md-3">
+<label class="form-label fw500">联系电话</label>
+<input type="text" class="form-control" id="woCustomerPhoneVisible" placeholder="自动填入" oninput="document.getElementById('woCustomerPhone').value=this.value">
+</div>
+<div class="col-md-6">
+<label class="form-label fw500">地址</label>
+<input type="text" class="form-control" name="work_address" id="woWorkAddress" placeholder="自动填入">
+</div>
+
+<!-- 记录类型切换 -->
+<div class="col-12">
+<div class="d-flex gap-3 mb-2 align-items-center">
+<label class="form-label fw500 me-1 mb-0">记录类型</label>
+<div class="d-flex gap-3" role="group">
+<input type="radio" class="btn-check" name="record_type" id="rtConstruction" value="construction" checked onchange="toggleRecordType()">
+<label class="btn-capsule" for="rtConstruction">
+<i class="bi bi-tools me-1"></i>施工
+</label>
+<input type="radio" class="btn-check" name="record_type" id="rtRepair" value="repair" onchange="toggleRecordType()">
+<label class="btn-capsule" for="rtRepair">
+<i class="bi bi-gear me-1"></i>维修
+</label>
+</div>
+</div>
+</div>
+
+<!-- 工作人员 -->
+<div class="col-md-6">
+<label class="form-label fw500">工作人员 <span class="text-danger">*</span></label>
+<div id="staffPicker" class="staff-picker">
+    <button type="button" id="staffPickerTrigger" class="staff-picker-trigger" onclick="toggleStaffPicker()" aria-expanded="false" aria-controls="staffPickPanel">
+        <i class="bi bi-people-fill"></i> 选择人员 <i class="bi bi-chevron-down ms-1 is-1"></i>
+    </button>
+    <div id="staffPickPanel" class="staff-pick-panel"></div>
+</div>
+<div id="selectedStaffTags" class="d-flex flex-wrap gap-1 mt-1"></div>
+<small class="text-muted">点击上方选择框选取，临时工请填下方工时和日薪</small>
+<input type="hidden" name="staff_names" id="woStaffNames">
+<input type="hidden" name="temp_staff_details" id="woTempStaffDetails" value="[]">
+</div>
+<div class="col-12 is-0" id="woTempStaffFields">
+<div class="card bg-light p-2">
+<div class="row g-2 align-items-end">
+<div class="col-12"><strong class="small">临时工作人员工时录入</strong></div>
+<div id="woTempStaffRows"></div>
+</div></div></div>
+
+<!-- 时间信息：日期 + 开始 + 结束 -->
+<div class="col-md-6">
+<label class="form-label fw500">施工日期</label>
+<div class="input-group date-picker-group">
+<input type="date" class="form-control" name="work_date" id="workDate">
+<button type="button" class="btn-today" onclick="document.getElementById('workDate').value=todayStr()">今天</button>
+</div>
+</div>
+<div class="col-md-3">
+<label class="form-label fw500">开始</label>
+<input type="time" class="form-control" name="start_time" onchange="calcAutoLaborFee()">
+</div>
+<div class="col-md-3">
+<label class="form-label fw500">结束</label>
+<input type="time" class="form-control" name="end_time" onchange="calcAutoLaborFee()">
+</div>
+<div class="col-md-2">
+<label class="form-label fw500">工时 (小时)</label>
+<input type="number" class="form-control" name="work_hours" step="0.5" min="0" value="0" onchange="calcAutoLaborFee()">
+</div>
+
+<!-- 状态 + 类型 -->
+<div class="col-md-4 mobile-half">
+<label class="form-label fw500">状态</label>
+<select class="form-select" name="status" id="woStatus"></select>
+</div>
+<div class="col-md-4 mobile-half">
+<label class="form-label fw500" id="woSubtypeLabel">施工类型</label>
+<select class="form-select" name="work_subtype" id="woSubtype"></select>
+</div>
+
+</div>
+
+<!-- 施工内容 -->
+<div id="constructionFields">
+<div class="col-12">
+<label class="form-label fw500">施工内容 <span class="text-danger">*</span></label>
+<textarea class="form-control" name="work_content" rows="3"></textarea>
+</div>
+</div>
+
+<!-- 维修内容 -->
+<div id="repairFields" class="is-0">
+<div class="col-12">
+<label class="form-label fw500">故障现象（故障描述）</label>
+<textarea class="form-control" name="fault_description" rows="2" placeholder="描述出现的故障现象"></textarea>
+</div>
+<div class="col-12">
+<label class="form-label fw500">故障诊断（造成故障的原因）</label>
+<textarea class="form-control" name="fault_diagnosis" rows="2" placeholder="分析导致故障的原因"></textarea>
+</div>
+<div class="col-12">
+<label class="form-label fw500">维修过程</label>
+<textarea class="form-control" name="repair_process" rows="3" placeholder="填写维修步骤和方法"></textarea>
+</div>
+<div class="col-12">
+<label class="form-label fw500">维修结果</label>
+<div class="d-flex gap-3">
+<div class="form-check">
+<input class="form-check-input" type="radio" name="repair_result" id="repairCompleted" value="completed" checked onchange="toggleRepairIncompleteFields()">
+<label class="form-check-label" for="repairCompleted">✅ 已维修完成</label>
+</div>
+<div class="form-check">
+<input class="form-check-input" type="radio" name="repair_result" id="repairPending" value="pending" onchange="toggleRepairIncompleteFields()">
+<label class="form-check-label" for="repairPending">⏳ 未维修完成（说明原因并转待办）</label>
+</div>
+</div>
+</div>
+<div class="col-12 is-0" id="repairIncompleteBox">
+<div class="repair-incomplete-box">
+<div class="row g-2">
+<div class="col-md-4">
+<label class="form-label fw500">未完成原因类型</label>
+<select class="form-select" name="incomplete_reason_type" id="incompleteReasonType">
+<option value="">请选择</option>
+<option value="缺少配件">缺少配件</option>
+<option value="设备需更换">设备需更换</option>
+<option value="客户现场条件不具备">客户现场条件不具备</option>
+<option value="需厂家/上级技术支持">需厂家/上级技术支持</option>
+<option value="客户改期">客户改期</option>
+<option value="费用/报价待确认">费用/报价待确认</option>
+<option value="其他原因">其他原因</option>
+</select>
+</div>
+<div class="col-md-8">
+<label class="form-label fw500">原因说明 / 后续建议 <span class="text-danger">*</span></label>
+<textarea class="form-control" name="incomplete_reason" id="incompleteReason" rows="2" placeholder="例如：摄像头主板损坏，现场无备件，需采购后二次上门更换"></textarea>
+</div>
+</div>
+<small class="text-muted">保存后会自动生成二次上门待办，待办内容会带上未完成原因。</small>
+</div>
+</div>
+</div>
+
+<!-- 设备清单（仅维修模式显示） -->
+<div id="equipmentFields">
+<div class="col-12 mt-2">
+<div class="card border bg-light">
+<div class="card-header py-2 px-3 d-flex align-items-center gap-2">
+<i class="bi bi-box-seam"></i><span class="fw-semibold">设备/材料清单</span>
+<small class="text-muted ms-2">登记设备/材料</small>
+</div>
+<div class="card-body py-2">
+<div id="equipmentList">
+  <!-- 设备行模板会被JS动态渲染 -->
+</div>
+<div class="text-center mt-2">
+  <button type="button" class="btn btn-sm btn-outline-primary" onclick="addEquipmentRow()"><i class="bi bi-plus-lg"></i> 添加设备</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- 计费区 -->
+<div class="col-12">
+<div class="d-flex align-items-center gap-3 mb-1">
+<label class="form-label fw500 mb-0">税费</label>
+<div class="form-check form-check-inline">
+<input class="form-check-input" type="radio" name="tax_type" id="taxNo" value="no" checked onchange="calcWorkTotal()">
+<label class="form-check-label" for="taxNo">不含税</label>
+</div>
+<div class="form-check form-check-inline">
+<input class="form-check-input" type="radio" name="tax_type" id="taxYes" value="tax" onchange="calcWorkTotal()">
+<label class="form-check-label" for="taxYes">含增值税 <span id="taxRateDisplay">3%</span></label>
+</div>
+<input type="hidden" name="tax_rate" id="taxRate" value="0.03">
+</div>
+</div>
+<div class="col-md-2"><label class="form-label fw500">人工 (¥)</label><input type="number" class="form-control" name="labor_fee" step="0.01" min="0" value="0" onchange="calcWorkTotal()"></div>
+<div class="col-md-3"><label class="form-label fw500">材料 (¥)</label><input type="number" class="form-control" name="material_fee" step="0.01" min="0" value="0" onchange="calcWorkTotal()"></div>
+<div class="col-md-3"><label class="form-label fw500">交通 (¥)</label><input type="number" class="form-control" name="transport_fee" step="0.01" min="0" value="0" onchange="calcWorkTotal()"></div>
+<div class="col-md-3"><label class="form-label fw500">其他 (¥)</label><input type="number" class="form-control" name="other_fee" step="0.01" min="0" value="0" onchange="calcWorkTotal()"></div>
+<div class="col-md-3"><label class="form-label fw500">税费 (¥)</label><input type="text" class="form-control wo-readonly" id="woTaxAmount" value="0.00" readonly></div>
+
+<!-- 总计费用：加黑放大一行 -->
+<div class="col-md-3">
+<label class="form-label fw500 text-secondary" style="opacity:0.7">总计费用</label>
+<input type="text" class="form-control wo-readonly fw-bold fs-5 text-primary border-primary" id="woTotalFee" value="0.00" readonly style="font-size:1.2rem !important; height:auto; padding:0.6rem 0.75rem; border-width:2px;">
+</div>
+<!-- 收款区块 -->
+<div class="col-md-4">
+<label class="form-label fw500">收款状态</label>
+<select class="form-select" name="payment_status" id="woPaymentStatus"><option value="unpaid">未收款</option><option value="partial">部分收款</option><option value="paid">已收款</option><option value="monthly">月结</option><option value="invoicing">待开票</option><option value="invoiced">已开票</option></select>
+</div>
+<div class="col-md-4">
+<label class="form-label fw500">已收金额 (¥)</label>
+<input type="number" class="form-control" name="paid_amount" min="0" step="0.01" value="0">
+</div>
+
+
+<!-- 照片 -->
+<div class="col-12">
+<label class="form-label fw500">照片</label>
+<div class="photo-upload-area" onclick="document.querySelector('input[name=photos]').click()">
+  <div class="photo-upload-icon">
+    <i class="bi bi-cloud-arrow-up-fill"></i>
+  </div>
+  <div class="photo-upload-text">
+    <strong>点击上传照片</strong>
+    <span>或拖拽图片到此处，支持多选</span>
+  </div>
+  <div class="photo-upload-hint">
+    <i class="bi bi-info-circle"></i>
+    自动添加日期、客户、地址水印
+  </div>
+</div>
+<input type="file" class="form-control photo-file-input" name="photos" multiple="" accept="image/*" onchange="previewWorkPhotos(event)">
+<div id="workPhotoPreview" class="work-photo-preview-grid"></div>
+</div>
+
+<!-- 客户签名 -->
+<div class="col-12">
+<label class="form-label fw500">客户签名</label>
+<div id="signaturePadContainer" style="border:1px solid #ccc; border-radius:8px; overflow:hidden; position:relative; touch-action:none; background:#fff;">
+  <canvas id="signatureCanvas" width="800" height="200" style="display:block; width:100%; height:auto; touch-action:none;"></canvas>
+</div>
+<div class="d-flex gap-2 mt-1">
+  <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearSignature()">清除</button>
+  <small class="text-muted align-self-center">请客户在区域内签名</small>
+</div>
+<input type="hidden" name="customer_signature" id="woCustomerSignature">
+</div>
+
+<!-- 备注 -->
+<div class="col-12">
+<label class="form-label fw500">备注</label>
+<textarea class="form-control" name="remark" rows="3" placeholder="选填"></textarea>
+</div>
+</div>
+<button type="submit" class="btn btn-warning w-100 mt-3 py-2 fw-semibold"><i class="bi bi-plus-lg me-1"></i> 提交工单</button>
+</form>
+</div></div>
+</div>
+<!-- ====== 工资记录 ====== -->

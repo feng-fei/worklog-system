@@ -175,7 +175,8 @@ const AppLayout = {
     onMounted(() => {
       if (!store.user) {
         apiService.getCurrentUser().then(res => {
-          if (res.user) appStore.setUser(res.user);
+          const user = res && (res.user || res);
+          if (user) appStore.setUser(user);
         }).catch(() => {});
       }
     });

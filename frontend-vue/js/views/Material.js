@@ -252,8 +252,9 @@ const MaterialView = {
         if (filters.category) params.category = filters.category;
         if (filters.low_stock) params.low_stock = filters.low_stock;
         const res = await apiService.getMaterials(params);
-        materials.value = res.records || res.data || res.materials || [];
-        pagination.total = res.total || 0;
+        const data = res && res.records ? res.records : [];
+        materials.value = Array.isArray(data) ? data : [];
+        pagination.total = (res && res.total) || 0;
         const catSet = new Set(materials.value.map(m => m.category).filter(Boolean));
         categories.value = Array.from(catSet);
       } catch (e) {

@@ -1,0 +1,250 @@
+/* ===== stats.css — 统计模块样式 ===== */
+
+#tab-stats>.container::before {
+    content:"经营统计" !important;
+}
+
+.card,.stat-card {
+    color:#eafbf5 !important;
+    background:linear-gradient(145deg,rgba(10,27,34,.90),rgba(5,15,19,.74)) !important;
+    border-color:rgba(111,255,220,.14) !important;
+    box-shadow:var(--app-shadow-soft) !important;
+}
+
+.card:hover,.record-card:hover,.pending-card:hover,.customer-card:hover,.staff-card:hover,.stat-card:hover {
+    border-color:rgba(44,255,181,.26) !important;
+    box-shadow:var(--app-shadow) !important;
+}
+
+#dashboardStats .stat-card {
+    background:radial-gradient(circle at 94% 12%,rgba(44,255,181,.20),transparent 7rem),linear-gradient(145deg,rgba(12,34,42,.94),rgba(4,14,18,.82)) !important;
+}
+
+.stat-card::before {
+    background:linear-gradient(180deg,var(--app-cyan),var(--app-mint),var(--app-lime)) !important;
+    box-shadow:0 0 18px rgba(44,255,181,.36);
+}
+
+.stat-card::after {
+    background:radial-gradient(circle,rgba(34,211,238,.22),rgba(44,255,181,.05) 62%,transparent 70%) !important;
+}
+
+.stat-card .sc-label,.form-label,.text-muted,small.text-muted {
+    color:#8fb2ac !important;
+}
+
+.stat-card {
+    position:relative;
+    overflow:hidden;
+    background:linear-gradient(135deg,rgba(255,255,255,.9) 0%,rgba(240,248,255,.8) 100%);
+    backdrop-filter:blur(12px);
+    border:1px solid rgba(255,255,255,.5);
+    border-radius:16px;
+    padding:1.5rem;
+    text-align:center;
+    box-shadow:0 4px 20px rgba(0,0,0,.08);
+    transition:all .3s ease;
+}
+
+.stat-card::before {
+    content:"";
+    position:absolute;
+    top:0;
+    left:0;
+    right:0;
+    height:4px;
+    background:linear-gradient(90deg,#11998e,#38ef7d);
+}
+
+.stat-card:hover {
+    transform:translateY(-4px);
+    box-shadow:0 8px 30px rgba(17,153,142,.2);
+}
+
+.stat-card:hover {
+    background:rgba(255,255,255,.85);
+    box-shadow:var(--glass-shadow-hover);
+}
+
+.stat-card .sc-number {
+    font-size:2.5rem;
+    font-weight:800;
+    color:var(--text-primary);
+    text-shadow:0 2px 4px rgba(0,0,0,.05);
+}
+
+.stat-card .sc-label {
+    font-size:.82rem;
+    color:var(--text-secondary);
+    margin-top:.2rem;
+}
+
+.stats-hero-card:hover {
+    transform:translateY(-2px);
+    box-shadow:var(--glass-shadow-hover);
+}
+
+.stats-hero-card::after {
+    content:"";
+    position:absolute;
+    inset:0;
+    z-index:-1;
+    opacity:.4;
+    background:radial-gradient(ellipse at 50% 0%,var(--accent-blue),transparent 70%);
+}
+
+.stats-hero-card:nth-child(2)::after {
+    background:radial-gradient(ellipse at 50% 0%,var(--accent-orange),transparent 70%);
+}
+
+.stats-hero-card:nth-child(3)::after {
+    background:radial-gradient(ellipse at 50% 0%,var(--accent-green),transparent 70%);
+}
+
+.stats-table tbody tr:hover td {
+    background:rgba(129,140,248,.04);
+}
+
+.stats-work-row:hover {
+    background:var(--glass-bg-hover);
+}
+
+.stats-table-wrapper .table {
+    margin-bottom:0;
+}
+
+.stat-card {
+    min-height:138px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    border-radius:28px !important;
+    background:linear-gradient(145deg,rgba(255,255,255,.94),rgba(244,251,247,.75)),radial-gradient(circle at 82% 14%,rgba(184,243,92,.30),transparent 7rem) !important;
+    border:1px solid rgba(255,255,255,.82) !important;
+    box-shadow:var(--ry-shadow-soft) !important;
+}
+
+.stat-card::before {
+    height:100% !important;
+    width:5px;
+    right:auto;
+    background:linear-gradient(180deg,var(--ry-green),var(--ry-lime)) !important;
+}
+
+.stat-card .sc-number {
+    font-size:clamp(1.85rem,3vw,2.7rem) !important;
+    font-weight:950 !important;
+    letter-spacing:-1.5px;
+    color:var(--ry-ink) !important;
+}
+
+.stat-card .sc-label {
+    color:var(--ry-muted) !important;
+    font-weight:800;
+}
+
+#tab-stats>.container::before {
+    content:"经营统计";
+}
+
+.stat-card {
+    position:relative;
+    min-height:150px;
+    isolation:isolate;
+    overflow:hidden;
+    border-radius:30px !important;
+    background:radial-gradient(circle at 90% 12%,rgba(200,255,92,.42),transparent 7rem),linear-gradient(145deg,rgba(255,255,255,.94),rgba(232,249,244,.74)) !important;
+}
+
+.stat-card::after {
+    content:"";
+    position:absolute;
+    right:-20px;
+    bottom:-26px;
+    width:112px;
+    height:112px;
+    border-radius:999px;
+    background:linear-gradient(135deg,rgba(16,189,226,.20),rgba(19,197,139,.22));
+    z-index:-1;
+}
+
+.stat-card .sc-number {
+    font-size:clamp(28px,4vw,44px) !important;
+    line-height:1;
+}
+
+.stat-card .sc-label {
+    margin-top:10px;
+    font-size:13px;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+}
+
+#tab-stats>.container::before {
+    content:"经营统计" !important;
+    display:block !important;
+}
+
+body.app-v3 #tab-stats {
+    max-width:960px;
+    margin:0 auto;
+}
+
+body.app-v3 #tab-stats .card {
+    border-radius:22px;
+    border:1px solid var(--ry-line);
+    background:var(--ry-surface);
+}
+
+body.app-v3 #tab-stats .card-header {
+    background:transparent;
+    border-bottom:1px solid var(--ry-line);
+    padding:14px 18px;
+}
+
+body.app-v3 #tab-stats .card-body {
+    padding:16px 18px;
+}
+
+body.app-v3 #tab-stats {
+    max-width:960px;
+    margin:0 auto;
+}
+
+body.app-v3 #tab-stats .card {
+    border-radius:22px;
+    border:1px solid var(--ry-line);
+    background:var(--ry-surface);
+}
+
+body.app-v3 #tab-stats .card-header {
+    background:transparent;
+    border-bottom:1px solid var(--ry-line);
+    padding:14px 18px;
+}
+
+body.app-v3 #tab-stats .card-body {
+    padding:16px 18px;
+}
+
+body.app-v3 #tab-stats {
+    max-width:960px;
+    margin:0 auto;
+}
+
+body.app-v3 #tab-stats .card {
+    border-radius:22px;
+    border:1px solid var(--ry-line);
+    background:var(--ry-surface);
+}
+
+body.app-v3 #tab-stats .card-header {
+    background:transparent;
+    border-bottom:1px solid var(--ry-line);
+    padding:14px 18px;
+}
+
+body.app-v3 #tab-stats .card-body {
+    padding:16px 18px;
+}
+

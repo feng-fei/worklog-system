@@ -108,8 +108,20 @@ const apiService = {
     return api.get('/payments', { params });
   },
 
+  createPayment(data) {
+    return api.post('/payments', data);
+  },
+
+  updatePayment(id, data) {
+    return api.put(`/payments/${id}`, data);
+  },
+
+  deletePayment(id) {
+    return api.delete(`/payments/${id}`);
+  },
+
   getPendingWorks(params) {
-    return api.get('/pending-works', { params });
+    return api.get('/pending', { params });
   },
 
   getProfitStatistics(params) {
@@ -120,36 +132,32 @@ const apiService = {
     return api.get('/materials', { params });
   },
 
-  getPendingWorks(params) {
-    return api.get('/pending-works', { params });
-  },
-
   createPendingWork(data) {
-    return api.post('/pending-works', data);
+    return api.post('/pending', data);
   },
 
   updatePendingWork(id, data) {
-    return api.put(`/pending-works/${id}`, data);
+    return api.put(`/pending/${id}`, data);
   },
 
   deletePendingWork(id) {
-    return api.delete(`/pending-works/${id}`);
+    return api.delete(`/pending/${id}`);
   },
 
   completePendingWork(id, data) {
-    return api.post(`/pending-works/${id}/complete`, data);
+    return api.post(`/pending/${id}/complete`, data);
   },
 
   batchDeletePendingWorks(ids) {
-    return api.post('/pending-works/batch-delete', { ids });
+    return api.post('/pending/batch', { ids, action: 'delete' });
   },
 
   batchCompletePendingWorks(ids) {
-    return api.post('/pending-works/batch-complete', { ids });
+    return api.post('/pending/batch', { ids, action: 'update_status', status: 'completed' });
   },
 
   batchAssignPendingWorks(ids, staffName) {
-    return api.post('/pending-works/batch-assign', { ids, staff_name: staffName });
+    return api.post('/pending/batch', { ids, action: 'update_status', status: 'assigned', assignee: staffName });
   },
 
   createCustomer(data) {
@@ -185,11 +193,11 @@ const apiService = {
   },
 
   getMaterialStockLogs(params) {
-    return api.get('/material-stock-logs', { params });
+    return api.get('/materials/stock-logs', { params });
   },
 
   adjustMaterialStock(id, data) {
-    return api.post(`/materials/${id}/adjust`, data);
+    return api.post(`/materials/${id}/stock`, data);
   },
 
   getExpenses(params) {
@@ -249,11 +257,11 @@ const apiService = {
   },
 
   getSystemSettings() {
-    return api.get('/system-settings');
+    return api.get('/settings');
   },
 
-  updateSystemSetting(key, value) {
-    return api.put('/system-settings', { key, value });
+  updateSystemSettings(settings) {
+    return api.post('/settings', settings);
   },
 
   getNotifications(params) {
@@ -269,7 +277,7 @@ const apiService = {
   },
 
   markAllNotificationsRead() {
-    return api.post('/notifications/mark-all-read');
+    return api.post('/notifications/read-all');
   },
 
   clearReadNotifications() {
@@ -292,6 +300,10 @@ const apiService = {
     return api.get('/templates', { params });
   },
 
+  getWorkTemplate(id) {
+    return api.get(`/templates/${id}`);
+  },
+
   createWorkTemplate(data) {
     return api.post('/templates', data);
   },
@@ -305,7 +317,7 @@ const apiService = {
   },
 
   applyWorkTemplate(id) {
-    return api.get(`/templates/${id}/apply`);
+    return api.post(`/templates/${id}/apply`);
   },
 
   getProjects(params) {
@@ -329,39 +341,39 @@ const apiService = {
   },
 
   getEquipments(params) {
-    return api.get('/equipments', { params });
+    return api.get('/customer-equipments', { params });
   },
 
   getEquipment(id) {
-    return api.get(`/equipments/${id}`);
+    return api.get(`/customer-equipments/${id}`);
   },
 
   createEquipment(data) {
-    return api.post('/equipments', data);
+    return api.post('/customer-equipments', data);
   },
 
   updateEquipment(id, data) {
-    return api.put(`/equipments/${id}`, data);
+    return api.put(`/customer-equipments/${id}`, data);
   },
 
   deleteEquipment(id) {
-    return api.delete(`/equipments/${id}`);
+    return api.delete(`/customer-equipments/${id}`);
   },
 
   getInspectionPlans(params) {
-    return api.get('/inspection-plans', { params });
+    return api.get('/maintenance-plans', { params });
   },
 
   createInspectionPlan(data) {
-    return api.post('/inspection-plans', data);
+    return api.post('/maintenance-plans', data);
   },
 
   updateInspectionPlan(id, data) {
-    return api.put(`/inspection-plans/${id}`, data);
+    return api.put(`/maintenance-plans/${id}`, data);
   },
 
   deleteInspectionPlan(id) {
-    return api.delete(`/inspection-plans/${id}`);
+    return api.delete(`/maintenance-plans/${id}`);
   },
 
   createExpenseCategory(data) {

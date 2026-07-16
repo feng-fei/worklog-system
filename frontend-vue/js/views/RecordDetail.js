@@ -46,8 +46,8 @@ const RecordDetailView = {
                 <el-row :gutter="24">
                   <el-col :span="12">
                     <el-form-item label="工单编号">
-                      <span v-if="!isEdit">{{ form.record_no }}</span>
-                      <el-input v-else v-model="form.record_no" placeholder="自动生成" disabled />
+                      <span v-if="!isEdit">{{ form.order_no }}</span>
+                      <el-input v-else v-model="form.order_no" placeholder="自动生成" disabled />
                     </el-form-item>
                   </el-col>
                   <el-col :span="12">
@@ -55,7 +55,7 @@ const RecordDetailView = {
                       <template v-if="!isEdit">{{ getRecordTypeText(form.record_type) }}</template>
                       <el-select v-else v-model="form.record_type" placeholder="请选择工单类型" style="width:100%;">
                         <el-option label="施工工单" value="construction" />
-                        <el-option label="维修工单" value="maintenance" />
+                        <el-option label="维修工单" value="repair" />
                       </el-select>
                     </el-form-item>
                   </el-col>
@@ -406,11 +406,14 @@ const RecordDetailView = {
       loading.value = true;
       apiService.getRecord(id)
         .then((res) => {
-          recordInfo.value = res;
-          Object.assign(form, res);
-          if (!form.fee_items) form.fee_items = [];
-          if (!form.material_items) form.material_items = [];
-          if (!form.attachments) form.attachments = [];
+          recordInfo.value = res || null;
+          if (res) {
+            Object.assign(form, res);
+          }
+          if (!Array.isArray(form.fee_items)) form.fee_items = [];
+          if (!Array.isArray(form.material_items)) form.material_items = [];
+          if (!Array.isArray(form.attachments)) form.attachments = [];
+          if (!Array.isArray(form.staff_names)) form.staff_names = [];
         })
         .catch(() => {
           ElementPlus.ElMessage.error('加载工单详情失败');
@@ -423,7 +426,8 @@ const RecordDetailView = {
     const loadCustomers = () => {
       apiService.getCustomers({ per_page: 1000 })
         .then((res) => {
-          customerOptions.value = res.items || res.data || [];
+          const data = res && res.records ? res.records : [];
+          customerOptions.value = Array.isArray(data) ? data : [];
         })
         .catch(() => {});
     };
@@ -431,7 +435,8 @@ const RecordDetailView = {
     const loadStaffs = () => {
       apiService.getStaffs({ per_page: 1000, enabled: 'true' })
         .then((res) => {
-          staffOptions.value = res.items || res.data || [];
+          const data = res && res.records ? res.records : [];
+          staffOptions.value = Array.isArray(data) ? data : [];
         })
         .catch(() => {});
     };
@@ -439,7 +444,8 @@ const RecordDetailView = {
     const loadMaterials = () => {
       apiService.getMaterials({ per_page: 1000 })
         .then((res) => {
-          materialOptions.value = res.items || res.data || [];
+          const data = res && res.records ? res.records : [];
+          materialOptions.value = Array.isArray(data) ? data : [];
         })
         .catch(() => {});
     };

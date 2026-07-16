@@ -79,20 +79,24 @@ const LoginView = {
       loading.value = true;
       try {
         const res = await apiService.login(form);
-        if (res.token) {
+        if (res && res.token) {
           appStore.setToken(res.token);
         }
-        if (res.user) {
-          appStore.setUser(res.user);
+        let user = null;
+        if (res && res.user) {
+          user = res.user;
         } else {
           try {
             const userRes = await apiService.getCurrentUser();
-            if (userRes.user) {
-              appStore.setUser(userRes.user);
+            if (userRes) {
+              user = userRes.user || userRes;
             }
           } catch (e) {
             console.warn('获取用户信息失败', e);
           }
+        }
+        if (user) {
+          appStore.setUser(user);
         }
         ElMessage.success('登录成功');
         router.push('/dashboard');

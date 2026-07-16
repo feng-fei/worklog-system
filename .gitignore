@@ -29,12 +29,7 @@ Thumbs.db
 *.db
 data/*.db
 
-# 备份文件
-*.backup
-*.backup_*
-
 # 临时文件
-_*.py
 *.log
 
 # Docker

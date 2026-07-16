@@ -193,7 +193,7 @@ const SalaryView = {
       month: [{ required: true, message: '请选择月份', trigger: 'change' }],
     };
 
-    const isAdmin = computed(() => appStore.isAdmin);
+    const isAdmin = computed(() => appStore.isAdmin.value);
     const dialogTitle = computed(() => (isEdit.value ? '编辑工资' : '新增工资'));
 
     const monthOptions = computed(() => {
@@ -215,8 +215,9 @@ const SalaryView = {
       };
       apiService.getSalaries(params)
         .then((res) => {
-          salaries.value = res.items || res.data || [];
-          pagination.total = res.total || 0;
+          const data = res && res.records ? res.records : [];
+          salaries.value = Array.isArray(data) ? data : [];
+          pagination.total = (res && res.total) || 0;
         })
         .catch(() => {
           ElementPlus.ElMessage.error('加载工资列表失败');
@@ -229,7 +230,8 @@ const SalaryView = {
     const loadStaffs = () => {
       apiService.getStaffs({ per_page: 1000, enabled: 'true' })
         .then((res) => {
-          staffOptions.value = res.items || res.data || [];
+          const data = res && res.records ? res.records : [];
+          staffOptions.value = Array.isArray(data) ? data : [];
         })
         .catch(() => {});
     };

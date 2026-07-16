@@ -133,7 +133,8 @@ const DashboardView = {
       try {
         const res = await apiService.getDashboard();
         stats.value = res || {};
-        topPending.value = res.top_pending || res.pending_list || [];
+        const pendingData = res && res.urgent_pending ? res.urgent_pending : [];
+        topPending.value = Array.isArray(pendingData) ? pendingData : [];
       } catch (e) {
         console.error('加载仪表盘失败', e);
       } finally {

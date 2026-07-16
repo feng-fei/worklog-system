@@ -256,7 +256,7 @@ const ProjectView = {
       status: [{ required: true, message: '请选择状态', trigger: 'change' }],
     };
 
-    const isAdmin = computed(() => appStore.isAdmin);
+    const isAdmin = computed(() => appStore.isAdmin.value);
     const dialogTitle = computed(() => (isEdit.value ? '编辑项目' : '新增项目'));
 
     const getStatusText = (status) => {
@@ -288,8 +288,9 @@ const ProjectView = {
       };
       apiService.getProjects(params)
         .then((res) => {
-          projects.value = res.items || res.data || [];
-          pagination.total = res.total || 0;
+          const data = res && res.records ? res.records : [];
+          projects.value = Array.isArray(data) ? data : [];
+          pagination.total = (res && res.total) || 0;
         })
         .catch(() => {
           ElementPlus.ElMessage.error('加载项目列表失败');
@@ -302,7 +303,8 @@ const ProjectView = {
     const loadCustomers = () => {
       apiService.getCustomers({ per_page: 1000 })
         .then((res) => {
-          customerOptions.value = res.items || res.data || [];
+          const data = res && res.records ? res.records : [];
+          customerOptions.value = Array.isArray(data) ? data : [];
         })
         .catch(() => {});
     };
@@ -310,7 +312,8 @@ const ProjectView = {
     const loadStaffs = () => {
       apiService.getStaffs({ per_page: 1000, enabled: 'true' })
         .then((res) => {
-          staffOptions.value = res.items || res.data || [];
+          const data = res && res.records ? res.records : [];
+          staffOptions.value = Array.isArray(data) ? data : [];
         })
         .catch(() => {});
     };

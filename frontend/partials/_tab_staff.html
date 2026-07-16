@@ -1,0 +1,89 @@
+<div class="tab-pane fade" id="tab-staff">
+<div class="container py-3">
+<div class="card card-accent-gray shadow-sm mb-3">
+<div class="card-header d-flex align-items-center gap-2"><i class="bi bi-person-plus-fill"></i><span class="fw-semibold">添加员工</span></div>
+<div class="card-body">
+<form id="staffForm">
+<div class="row g-2">
+<div class="col-md-3 col-6"><input type="text" class="form-control" name="name" placeholder="姓名 *" required></div>
+<div class="col-md-3 col-6"><input type="text" class="form-control" name="phone" placeholder="电话"></div>
+<div class="col-md-3 col-6">
+<select class="form-select" name="staff_type" id="staffAddType" onchange="onStaffAddTypeChange()">
+<option value="fixed">固定工</option>
+<option value="temp">临时工</option>
+</select>
+</div>
+<div class="col-md-3 col-6"><input type="text" class="form-control" name="position" placeholder="工种/职位"></div>
+</div>
+<div class="row g-2 mt-1">
+<div class="col-md-3 col-6" id="staffAddMonthlyCol"><input type="number" class="form-control" name="monthly_salary" step="1" min="0" placeholder="月薪(¥)" oninput="staffAddCalcDaily()"></div>
+<div class="col-md-3 col-6"><input type="number" class="form-control" name="daily_wage" step="1" min="0" placeholder="日薪(¥)" id="staffAddDaily" oninput="staffAddCalcMonthly()"></div>
+<div class="col-md-3 col-6"><input type="text" class="form-control" name="id_card" placeholder="身份证号"></div>
+<div class="col-md-3 col-6"><input type="date" class="form-control" name="hire_date"></div>
+</div>
+<div class="row g-2 mt-1">
+<div class="col-md-4"><input type="text" class="form-control" name="project" placeholder="所属项目"></div>
+<div class="col-md-6"><input type="text" class="form-control" name="remark" placeholder="备注"></div>
+<div class="col-md-2"><button type="submit" class="btn btn-primary w-100"><i class="bi bi-plus-lg"></i></button></div>
+</div>
+<!-- 固定工：开通登录账号 -->
+<div class="row g-2 mt-1 is-0" id="staffAddAccountSection">
+<div class="col-12"><hr class="my-1"><strong class="small"><i class="bi bi-shield me-1"></i>开通登录账号（固定工可选）</strong></div>
+<div class="col-md-4"><input type="text" class="form-control" name="acc_username" placeholder="用户名"></div>
+<div class="col-md-4"><input type="password" class="form-control" name="acc_password" placeholder="密码（留空不开通）"></div>
+<div class="col-md-4">
+<select class="form-select" name="acc_role"><option value="worker">员工</option><option value="admin">管理员</option></select>
+</div>
+</div>
+<!-- 身份证照片上传（添加后显示） -->
+<div id="staffIdPhotoSection" class="mt-2 is-0">
+<div class="d-flex align-items-center gap-2">
+<strong class="small">身份证照片:</strong>
+<img id="staffIdPhotoPreview" src="" class="is-2">
+<button class="btn btn-outline-primary btn-sm" onclick="document.getElementById('staffIdPhotoInput').click()"><i class="bi bi-upload"></i> 上传</button>
+<input type="file" id="staffIdPhotoInput" accept="image/*" onchange="uploadStaffPhoto('id_photo')" class="is-0">
+</div>
+<div class="d-flex align-items-center gap-2 mt-1">
+<strong class="small">职业证书照片:</strong>
+<img id="staffCertPhotoPreview" src="" class="is-2">
+<button class="btn btn-outline-primary btn-sm" onclick="document.getElementById('staffCertPhotoInput').click()"><i class="bi bi-upload"></i> 上传</button>
+<input type="file" id="staffCertPhotoInput" accept="image/*" onchange="uploadStaffPhoto('cert_photo')" class="is-0">
+</form>
+</div>
+</div></div></div>
+<div id="staffListContainer"></div></div></div>
+
+<!-- ====== 员工账户管理弹窗 ====== -->
+<div class="modal fade" id="staffUserModal" tabindex="-1">
+<div class="modal-dialog"><div class="modal-content">
+<div class="modal-header"><h5 class="modal-title" id="staffUserModalTitle">员工账户管理</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body">
+<form id="staffUserForm">
+<input type="hidden" name="staff_name" id="suStaffName">
+<input type="hidden" name="staff_id" id="suStaffId">
+<div class="mb-3"><label class="form-label fw500">用户名</label><input type="text" class="form-control" name="username" id="suUsername" placeholder="登录用户名"></div>
+<div class="mb-3"><label class="form-label fw500">密码</label><input type="password" class="form-control" name="password" id="suPassword" placeholder="最少4位" minlength="4"></div>
+<div class="mb-3"><label class="form-label fw500">权限</label>
+<div class="d-flex flex-column gap-2 p-3 bg-light rounded is-13">
+<label class="btn btn-outline-secondary text-start d-flex align-items-center gap-2 is-14" id="suAdminToggle">
+<input type="checkbox" id="suAdminCheck" onchange="onSuRoleChange()" class="is-15">
+<div class="d-flex flex-column"><strong>管理员</strong><small class="text-muted">员工管理、账户管理、系统设置、删除数据、查看全部内容</small></div>
+</label>
+<div class="ps-3 border-start border-2 is-16">
+<div class="py-1"><span class="badge bg-info me-2 is-1">✓</span> 工作记录（增删改查）</div>
+<div class="py-1"><span class="badge bg-info me-2 is-1">✓</span> 客户管理</div>
+<div class="py-1"><span class="badge bg-info me-2 is-1">✓</span> 待办管理</div>
+<div class="py-1"><span class="badge bg-info me-2 is-1">✓</span> 统计查看</div>
+<div id="suAdminExtras" class="is-0">
+<div class="py-1"><span class="badge bg-danger me-2 is-1">✦</span> 员工管理（增删改）</div>
+<div class="py-1"><span class="badge bg-danger me-2 is-1">✦</span> 登录账户管理</div>
+<div class="py-1"><span class="badge bg-danger me-2 is-1">✦</span> 删除任意记录</div>
+</div>
+</div>
+</div>
+<input type="hidden" name="role" id="suRole" value="worker"></div>
+<div class="d-flex gap-2"><button type="submit" class="btn btn-primary" id="suSubmitBtn"><i class="bi bi-check-lg me-1"></i>保存</button><button type="button" class="btn btn-outline-danger is-0" id="suDeleteBtn" onclick="deleteStaffUser()"><i class="bi bi-trash me-1"></i>删除账户</button></div>
+</form>
+</div></div></div></div>
+
+<!-- ====== 工作台 ====== -->

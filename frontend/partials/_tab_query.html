@@ -1,0 +1,50 @@
+<div class="tab-pane fade" id="tab-query">
+<div class="container py-3">
+<div class="card card-accent-blue shadow-sm mb-3">
+<div class="card-header d-flex align-items-center gap-2"><i class="bi bi-funnel-fill"></i><span class="fw-semibold">查询条件</span></div>
+<div class="card-body">
+<div class="row g-2">
+<div class="col-md-4"><label class="form-label fw500">客户</label><div class="customer-select-wrap">
+<input type="text" class="form-control" id="qCustomerName" autocomplete="off" placeholder="输入或选择" oninput="showCustomerDropdown(this)" onfocus="showCustomerDropdown(this)">
+<div class="customer-dropdown"></div>
+</div></div>
+<div class="col-md-3"><label class="form-label fw500">人员</label><select class="form-select" id="qStaffName"><option value="">不限</option></select></div>
+<div class="col-md-5">
+<label class="form-label fw500">日期范围</label>
+<div class="query-date-presets">
+<button class="btn btn-outline-primary" onclick="setQueryRange('today')">今天</button>
+<button class="btn btn-outline-primary" onclick="setQueryRange('thisWeek')">本周</button>
+<button class="btn btn-outline-primary" onclick="setQueryRange('thisMonth')">本月</button>
+<button class="btn btn-outline-primary" onclick="setQueryRange('lastMonth')">上月</button>
+</div>
+<div class="query-date-range">
+<label class="small text-muted">从</label>
+<input type="date" class="form-control form-control-sm is-4" id="qDateStart">
+<label class="small text-muted">至</label>
+<input type="date" class="form-control form-control-sm is-4" id="qDateEnd">
+</div>
+</div>
+<div class="col-12">
+<div class="query-chipbar" aria-label="快捷筛选">
+<button class="query-chip active" data-qtype="" onclick="setQueryType('', this)">全部工单</button>
+<button class="query-chip" data-qtype="construction" onclick="setQueryType('construction', this)">施工记录</button>
+<button class="query-chip" data-qtype="repair" onclick="setQueryType('repair', this)">维修工单</button>
+<button class="query-chip" onclick="setQueryPayment('unpaid', this)">未收款</button>
+<button class="query-chip" onclick="setQueryPayment('partial', this)">部分收款</button>
+<button class="query-chip" onclick="setQueryPayment('monthly', this)">月结</button>
+<button class="query-chip" onclick="setQueryStatus('callback', this)">待回访</button>
+<button class="query-chip" onclick="setQueryStatus('settlement', this)">待结算</button>
+</div>
+</div>
+<div class="col-12 mt-2 query-actions">
+<button class="btn btn-primary me-2" onclick="queryRecords()"><i class="bi bi-search me-1"></i>查询</button>
+<button class="btn btn-outline-secondary" onclick="resetQuery()"><i class="bi bi-arrow-counterclockwise me-1"></i>重置</button>
+<button class="btn btn-success me-2" onclick="exportRecords()"><i class="bi bi-download me-1"></i>CSV</button>
+<button class="btn btn-outline-primary" onclick="exportPdfRange()"><i class="bi bi-filetype-pdf me-1"></i>PDF</button>
+</div>
+</div></div></div>
+<div id="querySummary" class="query-summary-grid"></div>
+<div id="queryResults"></div>
+</div></div>
+
+<!-- ====== 客户 ====== -->

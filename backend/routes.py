@@ -737,6 +737,42 @@ def delete_staff(staff_id):
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
+
+@api_bp.route('/staffs/<int:staff_id>/toggle-enabled', methods=['POST'])
+@admin_required
+def toggle_staff_enabled(staff_id):
+    try:
+        staff = Staff.query.get_or_404(staff_id)
+        user = WorkerUser.query.filter_by(staff_name=staff.name).first()
+        if user:
+            user.enabled = not user.enabled
+            staff.status = 'active' if user.enabled else 'inactive'
+        else:
+            staff.status = 'inactive' if staff.status == 'active' else 'active'
+        db.session.commit()
+        return jsonify({'message': '状态已更新', 'enabled': user.enabled if user else (staff.status == 'active')})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/staffs/<int:staff_id>/reset-password', methods=['POST'])
+@admin_required
+def reset_staff_password(staff_id):
+    try:
+        staff = Staff.query.get_or_404(staff_id)
+        data = request.get_json() or {}
+        new_password = data.get('new_password') or data.get('password') or '123456'
+        user = WorkerUser.query.filter_by(staff_name=staff.name).first()
+        if not user:
+            return jsonify({'error': '该员工没有登录账号'}), 400
+        user.set_password(new_password)
+        db.session.commit()
+        return jsonify({'message': '密码重置成功'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
 @api_bp.route('/staffs/<int:staff_id>/id_photo', methods=['POST'])
 @admin_required
 def upload_id_photo(staff_id):
@@ -1234,7 +1270,16 @@ def get_records():
 @login_required
 def create_record():
     try:
-        customer_name = request.form.get('customer_name')
+        if request.is_json:
+            data = request.get_json() or {}
+            def get_val(key, default=''):
+                return data.get(key, default)
+        else:
+            data = request.form
+            def get_val(key, default=''):
+                return get_val(key, default)
+
+        customer_name = (get_val('customer_name') or '').strip()
         if not customer_name:
             return jsonify({'error': '客户名称不能为空'}), 400
 
@@ -1273,13 +1318,13 @@ def create_record():
                     print(f'No thumbnail: {e}')
                 photo_paths.append(f'/uploads/{filename}')
 
-        work_date_str = request.form.get('work_date')
+        work_date_str = get_val('work_date')
         work_date = datetime.strptime(work_date_str, '%Y-%m-%d') if work_date_str else datetime.now()
 
-        record_type = request.form.get('record_type', 'construction')
+        record_type = get_val('record_type', 'construction')
 
         def get_float(key):
-            v = request.form.get(key, '0')
+            v = get_val(key, '0')
             try:
                 return float(v) if v else 0.0
             except:
@@ -1291,7 +1336,7 @@ def create_record():
         transport = get_float('transport_fee')
         other = get_float('other_fee')
         
-        fee_items_raw = request.form.get('fee_items', '[]')
+        fee_items_raw = get_val('fee_items', '[]')
         try:
             fee_items = json.loads(fee_items_raw) if fee_items_raw else []
         except:
@@ -1304,58 +1349,58 @@ def create_record():
             transport = sum(item.get('subtotal', 0) for item in fee_items if item.get('type') == '交通')
             other = sum(item.get('subtotal', 0) for item in fee_items if item.get('type') not in ['人工', '材料', '设备', '交通'])
 
-        repair_result = request.form.get('repair_result', 'completed') if record_type == 'repair' else 'completed'
-        incomplete_reason_type = request.form.get('incomplete_reason_type', '') if repair_result == 'pending' else ''
-        incomplete_reason = request.form.get('incomplete_reason', '') if repair_result == 'pending' else ''
+        repair_result = get_val('repair_result', 'completed') if record_type == 'repair' else 'completed'
+        incomplete_reason_type = get_val('incomplete_reason_type', '') if repair_result == 'pending' else ''
+        incomplete_reason = get_val('incomplete_reason', '') if repair_result == 'pending' else ''
         if record_type == 'repair' and repair_result == 'pending' and not incomplete_reason.strip():
             return jsonify({'error': '未维修完成时必须填写原因说明'}), 400
 
         record = WorkRecord(
             customer_name=customer_name,
-            contact_name=request.form.get('contact_name', ''),
-            customer_phone=request.form.get('customer_phone', ''),
-            work_address=request.form.get('work_address', ''),
-            staff_name=request.form.get('staff_name', ''),
-            staff_names=request.form.get('staff_names', ''),
-            temp_staff_details=request.form.get('temp_staff_details', ''),
-            status=request.form.get('status', 'pending' if record_type == 'construction' else 'dispatched'),
+            contact_name=get_val('contact_name', ''),
+            customer_phone=get_val('customer_phone', ''),
+            work_address=get_val('work_address', ''),
+            staff_name=get_val('staff_name', ''),
+            staff_names=get_val('staff_names', ''),
+            temp_staff_details=get_val('temp_staff_details', ''),
+            status=get_val('status', 'pending' if record_type == 'construction' else 'dispatched'),
             record_type=record_type,
-            work_content=request.form.get('work_content', ''),
-            fault_description=request.form.get('fault_description', ''),
-            fault_diagnosis=request.form.get('fault_diagnosis', ''),
-            repair_process=request.form.get('repair_process', ''),
+            work_content=get_val('work_content', ''),
+            fault_description=get_val('fault_description', ''),
+            fault_diagnosis=get_val('fault_diagnosis', ''),
+            repair_process=get_val('repair_process', ''),
             repair_result=repair_result,
             incomplete_reason_type=incomplete_reason_type,
             incomplete_reason=incomplete_reason,
             work_date=work_date,
-            start_time=request.form.get('start_time', ''),
-            end_time=request.form.get('end_time', ''),
-            work_hours=float(request.form.get('work_hours', 0) or 0),
+            start_time=get_val('start_time', ''),
+            end_time=get_val('end_time', ''),
+            work_hours=float(get_val('work_hours', 0) or 0),
             labor_fee=labor,
             material_fee=material,
             equipment_fee_total=eq_fee,
             transport_fee=transport,
             other_fee=other,
             total_fee=labor + material + eq_fee + transport + other,
-            payment_status=request.form.get('payment_status', 'unpaid'),
+            payment_status=get_val('payment_status', 'unpaid'),
             paid_amount=get_float('paid_amount'),
-            work_subtype=request.form.get('work_subtype', ''),
-            priority=request.form.get('priority', 'normal'),
-            tax_type=request.form.get('tax_type', 'no'),
-            tax_rate=float(request.form.get('tax_rate', 0.03) or 0.03),
+            work_subtype=get_val('work_subtype', ''),
+            priority=get_val('priority', 'normal'),
+            tax_type=get_val('tax_type', 'no'),
+            tax_rate=float(get_val('tax_rate', 0.03) or 0.03),
             tax_amount=0,
             fee_items=json.dumps(fee_items, ensure_ascii=False) if fee_items else '',
-            remark=request.form.get('remark', ''),
+            remark=get_val('remark', ''),
             work_photos=','.join(photo_paths) if photo_paths else None,
             is_completed=True,
             created_by=get_login_user_name(),
-            involved_systems=request.form.get('involved_systems', ''),
-            service_category=request.form.get('service_category', ''),
-            warranty_status=request.form.get('warranty_status', 'none'),
-            warranty_days=int(request.form.get('warranty_days', 0) or 0),
-            accept_time=request.form.get('accept_time', ''),
-            customer_feedback=request.form.get('customer_feedback', ''),
-            satisfaction=request.form.get('satisfaction', '')
+            involved_systems=get_val('involved_systems', ''),
+            service_category=get_val('service_category', ''),
+            warranty_status=get_val('warranty_status', 'none'),
+            warranty_days=int(get_val('warranty_days', 0) or 0),
+            accept_time=get_val('accept_time', ''),
+            customer_feedback=get_val('customer_feedback', ''),
+            satisfaction=get_val('satisfaction', '')
         )
         # 计算税费（在_sync_equipment_details之前先算一次，后面_sync会重算覆盖为最终值）
         _sync_staff_name_from_staff_names(record)
@@ -1367,21 +1412,21 @@ def create_record():
         db.session.add(record)
         db.session.flush()
         _sync_salary_records_for_work(record)
-        _sync_equipment_details(record, request.form.get('equipment_details', '[]'))
+        _sync_equipment_details(record, get_val('equipment_details', '[]'))
         db.session.commit()
 
         # 维修未完成自动转待办
         if record_type == 'repair' and repair_result == 'pending':
             pending = PendingWork(
-                title=f'二次上门：{customer_name} - {request.form.get("work_subtype", "维修")}',
+                title=f'二次上门：{customer_name} - {get_val("work_subtype", "维修")}',
                 customer_name=customer_name,
-                contact_name=request.form.get('contact_name', ''),
-                contact_phone=request.form.get('customer_phone', ''),
-                work_address=request.form.get('work_address', ''),
-                staff_name=request.form.get('staff_name', ''),
+                contact_name=get_val('contact_name', ''),
+                contact_phone=get_val('customer_phone', ''),
+                work_address=get_val('work_address', ''),
+                staff_name=get_val('staff_name', ''),
                 todo_type='未完成维修',
-                priority=request.form.get('priority', 'normal'),
-                work_content=f'故障描述: {request.form.get("fault_description", "")}\n维修过程: {request.form.get("repair_process", "")}\n未完成原因: {incomplete_reason_type or "未分类"} - {incomplete_reason}',
+                priority=get_val('priority', 'normal'),
+                work_content=f'故障描述: {get_val("fault_description", "")}\n维修过程: {get_val("repair_process", "")}\n未完成原因: {incomplete_reason_type or "未分类"} - {incomplete_reason}',
                 reminder_date=work_date,
                 related_record_type='repair',
                 related_record_id=record.id
@@ -2361,7 +2406,12 @@ def get_expense_categories():
     try:
         _init_default_expense_categories()
         categories = ExpenseCategory.query.order_by(ExpenseCategory.sort_order, ExpenseCategory.id).all()
-        return jsonify({'categories': [c.to_dict() for c in categories]})
+        cat_list = [c.to_dict() for c in categories]
+        return jsonify({
+            'records': cat_list,
+            'categories': cat_list,
+            'total': len(cat_list)
+        })
     except Exception as e:
         if isinstance(e, HTTPException):
             raise
@@ -2385,6 +2435,34 @@ def add_expense_category():
             sort_order=data.get('sort_order', 0)
         )
         db.session.add(cat)
+        db.session.commit()
+        return jsonify(cat.to_dict())
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@api_bp.route('/expense-categories/<int:cat_id>', methods=['PUT'])
+@login_required
+@admin_required
+def update_expense_category(cat_id):
+    try:
+        cat = ExpenseCategory.query.get_or_404(cat_id)
+        data = request.get_json() or {}
+        if 'name' in data:
+            new_name = data['name'].strip()
+            if not new_name:
+                return jsonify({'error': '分类名称不能为空'}), 400
+            if cat.is_system:
+                old_expenses = Expense.query.filter_by(category=cat.name).all()
+                old_proj_expenses = ProjectExpense.query.filter_by(category=cat.name).all()
+                for e in old_expenses:
+                    e.category = new_name
+                for e in old_proj_expenses:
+                    e.category = new_name
+            cat.name = new_name
+        for field in ['expense_type', 'sort_order']:
+            if field in data:
+                setattr(cat, field, data[field])
         db.session.commit()
         return jsonify(cat.to_dict())
     except Exception as e:
@@ -3030,6 +3108,25 @@ def uploaded_file(filename):
     return send_from_directory(os.path.abspath(folder), filename)
 
 
+@api_bp.route('/upload', methods=['POST'])
+@login_required
+def upload_file():
+    """通用文件上传"""
+    try:
+        file = request.files.get('file')
+        if not file or not file.filename:
+            return jsonify({'error': '请选择文件'}), 400
+        if not allowed_file(file):
+            return jsonify({'error': '文件类型不支持'}), 400
+        upload_folder = current_app.config['UPLOAD_FOLDER']
+        filename = safe_filename(file.filename)
+        filepath = os.path.join(upload_folder, filename)
+        file.save(filepath)
+        return jsonify({'url': f'/uploads/{filename}', 'filename': filename})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 # ===================== 系统设置 =====================
 
 @api_bp.route('/settings', methods=['GET'])
@@ -3200,6 +3297,26 @@ def restore_backup():
         shutil.copy2(db_path, os.path.join(backup_dir, '_pre_restore.db'))
         shutil.copy2(src, db_path)
         return jsonify({'message': '数据库已恢复，请重启容器生效', 'restored_from': filename, 'hint': 'docker restart worklog-backend'})
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/backup/<filename>', methods=['DELETE'])
+@admin_required
+def delete_backup_file(filename):
+    """删除指定备份文件"""
+    try:
+        import os
+        backup_dir = '/app/data/backups'
+        filepath = os.path.join(backup_dir, filename)
+        if not os.path.exists(filepath):
+            return jsonify({'error': '备份文件不存在'}), 404
+        if '..' in filename or '/' in filename:
+            return jsonify({'error': '无效的文件名'}), 400
+        os.remove(filepath)
+        return jsonify({'message': '备份文件已删除'})
     except Exception as e:
         if isinstance(e, HTTPException):
             raise

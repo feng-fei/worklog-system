@@ -323,8 +323,10 @@ const SettingsView = {
     const loadSystemSettings = async () => {
       try {
         const res = await apiService.getSystemSettings();
-        if (res && res.settings) {
-          Object.assign(systemForm, res.settings);
+        if (res && typeof res === 'object') {
+          if (res.oplog_retention_days) systemForm.oplog_retention_days = parseInt(res.oplog_retention_days) || 90;
+          if (res.default_min_stock) systemForm.default_min_stock = parseFloat(res.default_min_stock) || 10;
+          if (res.system_name) systemForm.system_name = res.system_name;
         }
       } catch (e) {
         console.error('加载系统设置失败', e);
@@ -334,9 +336,11 @@ const SettingsView = {
     const saveSystemSettings = async () => {
       saving.value = true;
       try {
-        for (const [key, value] of Object.entries(systemForm)) {
-          await apiService.updateSystemSetting(key, value);
-        }
+        await apiService.updateSystemSettings({
+          oplog_retention_days: systemForm.oplog_retention_days,
+          default_min_stock: systemForm.default_min_stock,
+          system_name: systemForm.system_name,
+        });
         ElMessage.success('保存成功');
       } catch (e) {
         console.error('保存设置失败', e);
@@ -360,10 +364,12 @@ const SettingsView = {
           params.end_date = oplogDateRange.value[1];
         }
         const res = await apiService.getOperationLogs(params);
-        operationLogs.value = res.records || res.data || res.logs || [];
-        oplogPagination.total = res.total || 0;
+        const records = res && res.records ? res.records : [];
+        operationLogs.value = Array.isArray(records) ? records : [];
+        oplogPagination.total = (res && res.total) || 0;
       } catch (e) {
         console.error('加载操作日志失败', e);
+        operationLogs.value = [];
       } finally {
         oplogLoading.value = false;
       }
@@ -390,7 +396,7 @@ const SettingsView = {
     };
 
     const viewLogDetail = (row) => {
-      currentLog.value = row;
+      currentLog.value = row || {};
       logDetailVisible.value = true;
     };
 
@@ -413,9 +419,11 @@ const SettingsView = {
       backupLoading.value = true;
       try {
         const res = await apiService.getBackupList();
-        backupList.value = res.records || res.data || res.backups || [];
+        const records = res && res.records ? res.records : (Array.isArray(res) ? res : []);
+        backupList.value = Array.isArray(records) ? records : [];
       } catch (e) {
         console.error('加载备份列表失败', e);
+        backupList.value = [];
       } finally {
         backupLoading.value = false;
       }
@@ -435,12 +443,12 @@ const SettingsView = {
     };
 
     const downloadBackup = (row) => {
-      ElMessage.info('下载备份: ' + row.filename);
+      ElMessage.info('下载备份: ' + (row && row.filename ? row.filename : ''));
     };
 
     const restoreBackup = async (row) => {
       try {
-        await ElMessageBox.confirm(`确定从备份"${row.filename}"恢复数据吗？当前数据将被覆盖，建议先创建新备份。`, '警告', {
+        await ElMessageBox.confirm(`确定从备份"${row && row.filename ? row.filename : ''}"恢复数据吗？当前数据将被覆盖，建议先创建新备份。`, '警告', {
           type: 'error',
           confirmButtonText: '确定恢复',
           cancelButtonText: '取消',
@@ -453,7 +461,7 @@ const SettingsView = {
 
     const deleteBackup = async (row) => {
       try {
-        await ElMessageBox.confirm(`确定删除备份"${row.filename}"吗？`, '提示', {
+        await ElMessageBox.confirm(`确定删除备份"${row && row.filename ? row.filename : ''}"吗？`, '提示', {
           type: 'warning',
           confirmButtonText: '确定删除',
           cancelButtonText: '取消',

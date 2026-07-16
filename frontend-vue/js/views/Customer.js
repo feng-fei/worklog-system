@@ -157,8 +157,9 @@ const CustomerView = {
         };
         if (filters.keyword) params.keyword = filters.keyword;
         const res = await apiService.getCustomers(params);
-        customers.value = res.records || res.data || res.customers || [];
-        pagination.total = res.total || 0;
+        const data = res && res.records ? res.records : [];
+        customers.value = Array.isArray(data) ? data : [];
+        pagination.total = (res && res.total) || 0;
       } catch (e) {
         console.error('加载客户列表失败', e);
       } finally {

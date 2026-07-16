@@ -216,8 +216,9 @@ const RecordListView = {
           params.end_date = dateRange.value[1];
         }
         const res = await apiService.getRecords(params);
-        records.value = res.records || res.data || [];
-        pagination.total = res.total || 0;
+        const data = res && res.records ? res.records : [];
+        records.value = Array.isArray(data) ? data : [];
+        pagination.total = (res && res.total) || 0;
       } catch (e) {
         console.error('加载工单列表失败', e);
       } finally {
@@ -247,15 +248,15 @@ const RecordListView = {
     };
 
     const handleCreate = () => {
-      ElMessage.info('新建工单功能开发中');
+      router.push('/records/create');
     };
 
     const handleView = (row) => {
-      ElMessage.info('查看工单 ' + row.order_no);
+      router.push('/records/' + row.id);
     };
 
     const handleEdit = (row) => {
-      ElMessage.info('编辑工单 ' + row.order_no);
+      router.push('/records/' + row.id);
     };
 
     const handleDelete = async (row) => {

@@ -1,0 +1,31 @@
+<div class="tab-pane fade" id="tab-salary">
+<div class="container py-3">
+<div class="card card-accent-green shadow-sm mb-3">
+<div class="card-header d-flex align-items-center gap-2"><i class="bi bi-cash-coin"></i><span class="fw-semibold">新增工资记录</span></div>
+<div class="card-body">
+<form id="salaryForm">
+<div class="row g-2">
+<div class="col-md-3"><label class="form-label fw500">员工</label><select class="form-select" name="staff_name" id="salaryStaff" required><option value="">请选择</option></select></div>
+<div class="col-md-2"><label class="form-label fw500">工作日期</label><input type="date" class="form-control" name="work_date" id="salaryDate"></div>
+<div class="col-md-2"><label class="form-label fw500">日薪</label><input type="number" class="form-control" name="daily_wage" id="salaryDaily" min="0" step="1" value="0" oninput="calcSalaryForm()"></div>
+<div class="col-md-2"><label class="form-label fw500">天数/工时</label><input type="number" class="form-control" name="work_units" id="salaryUnits" min="0" step="0.5" value="1" oninput="calcSalaryForm()"></div>
+<div class="col-md-3"><label class="form-label fw500">应发金额</label><input type="text" class="form-control fw-bold" id="salaryPayable" value="0.00" readonly></div>
+<div class="col-md-3"><label class="form-label fw500">业务类型</label><select class="form-select" name="business_type"><option>其他</option><option>施工记录</option><option>维修工单</option></select></div>
+<div class="col-md-3"><label class="form-label fw500">业务编号</label><input type="text" class="form-control" name="business_no"></div>
+<div class="col-md-3"><label class="form-label fw500">客户</label><input type="text" class="form-control" name="customer_name"></div>
+<div class="col-md-3"><label class="form-label fw500">支付方式</label><select class="form-select" name="payment_method"><option value="">未选择</option><option>现金</option><option>微信</option><option>支付宝</option><option>转账</option></select></div>
+<div class="col-12"><label class="form-label fw500">工作内容/备注</label><input type="text" class="form-control" name="work_content"></div>
+</div>
+<button type="submit" class="btn btn-success w-100 mt-3"><i class="bi bi-check-lg me-1"></i>保存工资记录</button>
+</form></div></div>
+<div class="card shadow-sm mb-3"><div class="card-body">
+<div class="row g-2 align-items-end">
+<div class="col-md-3"><label class="form-label fw500">月份</label><input type="month" class="form-control" id="salaryMonth"></div>
+<div class="col-md-3"><label class="form-label fw500">状态</label><select class="form-select" id="salaryStatus"><option value="">全部</option><option value="unsettled">未结算</option><option value="settled">已结算</option></select></div>
+<div class="col-md-3"><button class="btn btn-primary w-100" onclick="loadSalaries()">查询工资</button></div>
+</div></div></div>
+<div id="salarySummary" class="row g-3 mb-3"></div>
+<div id="salaryList"></div>
+</div></div>
+
+<!-- ====== 查询 ====== -->

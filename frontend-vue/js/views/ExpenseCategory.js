@@ -69,14 +69,19 @@ const ExpenseCategoryView = {
       name: [{ required: true, message: '请输入分类名称', trigger: 'blur' }],
     };
 
-    const isAdmin = computed(() => appStore.isAdmin);
+    const isAdmin = computed(() => appStore.isAdmin.value);
     const dialogTitle = computed(() => (isEdit.value ? '编辑分类' : '新增分类'));
 
     const loadData = () => {
       loading.value = true;
       apiService.getExpenseCategories()
         .then((res) => {
-          categories.value = res.items || res.data || res || [];
+          let data = [];
+          if (res) {
+            if (res.records) data = res.records;
+            else if (Array.isArray(res)) data = res;
+          }
+          categories.value = Array.isArray(data) ? data : [];
         })
         .catch(() => {
           ElementPlus.ElMessage.error('加载分类列表失败');

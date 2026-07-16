@@ -1,0 +1,20 @@
+<div class="tab-pane fade" id="tab-stats">
+<div class="container py-3">
+<div class="card card-accent-green shadow-sm mb-3">
+<div class="card-header d-flex align-items-center gap-2"><i class="bi bi-calendar-range-fill"></i><span class="fw-semibold">统计周期</span></div>
+<div class="card-body">
+<div class="row g-2 align-items-end">
+<div class="col-md-3"><label class="form-label fw500">开始</label><input type="date" class="form-control" id="statsStart"></div>
+<div class="col-md-3"><label class="form-label fw500">结束</label><input type="date" class="form-control" id="statsEnd"></div>
+<div class="col-md-3">
+<div class="btn-group btn-group-sm w-100">
+<button class="btn btn-outline-primary" onclick="setStatsRange('thisMonth')">本月</button>
+<button class="btn btn-outline-primary" onclick="setStatsRange('lastMonth')">上月</button>
+<button class="btn btn-outline-primary" onclick="setStatsRange('thisYear')">今年</button>
+</div>
+</div>
+<div class="col-md-3"><button class="btn btn-primary w-100" onclick="loadStatistics()"><i class="bi bi-arrow-repeat me-1"></i>刷新</button></div>
+</div></div></div>
+<div id="statsContent"></div></div></div>
+
+<!-- ====== 员工 ====== -->

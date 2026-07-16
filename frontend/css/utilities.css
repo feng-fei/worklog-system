@@ -1,0 +1,126 @@
+/* ===== utilities.css — 工具类（is-*等） ===== */
+
+.text-muted {
+    color:#64748b !important;
+}
+
+.is-0 {
+    display:none};
+}
+
+.is-1 {
+    font-size:.7rem};
+}
+
+.is-2 {
+    max-width:120px;max-height:80px;border-radius:4px;display:none};
+}
+
+.is-3 {
+    cursor:pointer};
+}
+
+.is-4 {
+    max-width:160px};
+}
+
+.is-5 {
+    display:none;width:48px;height:48px;background:rgba(255,255,255,.1);z-index:10;border-radius:50%};
+}
+
+.is-6 {
+    background:transparent;font-size:18px};
+}
+
+.is-7 {
+    background:transparent};
+}
+
+.is-8 {
+    width:100%;max-width:400px;border-radius:16px;border:none};
+}
+
+.is-9 {
+    color:#0d6efd};
+}
+
+.is-10 {
+    font-size:12px};
+}
+
+.is-11 {
+    font-size:clamp(14px,3vw,20px)};
+}
+
+.is-12 {
+    display:none;position:relative;top:1px};
+}
+
+.is-13 {
+    border:1px solid #e5e7eb};
+}
+
+.is-14 {
+    border-radius:8px;padding:.5rem .75rem;cursor:pointer};
+}
+
+.is-15 {
+    width:18px;height:18px};
+}
+
+.is-16 {
+    border-color:#d1d5db !important};
+}
+
+.is-17 {
+    color:#d97706};
+}
+
+.is-18 {
+    font-size:.78rem;cursor:pointer};
+}
+
+.is-19 {
+    display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.95);align-items:center;justify-content:center;flex-direction:column};
+}
+
+.is-20 {
+    position:absolute;top:16px;right:16px;z-index:10};
+}
+
+.is-21 {
+    width:40px;height:40px;background:rgba(255,255,255,.15)};
+}
+
+.is-22 {
+    position:absolute;top:20px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.6);font-size:14px;z-index:10};
+}
+
+.is-23 {
+    flex:1;display:flex;align-items:center;justify-content:center;width:100%;overflow:hidden;cursor:grab;position:relative};
+}
+
+.is-24 {
+    max-width:90%;max-height:85vh;transition:transform .15s;user-select:none;-webkit-user-drag:none;pointer-events:none};
+}
+
+.is-25 {
+    position:absolute;bottom:32px;left:50%;transform:translateX(-50%);z-index:10;display:flex;gap:12px;align-items:center;background:rgba(255,255,255,.08);backdrop-filter:blur(8px);padding:8px 16px;border-radius:50px};
+}
+
+.is-26 {
+    background:transparent;font-size:14px};
+}
+
+.is-27 {
+    font-size:13px;opacity:.5};
+}
+
+.is-28 {
+    border-radius:6px;padding:.3rem .6rem;cursor:pointer;font-size:.82rem};
+}
+
+.is-29 {
+    width:16px;height:16px};
+}
+

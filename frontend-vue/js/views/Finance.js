@@ -7,7 +7,7 @@ const FinanceView = {
           <el-col :span="6">
             <div class="stat-card">
               <div class="stat-label">本月收入</div>
-              <div class="stat-value success">¥{{ formatMoney(stats.month_income || 0) }}</div>
+              <div class="stat-value success">¥{{ formatMoney(stats.month_payment || 0) }}</div>
               <div class="stat-sub">当月实际收款</div>
             </div>
           </el-col>
@@ -28,7 +28,7 @@ const FinanceView = {
           <el-col :span="6">
             <div class="stat-card">
               <div class="stat-label">应收账款</div>
-              <div class="stat-value warning">¥{{ formatMoney(stats.receivable || 0) }}</div>
+              <div class="stat-value warning">¥{{ formatMoney(stats.unpaid_amount || 0) }}</div>
               <div class="stat-sub">待收工单款项</div>
             </div>
           </el-col>
@@ -523,7 +523,7 @@ const FinanceView = {
 
     const loadOverview = async () => {
       try {
-        const res = await apiService.getStatistics();
+        const res = await apiService.getDashboard();
         stats.value = res || {};
       } catch (e) {
         console.error('加载财务概览失败', e);
@@ -544,8 +544,9 @@ const FinanceView = {
           params.end_date = paymentDateRange.value[1];
         }
         const res = await apiService.getPayments(params);
-        payments.value = res.records || res.data || [];
-        paymentPagination.total = res.total || 0;
+        const data = res && res.records ? res.records : [];
+        payments.value = Array.isArray(data) ? data : [];
+        paymentPagination.total = (res && res.total) || 0;
       } catch (e) {
         console.error('加载收款列表失败', e);
       } finally {
@@ -651,8 +652,9 @@ const FinanceView = {
           params.end_date = expenseDateRange.value[1];
         }
         const res = await apiService.getExpenses(params);
-        expenses.value = res.records || res.data || res.expenses || [];
-        expensePagination.total = res.total || 0;
+        const data = res && res.records ? res.records : [];
+        expenses.value = Array.isArray(data) ? data : [];
+        expensePagination.total = (res && res.total) || 0;
       } catch (e) {
         console.error('加载支出列表失败', e);
       } finally {
@@ -754,8 +756,10 @@ const FinanceView = {
         }
         const res = await apiService.getProfitStatistics(params);
         profitStats.value = res || {};
-        incomeBreakdown.value = res.income_breakdown || [];
-        expenseBreakdown.value = res.expense_breakdown || [];
+        const incomeData = res && res.income_breakdown ? res.income_breakdown : [];
+        incomeBreakdown.value = Array.isArray(incomeData) ? incomeData : [];
+        const expenseData = res && res.expense_breakdown ? res.expense_breakdown : [];
+        expenseBreakdown.value = Array.isArray(expenseData) ? expenseData : [];
       } catch (e) {
         console.error('加载利润统计失败', e);
       }

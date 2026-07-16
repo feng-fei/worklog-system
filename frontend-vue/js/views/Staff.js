@@ -225,7 +225,7 @@ const StaffView = {
       ],
     };
 
-    const isAdmin = computed(() => appStore.isAdmin);
+    const isAdmin = computed(() => appStore.isAdmin.value);
 
     const dialogTitle = computed(() => (isEdit.value ? '编辑员工' : '新增员工'));
 
@@ -238,8 +238,9 @@ const StaffView = {
       };
       apiService.getStaffs(params)
         .then((res) => {
-          staffList.value = res.items || res.data || [];
-          pagination.total = res.total || 0;
+          const data = res && res.records ? res.records : [];
+          staffList.value = Array.isArray(data) ? data : [];
+          pagination.total = (res && res.total) || 0;
         })
         .catch(() => {
           ElementPlus.ElMessage.error('加载员工列表失败');

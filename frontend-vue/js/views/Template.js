@@ -183,7 +183,7 @@ const TemplateView = {
       record_type: [{ required: true, message: '请选择工单类型', trigger: 'change' }],
     };
 
-    const isAdmin = computed(() => appStore.isAdmin);
+    const isAdmin = computed(() => appStore.isAdmin.value);
     const dialogTitle = computed(() => (isEdit.value ? '编辑模板' : '新增模板'));
 
     const loadData = () => {
@@ -195,8 +195,9 @@ const TemplateView = {
       };
       apiService.getWorkTemplates(params)
         .then((res) => {
-          templates.value = res.items || res.data || [];
-          pagination.total = res.total || 0;
+          const data = res && res.records ? res.records : [];
+          templates.value = Array.isArray(data) ? data : [];
+          pagination.total = (res && res.total) || 0;
         })
         .catch(() => {
           ElementPlus.ElMessage.error('加载模板列表失败');

@@ -1,0 +1,58 @@
+<!-- 顶部导航 -->
+<nav class="navbar navbar-light navbar-expand-lg sticky-top ry-appbar" aria-label="主导航">
+<div class="container-fluid px-3">
+<a class="navbar-brand d-flex align-items-center gap-2" href="#">
+<i class="bi bi-journal-bookmark-fill fs-4" aria-hidden="true"></i>
+<span class="text-nowrap fw-bold is-11" id="companyTitle">瑞翼工作台</span>
+</a>
+<button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu" aria-label="打开导航菜单"><span class="navbar-toggler-icon"></span></button>
+<div class="collapse navbar-collapse" id="navMenu">
+<ul class="navbar-nav ms-auto gap-1">
+<li class="nav-item"><a class="nav-link" onclick="switchTab('tab-dashboard')" role="tab"><i class="bi bi-speedometer2 me-1"></i>工作台</a></li>
+<li class="nav-item dropdown">
+<a class="nav-link" href="#" id="businessDropdown" role="button" data-bs-toggle="dropdown"><i class="bi bi-grid-1x2 me-1"></i>业务</a>
+<ul class="dropdown-menu dropdown-menu-end ry-nav-menu">
+<li><h6 class="dropdown-header">新增与处理</h6></li>
+<li><a class="dropdown-item" href="#" onclick="openNewWork('construction')"><i class="bi bi-tools me-2"></i>施工记录</a></li>
+<li><a class="dropdown-item" href="#" onclick="openNewWork('repair')"><i class="bi bi-wrench-adjustable me-2"></i>维修工单</a></li>
+<li><a class="dropdown-item" href="#" onclick="switchTab('tab-pending')"><i class="bi bi-clock-history me-2"></i>报修待办 <span class="badge bg-danger rounded-pill ms-1 is-12" id="pendingBadge">0</span></a></li>
+</ul>
+</li>
+<li class="nav-item dropdown">
+<a class="nav-link" href="#" id="insightDropdown" role="button" data-bs-toggle="dropdown"><i class="bi bi-bar-chart-line me-1"></i>查询统计</a>
+<ul class="dropdown-menu dropdown-menu-end ry-nav-menu">
+<li><h6 class="dropdown-header">查询</h6></li>
+<li><a class="dropdown-item" href="#" onclick="switchTab('tab-query')"><i class="bi bi-search me-2"></i>工单查询</a></li>
+<li><a class="dropdown-item" href="#" onclick="switchTab('tab-calendar')"><i class="bi bi-calendar3 me-2"></i>日历视图</a></li>
+<li><hr class="dropdown-divider"></li>
+<li><h6 class="dropdown-header">统计</h6></li>
+<li><a class="dropdown-item" href="#" onclick="switchTab('tab-stats')"><i class="bi bi-graph-up me-2"></i>经营统计</a></li>
+</ul>
+</li>
+<li class="nav-item dropdown">
+<a class="nav-link" href="#" id="manageDropdown" role="button" data-bs-toggle="dropdown"><i class="bi bi-folder2-open me-1"></i>管理</a>
+<ul class="dropdown-menu dropdown-menu-end ry-nav-menu">
+<li><h6 class="dropdown-header">资料</h6></li>
+<li><a class="dropdown-item" href="#" onclick="switchTab('tab-customer')"><i class="bi bi-people me-2"></i>客户</a></li>
+<li><a class="dropdown-item" href="#" onclick="switchTab('tab-staff')"><i class="bi bi-person-badge me-2"></i>员工</a></li>
+<li><a class="dropdown-item" href="#" onclick="switchTab('tab-salary')"><i class="bi bi-cash-coin me-2"></i>工资</a></li>
+</ul>
+</li>
+
+<li class="nav-item dropdown">
+<a class="nav-link" href="#" id="settingsDropdown" role="button" data-bs-toggle="dropdown"><i class="bi bi-gear me-1"></i>设置</a>
+<ul class="dropdown-menu dropdown-menu-end">
+<li><span class="dropdown-item-text text-muted small" id="dropdownUserInfo"></span></li>
+<li><hr class="dropdown-divider"></li>
+<li><a class="dropdown-item" href="#" onclick="showChangePasswordModal()"><i class="bi bi-key me-2"></i>修改密码</a></li>
+<li><a class="dropdown-item" href="#" onclick="showBackupModal()"><i class="bi bi-cloud-arrow-down me-2"></i>数据备份</a></li>
+<li><a class="dropdown-item" href="#" onclick="switchTab('tab-template')"><i class="bi bi-file-earmark-spreadsheet me-2"></i>模板管理</a></li>
+<li><hr class="dropdown-divider"></li>
+<li><a class="dropdown-item text-danger" href="#" onclick="doLogout()"><i class="bi bi-box-arrow-right me-2"></i>退出登录</a></li>
+</ul>
+</li>
+</ul>
+</div></div></nav>
+
+
+

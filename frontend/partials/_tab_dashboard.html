@@ -1,0 +1,32 @@
+<div class="tab-pane fade show active" id="tab-dashboard">
+<div class="container py-3">
+<div class="row g-3 mb-3" id="dashboardStats">
+<div class="col-6 col-md-2"><div class="stat-card"><div class="sc-number" id="dsTodayConstruction">0</div><div class="sc-label">今日施工</div></div></div>
+<div class="col-6 col-md-2"><div class="stat-card"><div class="sc-number" id="dsTodayRepair">0</div><div class="sc-label">今日维修</div></div></div>
+<div class="col-6 col-md-2"><div class="stat-card"><div class="sc-number" id="dsPendingCount">0</div><div class="sc-label">超期待办</div></div></div>
+<div class="col-6 col-md-3"><div class="stat-card"><div class="sc-number" id="dsUnpaidAmount">¥0</div><div class="sc-label">待收款金额</div></div></div>
+<div class="col-6 col-md-3"><div class="stat-card"><div class="sc-number" id="dsUnpaidSalary">¥0</div><div class="sc-label">待发工资</div></div></div>
+</div>
+<div class="d-flex gap-2 flex-wrap mb-3">
+<a class="btn btn-success is-3" onclick="openNewWork('construction')"><i class="bi bi-tools me-1"></i>新增施工</a>
+<a class="btn btn-warning is-3" onclick="openNewWork('repair')"><i class="bi bi-wrench-adjustable me-1"></i>新增维修</a>
+<a class="btn btn-outline-warning is-3" onclick="switchTab('tab-pending')"><i class="bi bi-clock me-1"></i>新增报修</a>
+<a class="btn btn-outline-success is-3" onclick="switchTab('tab-salary')"><i class="bi bi-cash-coin me-1"></i>新增工资</a>
+</div>
+<div class="row g-3 mt-0">
+<div class="col-md-7">
+<div class="card card-accent-blue shadow-sm"><div class="card-header"><i class="bi bi-list-check me-1"></i>今日工单</div><div class="card-body" id="dashboardTodayList"><div class="text-muted small py-2">加载中...</div></div></div>
+</div>
+<div class="col-md-5">
+<div class="card card-accent-orange shadow-sm" id="dsPendingCard">
+<div class="card-header d-flex align-items-center gap-2">
+<i class="bi bi-exclamation-triangle-fill is-17"></i><span class="fw-semibold">待办事项</span>
+<a class="ms-auto text-muted is-18" onclick="switchTab('tab-pending')">查看全部 <i class="bi bi-arrow-right"></i></a>
+</div>
+<div class="card-body" id="dashboardPendingList"><div class="text-muted small py-2">加载中...</div></div>
+</div>
+</div>
+</div>
+</div></div>
+
+<!-- ====== 日历 ====== -->

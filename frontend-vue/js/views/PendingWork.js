@@ -264,8 +264,9 @@ const PendingWorkView = {
           params.end_date = dateRange.value[1];
         }
         const res = await apiService.getPendingWorks(params);
-        pendings.value = res.records || res.data || res.pending_works || [];
-        pagination.total = res.total || 0;
+        const data = res && res.records ? res.records : [];
+        pendings.value = Array.isArray(data) ? data : [];
+        pagination.total = (res && res.total) || 0;
       } catch (e) {
         console.error('加载待办列表失败', e);
       } finally {

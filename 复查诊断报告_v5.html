@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Worklog系统复查诊断报告 v5</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif; }
+  body { background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); min-height: 100vh; }
+  .glass { background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.5); }
+  .status-done { background: linear-gradient(135deg, #10b981, #059669); }
+  .status-warn { background: linear-gradient(135deg, #f59e0b, #d97706); }
+  .status-danger { background: linear-gradient(135deg, #ef4444, #dc2626); }
+  .status-info { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+  .card-hover { transition: all 0.3s ease; }
+  .card-hover:hover { transform: translateY(-2px); box-shadow: 0 20px 40px rgba(0,0,0,0.08); }
+  .progress-bar { height: 8px; border-radius: 4px; background: #e2e8f0; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 4px; transition: width 1s ease; }
+  .tab-btn { transition: all 0.2s ease; }
+  .tab-btn.active { background: #1e293b; color: white; }
+  .tab-btn:not(.active):hover { background: #f1f5f9; }
+  .fade-in { animation: fadeIn 0.5s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .timeline-item::before { content: ''; position: absolute; left: -21px; top: 8px; width: 12px; height: 12px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .timeline-done::before { background: #10b981; }
+  .timeline-warn::before { background: #f59e0b; }
+  .timeline-danger::before { background: #ef4444; }
+  .badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 12px; font-weight: 500; }
+  .scroll-smooth { scroll-behavior: smooth; }
+</style>
+</head>
+<body class="scroll-smooth">
+<div id="app" class="min-h-screen">
+
+  <!-- 顶部导航 -->
+  <nav class="glass sticky top-0 z-50 border-b border-slate-200/50">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-lg">W</div>
+        <div>
+          <h1 class="text-lg font-semibold text-slate-800">Worklog 复查诊断报告</h1>
+          <p class="text-xs text-slate-500">v5.0 · 2026-07-16 · 基于 v4 诊断报告复查</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-4">
+        <span class="badge bg-emerald-100 text-emerald-700">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span>
+          系统运行正常
+        </span>
+        <div class="text-sm text-slate-600">综合评分 <span class="font-bold text-slate-800">7.2</span> / 10</div>
+      </div>
+    </div>
+  </nav>
+
+  <div class="max-w-7xl mx-auto px-6 py-8">
+
+    <!-- 概览卡片 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+      <div class="glass rounded-2xl p-6 card-hover shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <div class="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
+            <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+          </div>
+          <span class="text-3xl font-bold text-emerald-600">28</span>
+        </div>
+        <h3 class="text-slate-800 font-semibold mb-1">已完成优化</h3>
+        <p class="text-sm text-slate-500">诊断报告中的主要问题项</p>
+        <div class="progress-bar mt-3">
+          <div class="progress-fill bg-gradient-to-r from-emerald-400 to-emerald-600" style="width: 65%"></div>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">完成率 65%</p>
+      </div>
+
+      <div class="glass rounded-2xl p-6 card-hover shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <div class="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
+            <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+          </div>
+          <span class="text-3xl font-bold text-amber-600">9</span>
+        </div>
+        <h3 class="text-slate-800 font-semibold mb-1">待优化项</h3>
+        <p class="text-sm text-slate-500">中低优先级，需持续改进</p>
+        <div class="progress-bar mt-3">
+          <div class="progress-fill bg-gradient-to-r from-amber-400 to-amber-600" style="width: 21%"></div>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">占比 21%</p>
+      </div>
+
+      <div class="glass rounded-2xl p-6 card-hover shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <div class="w-12 h-12 rounded-xl bg-rose-100 flex items-center justify-center">
+            <svg class="w-6 h-6 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          </div>
+          <span class="text-3xl font-bold text-rose-600">6</span>
+        </div>
+        <h3 class="text-slate-800 font-semibold mb-1">遗漏/未到位</h3>
+        <p class="text-sm text-slate-500">高优先级，建议尽快修复</p>
+        <div class="progress-bar mt-3">
+          <div class="progress-fill bg-gradient-to-r from-rose-400 to-rose-600" style="width: 14%"></div>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">占比 14%</p>
+      </div>
+
+      <div class="glass rounded-2xl p-6 card-hover shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <div class="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center">
+            <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+          </div>
+          <span class="text-3xl font-bold text-indigo-600">8</span>
+        </div>
+        <h3 class="text-slate-800 font-semibold mb-1">新增建议</h3>
+        <p class="text-sm text-slate-500">本次复查新发现的优化点</p>
+        <div class="progress-bar mt-3">
+          <div class="progress-fill bg-gradient-to-r from-indigo-400 to-indigo-600" style="width: 19%"></div>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">新增项</p>
+      </div>
+    </div>
+
+    <!-- 评分对比雷达图 -->
+    <div class="glass rounded-2xl p-8 mb-10 shadow-sm">
+      <h2 class="text-xl font-semibold text-slate-800 mb-6 flex items-center gap-2">
+        <span class="w-1 h-6 rounded-full bg-gradient-to-b from-indigo-500 to-purple-600"></span>
+        评分对比：v4 诊断 vs v5 复查
+      </h2>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div class="h-80">
+          <canvas id="radarChart"></canvas>
+        </div>
+        <div class="space-y-4">
+          <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50">
+            <div class="flex items-center gap-3">
+              <span class="text-slate-600">功能完整性</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-sm text-slate-500 line-through">7.5</span>
+              <span class="text-lg font-bold text-emerald-600">8.0</span>
+              <span class="badge bg-emerald-100 text-emerald-700 text-xs">+0.5</span>
+            </div>
+          </div>
+          <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50">
+            <div class="flex items-center gap-3">
+              <span class="text-slate-600">权限安全</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-sm text-slate-500 line-through">6.5</span>
+              <span class="text-lg font-bold text-emerald-600">7.8</span>
+              <span class="badge bg-emerald-100 text-emerald-700 text-xs">+1.3</span>
+            </div>
+          </div>
+          <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50">
+            <div class="flex items-center gap-3">
+              <span class="text-slate-600">数据一致性</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-sm text-slate-500 line-through">5.0</span>
+              <span class="text-lg font-bold text-emerald-600">7.0</span>
+              <span class="badge bg-emerald-100 text-emerald-700 text-xs">+2.0</span>
+            </div>
+          </div>
+          <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50">
+            <div class="flex items-center gap-3">
+              <span class="text-slate-600">代码可维护性</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-sm text-slate-500 line-through">4.0</span>
+              <span class="text-lg font-bold text-emerald-600">6.5</span>
+              <span class="badge bg-emerald-100 text-emerald-700 text-xs">+2.5</span>
+            </div>
+          </div>
+          <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50">
+            <div class="flex items-center gap-3">
+              <span class="text-slate-600">用户体验</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-sm text-slate-500 line-through">6.0</span>
+              <span class="text-lg font-bold text-emerald-600">7.2</span>
+              <span class="badge bg-emerald-100 text-emerald-700 text-xs">+1.2</span>
+            </div>
+          </div>
+          <div class="flex items-center justify-between p-3 rounded-xl bg-indigo-50 border border-indigo-100">
+            <div class="flex items-center gap-3">
+              <span class="text-indigo-700 font-medium">综合评分</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-sm text-indigo-400 line-through">5.9</span>
+              <span class="text-2xl font-bold text-indigo-600">7.2</span>
+              <span class="badge bg-indigo-200 text-indigo-700">+1.3</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 导航 -->
+    <div class="flex flex-wrap gap-2 mb-8">
+      <button class="tab-btn active px-5 py-2.5 rounded-xl text-sm font-medium" data-tab="overview">📊 总览</button>
+      <button class="tab-btn px-5 py-2.5 rounded-xl text-sm font-medium text-slate-600" data-tab="security">🔐 安全问题</button>
+      <button class="tab-btn px-5 py-2.5 rounded-xl text-sm font-medium text-slate-600" data-tab="data">💾 数据一致性</button>
+      <button class="tab-btn px-5 py-2.5 rounded-xl text-sm font-medium text-slate-600" data-tab="feature">⚡ 功能激活</button>
+      <button class="tab-btn px-5 py-2.5 rounded-xl text-sm font-medium text-slate-600" data-tab="code">🏗️ 代码架构</button>
+      <button class="tab-btn px-5 py-2.5 rounded-xl text-sm font-medium text-slate-600" data-tab="suggestion">💡 新增建议</button>
+    </div>
+
+    <!-- Tab 内容 -->
+    <div id="tab-overview" class="tab-content fade-in">
+      <div class="glass rounded-2xl p-8 shadow-sm">
+        <h2 class="text-xl font-semibold text-slate-800 mb-6">各模块完成情况</h2>
+        <div class="space-y-6">
+          
+          <div class="p-5 rounded-xl bg-gradient-to-r from-emerald-50 to-transparent border border-emerald-100">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+                <span class="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center text-sm">0</span>
+                阶段0：紧急修复
+              </h3>
+              <span class="badge bg-emerald-100 text-emerald-700">5/5 完成</span>
+            </div>
+            <div class="progress-bar mb-3"><div class="progress-fill bg-emerald-500" style="width: 100%"></div></div>
+            <p class="text-sm text-slate-600">S1-S7安全漏洞、删除关联问题、前端API错误、物料单价权限、幽灵字段全部完成修复。</p>
+          </div>
+
+          <div class="p-5 rounded-xl bg-gradient-to-r from-emerald-50 to-transparent border border-emerald-100">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+                <span class="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center text-sm">1</span>
+                阶段1：功能激活与完善
+              </h3>
+              <span class="badge bg-emerald-100 text-emerald-700">4/5 完成</span>
+            </div>
+            <div class="progress-bar mb-3"><div class="progress-fill bg-emerald-500" style="width: 80%"></div></div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
+              <div class="text-sm text-slate-600 flex items-center gap-2"><span class="text-emerald-500">✓</span> 通知系统激活（4个场景）</div>
+              <div class="text-sm text-slate-600 flex items-center gap-2"><span class="text-emerald-500">✓</span> 物料出入库闭环</div>
+              <div class="text-sm text-slate-600 flex items-center gap-2"><span class="text-emerald-500">✓</span> 巡检维护闭环（轻量定时）</div>
+              <div class="text-sm text-slate-600 flex items-center gap-2"><span class="text-emerald-500">✓</span> 项目汇总自动化</div>
+              <div class="text-sm text-amber-600 flex items-center gap-2"><span class="text-amber-500">◐</span> 收款与工单同步（部分）</div>
+            </div>
+          </div>
+
+          <div class="p-5 rounded-xl bg-gradient-to-r from-emerald-50 to-transparent border border-emerald-100">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+                <span class="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center text-sm">2</span>
+                阶段2：表单与用户体验优化
+              </h3>
+              <span class="badge bg-emerald-100 text-emerald-700">5/6 完成</span>
+            </div>
+            <div class="progress-bar mb-3"><div class="progress-fill bg-emerald-500" style="width: 83%"></div></div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
+              <div class="text-sm text-slate-600 flex items-center gap-2"><span class="text-emerald-500">✓</span> 施工/维修表单动态切换</div>
+              <div class="text-sm text-slate-600 flex items-center gap-2"><span class="text-emerald-500">✓</span> 统一费用字段到fee_items</div>
+              <div class="text-sm text-slate-600 flex items-center gap-2"><span class="text-emerald-500">✓</span> staff_name字段废弃过渡</div>
+              <div class="text-sm text-slate-600 flex items-center gap-2"><span class="text-emerald-500">✓</span> 工单状态机校验</div>
+              <div class="text-sm text-slate-600 flex items-center gap-2"><span class="text-emerald-500">✓</span> 前端Vue迁移（15页面）</div>
+              <div class="text-sm text-amber-600 flex items-center gap-2"><span class="text-amber-500">◐</span> 选择器体验优化（部分）</div>
+            </div>
+          </div>
+
+          <div class="p-5 rounded-xl bg-gradient-to-r from-emerald-50 to-transparent border border-emerald-100">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+                <span class="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center text-sm">3</span>
+                阶段3：代码重构与架构优化
+              </h3>
+              <span class="badge bg-emerald-100 text-emerald-700">5/7 完成</span>
+            </div>
+            <div class="progress-bar mb-3"><div class="progress-fill bg-emerald-500" style="width: 71%"></div></div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
+              <div class="text-sm text-slate-600 flex items-center gap-2"><span class="text-emerald-500">✓</span> 后端模块化拆分（11模块）</div>
+              <div class="text-sm text-slate-600 flex items-center gap-2"><span class="text-emerald-500">✓</span> 权限过滤封装（7个函数）</div>
+              <div class="text-sm text-slate-600 flex items-center gap-2"><span class="text-emerald-500">✓</span> 利润统计修复（含项目数据）</div>
+              <div class="text-sm text-slate-600 flex items-center gap-2"><span class="text-emerald-500">✓</span> 工作目录清理（159脚本）</div>
+              <div class="text-sm text-amber-600 flex items-center gap-2"><span class="text-amber-500">◐</span> 日期字段类型统一（部分）</div>
+              <div class="text-sm text-amber-600 flex items-center gap-2"><span class="text-amber-500">◐</span> API日志中间件（待添加）</div>
+            </div>
+          </div>
+
+          <div class="p-5 rounded-xl bg-gradient-to-r from-slate-50 to-transparent border border-slate-200">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+                <span class="w-8 h-8 rounded-lg bg-slate-400 text-white flex items-center justify-center text-sm">4</span>
+                阶段4：架构升级（长期）
+              </h3>
+              <span class="badge bg-slate-100 text-slate-600">规划中</span>
+            </div>
+            <div class="progress-bar mb-3"><div class="progress-fill bg-slate-400" style="width: 10%"></div></div>
+            <p class="text-sm text-slate-600">项目工单与普通工单合并（渐进式方案B）、客户门户、移动端APP、审批流程等长期规划。</p>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- 安全问题 Tab -->
+    <div id="tab-security" class="tab-content hidden">
+      <div class="glass rounded-2xl p-8 shadow-sm">
+        <h2 class="text-xl font-semibold text-slate-800 mb-6">🔐 安全问题复查</h2>
+        <div class="space-y-4">
+
+          <div class="p-5 rounded-xl border-l-4 border-emerald-500 bg-emerald-50/50">
+            <div class="flex items-start justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+                  S8 - 详情接口越权访问（IDOR）
+                  <span class="badge bg-emerald-100 text-emerald-700">基本修复</span>
+                </h3>
+                <p class="text-sm text-slate-600 mt-2">工单详情已加 <code class="bg-white px-1.5 py-0.5 rounded text-rose-600">_can_access_record</code> 校验；支出详情已加admin校验。</p>
+                <p class="text-sm text-amber-600 mt-2 font-medium">⚠️ 仍有遗漏：</p>
+                <ul class="text-sm text-slate-600 mt-1 space-y-1 list-disc list-inside">
+                  <li>收款详情接口（/api/payments/&lt;id&gt;）未加worker归属校验</li>
+                  <li>工资详情接口（/api/salaries/&lt;id&gt;）未加归属校验</li>
+                  <li>项目支出/工资子接口权限粒度较粗</li>
+                </ul>
+              </div>
+              <span class="text-2xl">🟡</span>
+            </div>
+          </div>
+
+          <div class="p-5 rounded-xl border-l-4 border-amber-500 bg-amber-50/50">
+            <div class="flex items-start justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+                  S9 - SQL注入风险（LIKE注入）
+                  <span class="badge bg-amber-100 text-amber-700">未修复</span>
+                </h3>
+                <p class="text-sm text-slate-600 mt-2">代码中存在 <code class="bg-white px-1.5 py-0.5 rounded text-rose-600">.like(f'%{keyword}%')</code> 模式，若用户输入包含 <code class="bg-white px-1.5 py-0.5 rounded">%</code> 或 <code class="bg-white px-1.5 py-0.5 rounded">_</code> 通配符，可造成LIKE注入。</p>
+                <p class="text-sm text-slate-600 mt-2">影响范围：客户搜索、工单搜索、操作日志搜索、支出搜索等约10处。</p>
+                <p class="text-sm text-emerald-600 mt-2 font-medium">💡 修复建议：添加工具函数 <code>escape_like_keyword()</code> 统一转义特殊字符。</p>
+              </div>
+              <span class="text-2xl">🟡</span>
+            </div>
+          </div>
+
+          <div class="p-5 rounded-xl border-l-4 border-amber-500 bg-amber-50/50">
+            <div class="flex items-start justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+                  S10 - Session Cookie安全标志
+                  <span class="badge bg-amber-100 text-amber-700">未修复</span>
+                </h3>
+                <p class="text-sm text-slate-600 mt-2">未配置 <code class="bg-white px-1.5 py-0.5 rounded text-rose-600">SESSION_COOKIE_SECURE</code>、<code class="bg-white px-1.5 py-0.5 rounded text-rose-600">SESSION_COOKIE_HTTPONLY</code>、<code class="bg-white px-1.5 py-0.5 rounded text-rose-600">SESSION_COOKIE_SAMESITE</code>。</p>
+                <p class="text-sm text-emerald-600 mt-2 font-medium">💡 修复建议：在__init__.py中添加配置，HTTPONLY=True, SAMESITE='Lax'。</p>
+              </div>
+              <span class="text-2xl">🟡</span>
+            </div>
+          </div>
+
+          <div class="p-5 rounded-xl border-l-4 border-emerald-500 bg-emerald-50/50">
+            <div class="flex items-start justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+                  S12 - 文件上传类型/大小校验
+                  <span class="badge bg-emerald-100 text-emerald-700">已修复</span>
+                </h3>
+                <p class="text-sm text-slate-600 mt-2"><code class="bg-white px-1.5 py-0.5 rounded text-emerald-600">allowed_file()</code> 函数已增强，同时校验扩展名、MIME类型和文件大小（10MB上限）。</p>
+              </div>
+              <span class="text-2xl">✅</span>
+            </div>
+          </div>
+
+          <div class="p-5 rounded-xl border-l-4 border-slate-300 bg-slate-50/50">
+            <div class="flex items-start justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+                  S11/S13 - 登录锁定/备份下载
+                  <span class="badge bg-slate-100 text-slate-600">低优先级</span>
+                </h3>
+                <p class="text-sm text-slate-600 mt-2">内网系统暴力破解风险低；备份文件需admin权限可接受。建议后续添加登录失败次数限制。</p>
+              </div>
+              <span class="text-2xl">⚪</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- 数据一致性 Tab -->
+    <div id="tab-data" class="tab-content hidden">
+      <div class="glass rounded-2xl p-8 shadow-sm">
+        <h2 class="text-xl font-semibold text-slate-800 mb-6">💾 数据一致性问题复查</h2>
+        <div class="space-y-4">
+
+          <div class="p-5 rounded-xl border-l-4 border-rose-500 bg-rose-50/50">
+            <div class="flex items-start justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+                  DC2 - 收款与工单paid_amount不同步
+                  <span class="badge bg-rose-100 text-rose-700">未到位</span>
+                </h3>
+                <p class="text-sm text-slate-600 mt-2"><strong>问题：</strong> PaymentRecord增删改时，WorkRecord的paid_amount和payment_status未自动同步更新。</p>
+                <p class="text-sm text-slate-600 mt-2"><strong>现状：</strong> 工单创建/更新时会同步工资，但收款侧的同步逻辑似乎缺失。</p>
+                <p class="text-sm text-emerald-600 mt-2 font-medium">💡 修复建议：在PaymentRecord的add/update/delete接口中，添加<code>_sync_record_paid_amount(record_id)</code>调用，重算工单已收金额和收款状态。</p>
+              </div>
+              <span class="text-2xl">🔴</span>
+            </div>
+          </div>
+
+          <div class="p-5 rounded-xl border-l-4 border-emerald-500 bg-emerald-50/50">
+            <div class="flex items-start justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+                  DC3 - RepairEquipment物料自动出库
+                  <span class="badge bg-emerald-100 text-emerald-700">已修复</span>
+                </h3>
+                <p class="text-sm text-slate-600 mt-2"><code class="bg-white px-1.5 py-0.5 rounded text-emerald-600">_adjust_material_stock()</code> 函数已实现，工单设备明细变更时自动调整库存。</p>
+              </div>
+              <span class="text-2xl">✅</span>
+            </div>
+          </div>
+
+          <div class="p-5 rounded-xl border-l-4 border-emerald-500 bg-emerald-50/50">
+            <div class="flex items-start justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+                  DC4 - 项目汇总字段自动计算
+                  <span class="badge bg-emerald-100 text-emerald-700">已修复</span>
+                </h3>
+                <p class="text-sm text-slate-600 mt-2"><code class="bg-white px-1.5 py-0.5 rounded text-emerald-600">_recalculate_project_totals()</code> 函数已实现，项目支出/工资/施工记录CRUD时自动重算实际成本。</p>
+              </div>
+              <span class="text-2xl">✅</span>
+            </div>
+          </div>
+
+          <div class="p-5 rounded-xl border-l-4 border-emerald-500 bg-emerald-50/50">
+            <div class="flex items-start justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+                  DC7/DC8/DC9 - 其他数据问题
+                  <span class="badge bg-emerald-100 text-emerald-700">已修复</span>
+                </h3>
+                <ul class="text-sm text-slate-600 mt-2 space-y-1">
+                  <li>✓ staff_name → staff_names 同步函数已实现</li>
+                  <li>✓ CustomerEquipment删除时photos字段引用问题已修复</li>
+                  <li>✓ 巡检完成后回写设备维护时间已实现</li>
+                </ul>
+              </div>
+              <span class="text-2xl">✅</span>
+            </div>
+          </div>
+
+          <div class="p-5 rounded-xl border-l-4 border-amber-500 bg-amber-50/50">
+            <div class="flex items-start justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+                  DC1/DC5/DC6 - 架构级数据问题
+                  <span class="badge bg-amber-100 text-amber-700">待第四阶段</span>
+                </h3>
+                <ul class="text-sm text-slate-600 mt-2 space-y-1">
+                  <li>◐ DC1：删除工单时工资记录级联处理（需确认是否已有处理）</li>
+                  <li>◐ DC5：两套支出/工资模型分裂（架构问题，长期方案）</li>
+                  <li>◐ DC6：物料外键约束（SQLite限制，靠代码保障）</li>
+                </ul>
+              </div>
+              <span class="text-2xl">🟡</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- 功能激活 Tab -->
+    <div id="tab-feature" class="tab-content hidden">
+      <div class="glass rounded-2xl p-8 shadow-sm">
+        <h2 class="text-xl font-semibold text-slate-800 mb-6">⚡ 功能激活与完善</h2>
+        <div class="relative border-l-2 border-slate-200 ml-4 pl-8 space-y-8">
+
+          <div class="timeline-item timeline-done relative">
+            <h3 class="font-semibold text-slate-800">通知系统激活 ✅</h3>
+            <p class="text-sm text-slate-600 mt-2"><code>_notify_admins()</code> 函数已实现，支持批量通知管理员。</p>
+            <div class="flex flex-wrap gap-2 mt-3">
+              <span class="badge bg-emerald-100 text-emerald-700">待办指派通知</span>
+              <span class="badge bg-emerald-100 text-emerald-700">工单状态变更通知</span>
+              <span class="badge bg-emerald-100 text-emerald-700">收款登记通知</span>
+              <span class="badge bg-emerald-100 text-emerald-700">低库存预警通知</span>
+            </div>
+          </div>
+
+          <div class="timeline-item timeline-done relative">
+            <h3 class="font-semibold text-slate-800">物料出入库闭环 ✅</h3>
+            <p class="text-sm text-slate-600 mt-2">RepairEquipment保存/删除时自动创建MaterialStockLog出库记录。</p>
+          </div>
+
+          <div class="timeline-item timeline-done relative">
+            <h3 class="font-semibold text-slate-800">自动巡检定时任务 ✅（轻量级）</h3>
+            <p class="text-sm text-slate-600 mt-2">采用请求触发+系统设置记录最后执行时间的轻量级方案，无需额外APScheduler依赖。</p>
+            <p class="text-sm text-amber-600 mt-1">💡 建议：可进一步配置外部cron每日调用接口，确保巡检可靠触发。</p>
+          </div>
+
+          <div class="timeline-item timeline-done relative">
+            <h3 class="font-semibold text-slate-800">项目汇总自动化 ✅</h3>
+            <p class="text-sm text-slate-600 mt-2">项目支出/工资/施工记录CRUD时自动重算actual_amount。</p>
+          </div>
+
+          <div class="timeline-item timeline-warn relative">
+            <h3 class="font-semibold text-slate-800">工单payment_status自动更新 ⚠️</h3>
+            <p class="text-sm text-slate-600 mt-2">需确认PaymentRecord增删改时是否同步更新工单paid_amount。当前代码中未见明确的同步调用。</p>
+            <p class="text-sm text-emerald-600 mt-2 font-medium">建议：在收款接口中添加 <code>_sync_record_payment_status()</code> 调用。</p>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- 代码架构 Tab -->
+    <div id="tab-code" class="tab-content hidden">
+      <div class="glass rounded-2xl p-8 shadow-sm">
+        <h2 class="text-xl font-semibold text-slate-800 mb-6">🏗️ 代码架构与可维护性</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div class="p-5 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100">
+            <h3 class="font-semibold text-slate-800 mb-4">后端模块化拆分</h3>
+            <div class="text-4xl font-bold text-indigo-600 mb-2">11<span class="text-lg text-slate-500"> 个模块</span></div>
+            <div class="text-sm text-slate-600 space-y-1 mt-3">
+              <p>• auth（认证）</p>
+              <p>• records（工单）</p>
+              <p>• pending（待办）</p>
+              <p>• customers（客户+设备+巡检）</p>
+              <p>• staffs（员工）</p>
+              <p>• finance（收款+支出+工资）</p>
+              <p>• projects（项目+子表）</p>
+              <p>• materials（物料库存）</p>
+              <p>• templates（工单模板）</p>
+              <p>• statistics（统计+仪表盘）</p>
+              <p>• system（日志+备份+通知+设置）</p>
+            </div>
+            <p class="text-xs text-slate-500 mt-4">共 124 个路由，默认单体路由兼容，可通过环境变量切换</p>
+          </div>
+
+          <div class="p-5 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100">
+            <h3 class="font-semibold text-slate-800 mb-4">前端Vue迁移</h3>
+            <div class="text-4xl font-bold text-emerald-600 mb-2">15<span class="text-lg text-slate-500"> 个页面</span></div>
+            <div class="text-sm text-slate-600 space-y-1 mt-3">
+              <p>• 登录页</p>
+              <p>• 仪表盘</p>
+              <p>• 工单列表/详情</p>
+              <p>• 待办任务</p>
+              <p>• 客户管理</p>
+              <p>• 员工管理</p>
+              <p>• 项目管理</p>
+              <p>• 工资管理</p>
+              <p>• 物料库存</p>
+              <p>• 财务统计</p>
+              <p>• 系统设置</p>
+              <p>• 工单模板/客户设备/支出分类</p>
+            </div>
+            <p class="text-xs text-slate-500 mt-4">Vue3 + Element Plus + 响应式适配 + 主题切换</p>
+          </div>
+        </div>
+
+        <h3 class="font-semibold text-slate-800 mb-4">剩余优化项</h3>
+        <div class="space-y-3">
+          
+          <div class="flex items-start gap-4 p-4 rounded-xl bg-slate-50">
+            <div class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+              <span class="text-amber-600 font-bold text-sm">1</span>
+            </div>
+            <div>
+              <h4 class="font-medium text-slate-800">日期字段类型统一</h4>
+              <p class="text-sm text-slate-600 mt-1">accept_time/start_time/end_time等使用String存"HH:MM"，建议统一使用Time类型。部分DateTime/Date混用需清理。</p>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-4 p-4 rounded-xl bg-slate-50">
+            <div class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+              <span class="text-amber-600 font-bold text-sm">2</span>
+            </div>
+            <div>
+              <h4 class="font-medium text-slate-800">API日志中间件</h4>
+              <p class="text-sm text-slate-600 mt-1">当前操作日志依赖各接口手动记录，建议添加before_request/after_request中间件统一记录请求日志。</p>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-4 p-4 rounded-xl bg-slate-50">
+            <div class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+              <span class="text-amber-600 font-bold text-sm">3</span>
+            </div>
+            <div>
+              <h4 class="font-medium text-slate-800">蓝图模块完全切换</h4>
+              <p class="text-sm text-slate-600 mt-1">当前新蓝图与原routes.py并存，需充分测试后切换到模块化蓝图，彻底删除单体routes.py。</p>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-4 p-4 rounded-xl bg-slate-50">
+            <div class="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center flex-shrink-0">
+              <span class="text-slate-600 font-bold text-sm">4</span>
+            </div>
+            <div>
+              <h4 class="font-medium text-slate-800">API版本控制</h4>
+              <p class="text-sm text-slate-600 mt-1">建议添加 /api/v1/ 前缀，为后续API演进留出空间。</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- 新增建议 Tab -->
+    <div id="tab-suggestion" class="tab-content hidden">
+      <div class="glass rounded-2xl p-8 shadow-sm">
+        <h2 class="text-xl font-semibold text-slate-800 mb-6">💡 本次复查新增建议</h2>
+        <p class="text-sm text-slate-600 mb-6">以下是本次复查过程中新发现的优化点，v4报告中未提及：</p>
+        
+        <div class="space-y-4">
+
+          <div class="p-5 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-transparent">
+            <div class="flex items-start gap-4">
+              <div class="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center text-white flex-shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-slate-800">1. Vue前端PWA支持</h3>
+                <p class="text-sm text-slate-600 mt-2">当前旧版前端有PWA支持，Vue新版应保留并增强离线缓存能力，提升移动端体验。</p>
+                <span class="badge bg-indigo-100 text-indigo-700 mt-2">前端体验</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-5 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-transparent">
+            <div class="flex items-start gap-4">
+              <div class="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center text-white flex-shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-slate-800">2. 自动备份策略</h3>
+                <p class="text-sm text-slate-600 mt-2">当前只有手动备份，建议在轻量级定时任务框架中添加每日自动备份，保留最近7天备份。</p>
+                <span class="badge bg-indigo-100 text-indigo-700 mt-2">数据安全</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-5 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-transparent">
+            <div class="flex items-start gap-4">
+              <div class="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center text-white flex-shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-slate-800">3. 数据库索引优化</h3>
+                <p class="text-sm text-slate-600 mt-2">建议添加常用查询索引：work_records(work_date, status, customer_name)、payment_records(payment_date)、pending_works(status, staff_name) 等，提升大数量下的查询性能。</p>
+                <span class="badge bg-indigo-100 text-indigo-700 mt-2">性能优化</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-5 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-transparent">
+            <div class="flex items-start gap-4">
+              <div class="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center text-white flex-shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-slate-800">4. 操作日志搜索性能</h3>
+                <p class="text-sm text-slate-600 mt-2">operation_logs表增长快，snapshot_before/after是大文本，建议：1）分表或按月归档；2）搜索时排除快照字段；3）添加创建时间索引。</p>
+                <span class="badge bg-indigo-100 text-indigo-700 mt-2">性能优化</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-5 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-transparent">
+            <div class="flex items-start gap-4">
+              <div class="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center text-white flex-shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-slate-800">5. 错误处理规范化</h3>
+                <p class="text-sm text-slate-600 mt-2">部分接口错误返回格式不一致（有的返回{'error': msg}，有的抛异常），建议统一错误响应格式和HTTP状态码。</p>
+                <span class="badge bg-indigo-100 text-indigo-700 mt-2">代码质量</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-5 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-transparent">
+            <div class="flex items-start gap-4">
+              <div class="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center text-white flex-shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-slate-800">6. 客户360视图</h3>
+                <p class="text-sm text-slate-600 mt-2">客户详情页可增加聚合视图：历史工单统计、待办列表、设备清单、应收款汇总、付款记录，提升客户管理体验。</p>
+                <span class="badge bg-indigo-100 text-indigo-700 mt-2">功能增强</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-5 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-transparent">
+            <div class="flex items-start gap-4">
+              <div class="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center text-white flex-shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-slate-800">7. 后端健康检查接口</h3>
+                <p class="text-sm text-slate-600 mt-2">建议添加 /api/health 接口，返回系统状态（数据库连接、磁盘空间、备份状态），方便监控。</p>
+                <span class="badge bg-indigo-100 text-indigo-700 mt-2">运维增强</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-5 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-transparent">
+            <div class="flex items-start gap-4">
+              <div class="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center text-white flex-shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-slate-800">8. Vue前端表单验证增强</h3>
+                <p class="text-sm text-slate-600 mt-2">当前Vue版表单验证较简单，建议使用Element Plus的async-validator做更完善的前端校验，减少后端校验压力。</p>
+                <span class="badge bg-indigo-100 text-indigo-700 mt-2">前端体验</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- 下一步优先级 -->
+    <div class="glass rounded-2xl p-8 mt-10 shadow-sm">
+      <h2 class="text-xl font-semibold text-slate-800 mb-6 flex items-center gap-2">
+        <span class="w-1 h-6 rounded-full bg-gradient-to-b from-rose-500 to-orange-500"></span>
+        下一步行动建议（Top 5 优先级）
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        
+        <div class="p-5 rounded-xl bg-gradient-to-br from-rose-500 to-red-600 text-white card-hover">
+          <div class="text-3xl font-bold mb-2">01</div>
+          <h3 class="font-semibold mb-2">收款工单同步</h3>
+          <p class="text-sm text-rose-100">PaymentRecord增删改时同步更新WorkRecord.paid_amount和payment_status</p>
+          <p class="text-xs text-rose-200 mt-3">预计 1-2 小时</p>
+        </div>
+
+        <div class="p-5 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 text-white card-hover">
+          <div class="text-3xl font-bold mb-2">02</div>
+          <h3 class="font-semibold mb-2">S8 IDOR补全</h3>
+          <p class="text-sm text-orange-100">为收款详情、工资详情等接口添加worker归属校验</p>
+          <p class="text-xs text-orange-200 mt-3">预计 2 小时</p>
+        </div>
+
+        <div class="p-5 rounded-xl bg-gradient-to-br from-amber-500 to-yellow-600 text-white card-hover">
+          <div class="text-3xl font-bold mb-2">03</div>
+          <h3 class="font-semibold mb-2">S9 LIKE注入</h3>
+          <p class="text-sm text-amber-100">添加escape_like_keyword工具函数，统一转义搜索关键词</p>
+          <p class="text-xs text-amber-200 mt-3">预计 1 小时</p>
+        </div>
+
+        <div class="p-5 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white card-hover">
+          <div class="text-3xl font-bold mb-2">04</div>
+          <h3 class="font-semibold mb-2">Session安全配置</h3>
+          <p class="text-sm text-emerald-100">配置HTTPONLY、SAMESITE等Cookie安全标志</p>
+          <p class="text-xs text-emerald-200 mt-3">预计 30 分钟</p>
+        </div>
+
+        <div class="p-5 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white card-hover">
+          <div class="text-3xl font-bold mb-2">05</div>
+          <h3 class="font-semibold mb-2">自动备份</h3>
+          <p class="text-sm text-indigo-100">在轻量定时任务中添加每日自动数据库备份</p>
+          <p class="text-xs text-indigo-200 mt-3">预计 2 小时</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 页脚 -->
+    <div class="text-center py-10 text-slate-500 text-sm">
+      <p>Worklog 复查诊断报告 v5.0 | 生成时间：2026-07-16</p>
+      <p class="mt-1">基于 v4 诊断报告全面复查 | 综合评分：7.2 / 10（+1.3）</p>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // Tab 切换
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.tab;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+      const content = document.getElementById('tab-' + tab);
+      content.classList.remove('hidden');
+      content.classList.add('fade-in');
+    });
+  });
+
+  // 雷达图
+  const ctx = document.getElementById('radarChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels: ['功能完整性', '权限安全', '数据一致性', '用户体验', '代码可维护性', '架构合理性', '系统稳定性'],
+      datasets: [
+        {
+          label: 'v4 诊断',
+          data: [7.5, 6.5, 5.0, 6.0, 4.0, 5.5, 7.0],
+          backgroundColor: 'rgba(148, 163, 184, 0.2)',
+          borderColor: 'rgba(148, 163, 184, 1)',
+          borderWidth: 2,
+          pointBackgroundColor: 'rgba(148, 163, 184, 1)',
+        },
+        {
+          label: 'v5 复查',
+          data: [8.0, 7.8, 7.0, 7.2, 6.5, 6.8, 7.5],
+          backgroundColor: 'rgba(99, 102, 241, 0.2)',
+          borderColor: 'rgba(99, 102, 241, 1)',
+          borderWidth: 2,
+          pointBackgroundColor: 'rgba(99, 102, 241, 1)',
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        r: {
+          min: 0,
+          max: 10,
+          ticks: { stepSize: 2, font: { size: 10 } },
+          pointLabels: { font: { size: 12 } },
+          grid: { color: 'rgba(148, 163, 184, 0.2)' },
+          angleLines: { color: 'rgba(148, 163, 184, 0.2)' },
+        }
+      },
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { padding: 20, font: { size: 12 } }
+        }
+      }
+    }
+  });
+</script>
+</body>
+</html>

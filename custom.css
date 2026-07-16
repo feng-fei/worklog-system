@@ -1,0 +1,2539 @@
+/* ================================================
+   自定义功能样式 - 表单分区、动态费用表格、发票标记、移动端适配
+   ================================================ */
+
+/* ---------- 0. 全局安全规则：确保桌面端表格始终可见 ---------- */
+@media (min-width: 769px) {
+  #tab-payments table,
+  #tab-projects table,
+  #tab-expenses table {
+    display: table !important;
+  }
+  .mobile-card-list {
+    display: none !important;
+  }
+}
+
+/* ---------- 1. 表单分区样式 ---------- */
+.form-section-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md, 10px);
+  margin-bottom: 10px;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease;
+}
+
+.form-section-card:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.section-header {
+  background: linear-gradient(135deg, rgba(25, 135, 84, 0.06), rgba(25, 135, 84, 0.02));
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--c-border);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--c-text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.section-header i {
+  color: #198754;
+  font-size: 14px;
+}
+
+.section-body {
+  padding: 10px 12px;
+}
+
+.section-body.p-0 {
+  padding: 0;
+}
+
+/* 兼容旧class名 */
+.form-section-header { background: linear-gradient(135deg, rgba(25, 135, 84, 0.06), rgba(25, 135, 84, 0.01)); padding: 10px 14px; border-bottom: 1px solid var(--c-border); font-weight: 600; font-size: 13px; color: var(--c-text); display: flex; align-items: center; gap: 8px; }
+.form-section-header i { color: #198754; font-size: 1.1em; }
+.form-section-body { padding: 14px; }
+
+/* 临时工区域样式 */
+.temp-staff-box {
+  background: var(--c-surface-2, #f8f9fa);
+  border-radius: var(--r-md, 8px);
+  padding: 10px;
+  border: 1px solid var(--c-border-light);
+}
+
+/* 维修未完成原因样式 */
+.repair-incomplete-box {
+  background: rgba(255, 193, 7, 0.05);
+  border: 1px solid rgba(255, 193, 7, 0.2);
+  border-radius: var(--r-md, 8px);
+  padding: 10px;
+  margin-top: 8px;
+}
+
+/* flex-1 工具类 */
+.flex-1 { flex: 1; min-width: 0; }
+
+/* ---------- 2. 动态费用表格 ---------- */
+.dynamic-fee-table-wrapper {
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dynamic-fee-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.dynamic-fee-table thead th {
+  background: var(--c-surface-2);
+  padding: var(--s-2) var(--s-3);
+  text-align: center;
+  font-weight: 600;
+  font-size: var(--fs-xs);
+  color: var(--c-text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--c-border);
+  white-space: nowrap;
+}
+
+.dynamic-fee-table tbody td {
+  padding: var(--s-2);
+  border-bottom: 1px solid var(--c-border-light);
+  vertical-align: middle;
+}
+
+.dynamic-fee-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.dynamic-fee-table tbody tr:hover {
+  background: var(--c-hover);
+}
+
+.dynamic-fee-table .fee-subtotal {
+  font-weight: 600;
+  color: var(--c-primary);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.dynamic-fee-table .form-select-sm,
+.dynamic-fee-table .form-control-sm {
+  font-size: var(--fs-sm);
+  padding: 0.25rem 0.4rem;
+}
+
+.fee-row-remove {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--c-text-3);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--t-fast);
+}
+
+.fee-row-remove:hover {
+  background: rgba(220, 53, 69, 0.1);
+  color: var(--c-danger);
+}
+
+.dynamic-fee-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--s-3);
+  background: var(--c-surface-2);
+  border-top: 2px solid var(--c-border);
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+.dynamic-fee-total {
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+
+.fee-total-amount {
+  color: var(--c-primary);
+  font-size: 1.25em;
+  font-variant-numeric: tabular-nums;
+  margin-left: var(--s-2);
+}
+
+.btn-add-fee-row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+}
+
+/* ---------- 3. 发票标记切换样式 ---------- */
+.invoice-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.invoice-toggle input[type="checkbox"] {
+  display: none;
+}
+
+.invoice-toggle-switch {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  background: var(--c-border);
+  border-radius: 20px;
+  transition: all var(--t-fast);
+  flex-shrink: 0;
+}
+
+.invoice-toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 50%;
+  transition: all var(--t-fast);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+.invoice-toggle.invoiced .invoice-toggle-switch {
+  background: var(--c-success);
+}
+
+.invoice-toggle.invoiced .invoice-toggle-switch::after {
+  left: 18px;
+}
+
+.invoice-toggle-label {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--c-text-2);
+  transition: color var(--t-fast);
+}
+
+.invoice-toggle.invoiced .invoice-toggle-label {
+  color: var(--c-success);
+}
+
+/* 表格内的发票toggle紧凑样式 */
+table .invoice-toggle {
+  gap: var(--s-1);
+}
+
+table .invoice-toggle-switch {
+  width: 32px;
+  height: 18px;
+}
+
+table .invoice-toggle-switch::after {
+  width: 14px;
+  height: 14px;
+}
+
+table .invoice-toggle.invoiced .invoice-toggle-switch::after {
+  left: 16px;
+}
+
+table .invoice-toggle-label {
+  font-size: var(--fs-xs);
+}
+
+/* ---------- 4. 客户应收列表样式 ---------- */
+.customer-receivable-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.customer-receivable-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--s-2) var(--s-3);
+  border-bottom: 1px solid var(--c-border-light);
+  cursor: pointer;
+  transition: background var(--t-fast);
+  gap: var(--s-3);
+}
+
+.customer-receivable-item:last-child {
+  border-bottom: none;
+}
+
+.customer-receivable-item:hover {
+  background: var(--c-hover);
+}
+
+.customer-receivable-info {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-width: 0;
+  flex: 1;
+}
+
+.customer-receivable-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--c-primary), #3d8bfd);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  flex-shrink: 0;
+}
+
+.customer-receivable-name {
+  font-weight: 500;
+  font-size: var(--fs-sm);
+  color: var(--c-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.customer-receivable-count {
+  font-size: var(--fs-xs);
+  color: var(--c-text-3);
+}
+
+.customer-receivable-amount {
+  font-weight: 600;
+  color: var(--c-danger);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-sm);
+  flex-shrink: 0;
+}
+
+/* ---------- 5. 移动端列表卡片式布局 - 仅在小屏生效 ---------- */
+@media (max-width: 768px) {
+  /* 表格容器在移动端可以横向滚动，但我们改为卡片 */
+  #tab-payments .table-responsive,
+  #tab-projects .table-responsive,
+  #tab-expenses .table-responsive {
+    overflow-x: visible;
+    -webkit-overflow-scrolling: auto;
+  }
+
+  /* 隐藏原表格（JS会同时设置style.display = 'none'，CSS做双保险） */
+  #tab-payments .table,
+  #tab-projects .table,
+  #tab-expenses .table {
+    display: none !important;
+  }
+
+  /* 显示卡片容器 */
+  .mobile-card-list {
+    display: flex !important;
+    flex-direction: column;
+    gap: var(--s-2);
+  }
+
+  /* 移动端卡片样式 */
+  .mobile-list-card {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-md);
+    padding: var(--s-3);
+    margin-bottom: var(--s-2);
+    transition: all var(--t-fast);
+  }
+
+  .mobile-list-card:hover {
+    border-color: var(--c-border-strong);
+    box-shadow: var(--sh-sm);
+  }
+
+  .mobile-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--s-2);
+    margin-bottom: var(--s-2);
+    padding-bottom: var(--s-2);
+    border-bottom: 1px solid var(--c-border-light);
+  }
+
+  .mobile-card-title {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--c-text);
+    flex: 1;
+    min-width: 0;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+
+  .mobile-card-badge {
+    flex-shrink: 0;
+  }
+
+  .mobile-card-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 12px;
+  }
+
+  .mobile-card-field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .mobile-card-field.full-width {
+    grid-column: span 2;
+  }
+
+  .mobile-card-label {
+    font-size: 11px;
+    color: var(--c-text-3);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  .mobile-card-value {
+    font-size: var(--fs-sm);
+    color: var(--c-text);
+    word-break: break-word;
+  }
+
+  .mobile-card-value.amount {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--c-primary);
+  }
+
+  .mobile-card-value.amount.danger {
+    color: var(--c-danger);
+  }
+
+  .mobile-card-footer {
+    margin-top: var(--s-3);
+    padding-top: var(--s-2);
+    border-top: 1px solid var(--c-border-light);
+    display: flex;
+    gap: var(--s-2);
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .mobile-card-action-item {
+    flex-shrink: 0;
+  }
+
+  .mobile-card-footer .btn,
+  .mobile-card-footer button {
+    min-height: 40px;
+    padding: 0.375rem var(--s-3);
+  }
+
+  /* 移动端动态费用表格 - 卡片式布局 */
+  .dynamic-fee-table-wrapper {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -4px;
+    padding: 0 4px;
+  }
+
+  .dynamic-fee-table-wrapper > div[style*="overflow-x"] {
+    overflow: visible !important;
+  }
+
+  .dynamic-fee-table {
+    display: table !important;
+    width: auto !important;
+    min-width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .dynamic-fee-table thead {
+    display: table-header-group !important;
+  }
+
+  .dynamic-fee-table thead th {
+    display: table-cell !important;
+    padding: 8px 6px !important;
+    font-size: 12px;
+    white-space: nowrap;
+    min-width: 70px;
+  }
+
+  .dynamic-fee-table tbody {
+    display: table-row-group !important;
+    width: auto;
+  }
+
+  .dynamic-fee-table tr {
+    display: table-row !important;
+    width: auto;
+    border: none;
+    padding: 0;
+    margin-bottom: 0;
+    background: transparent;
+    border-radius: 0;
+  }
+
+  .dynamic-fee-table td {
+    display: table-cell !important;
+    padding: 4px !important;
+    border-bottom: 1px solid var(--c-border) !important;
+    vertical-align: middle;
+    white-space: nowrap;
+    min-width: 80px;
+  }
+
+  .dynamic-fee-table td::before {
+    display: none !important;
+  }
+
+  .dynamic-fee-table td.fee-col-type { min-width: 90px; }
+  .dynamic-fee-table td.fee-col-name { min-width: 140px; }
+  .dynamic-fee-table td.fee-col-spec { min-width: 100px; }
+  .dynamic-fee-table td.fee-col-qty { min-width: 70px; width: 70px; }
+  .dynamic-fee-table td.fee-col-unit { min-width: 70px; width: 70px; }
+  .dynamic-fee-table td.fee-col-price { min-width: 80px; }
+  .dynamic-fee-table td.fee-col-subtotal { min-width: 85px; }
+  .dynamic-fee-table td.fee-col-action { min-width: 50px; width: 50px; padding: 4px 2px !important; }
+
+  .dynamic-fee-table td .fee-subtotal {
+    text-align: right !important;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--c-primary);
+    white-space: nowrap;
+  }
+
+  .dynamic-fee-table .form-select-sm,
+  .dynamic-fee-table .form-control-sm {
+    width: 100%;
+    min-height: 36px;
+    font-size: 14px;
+    padding: 0.25rem 0.4rem;
+  }
+
+  .dynamic-fee-table .fee-row-remove {
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+    padding: 0 !important;
+    justify-content: center;
+    display: inline-flex;
+    align-items: center;
+    background: rgba(220, 53, 69, 0.1);
+    border-radius: 8px;
+    font-size: 16px;
+    color: var(--c-danger, #dc3545);
+    border: none;
+    margin: 0;
+  }
+
+  .dynamic-fee-table-footer {
+    padding: 8px 4px 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .dynamic-fee-footer {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    padding: 0;
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+
+  .dynamic-fee-footer .btn-add-fee-row {
+    min-height: 40px;
+    font-size: 14px;
+    padding: 0.5rem 1rem;
+    flex: 1;
+    max-width: 200px;
+  }
+
+  .dynamic-fee-total {
+    text-align: center;
+    padding: var(--s-2);
+    background: var(--c-surface-2);
+    border-radius: var(--r-sm);
+  }
+
+  /* 客户应收列表移动端 */
+  .customer-receivable-item {
+    padding: var(--s-3);
+  }
+
+  /* 发票toggle移动端触摸区域 */
+  .invoice-toggle {
+    min-height: 44px;
+    padding: var(--s-1) 0;
+  }
+
+  .invoice-toggle-switch {
+    width: 44px;
+    height: 24px;
+  }
+
+  .invoice-toggle-switch::after {
+    width: 20px;
+    height: 20px;
+  }
+
+  .invoice-toggle.invoiced .invoice-toggle-switch::after {
+    left: 22px;
+  }
+}
+
+/* ---------- 6. 税费选项样式 ---------- */
+#taxNo, #taxYes {
+  margin-right: var(--s-1);
+}
+
+/* ---------- 7. 费用汇总区域样式 ---------- */
+.fee-summary-area {
+  border-top: 1px solid var(--c-border);
+  background: var(--c-surface-2, rgba(0,0,0,0.02));
+}
+
+.fee-total-box {
+  background: linear-gradient(135deg, rgba(25, 135, 84, 0.08), rgba(13, 110, 253, 0.05));
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+}
+
+.fee-amount-label {
+  font-size: 11px;
+  color: var(--c-text-3);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.fee-amount-value {
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text);
+}
+
+.fee-amount-value.text-success {
+  color: var(--c-success, #198754) !important;
+}
+
+.fee-amount-value.text-danger {
+  color: var(--c-danger, #dc3545) !important;
+}
+
+.tax-options {
+  padding-top: 4px !important;
+}
+
+.tax-options .form-check {
+  padding-left: 1.4rem;
+}
+
+/* ---------- 7. 移动端全面优化 ---------- */
+@media (max-width: 768px) {
+  body {
+    font-size: 15px;
+  }
+
+  #workForm {
+    padding-bottom: 100px;
+  }
+
+  .form-section-card {
+    margin-bottom: 8px;
+    border-radius: 10px;
+    overflow-x: visible;
+    overflow-y: visible;
+  }
+
+  .card-body {
+    overflow-x: visible;
+  }
+  
+  .section-header {
+    padding: 12px 14px;
+    font-size: 15px;
+  }
+  
+  .section-body {
+    padding: 12px 14px;
+  }
+
+  .section-body.p-0 {
+    padding: 0 !important;
+  }
+  
+  #workForm .form-control,
+  #workForm .form-select {
+    min-height: 44px;
+    font-size: 16px;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+  }
+
+  #workForm .form-control-sm,
+  #workForm .form-select-sm {
+    min-height: 42px;
+    font-size: 15px;
+    padding: 0.4rem 0.6rem;
+  }
+  
+  #workForm .form-label.fw500.small {
+    font-size: 13px;
+    margin-bottom: 4px;
+    font-weight: 600;
+    color: var(--c-text-2);
+  }
+
+  #workForm .col-6,
+  #workForm .col-12,
+  #workForm .col-3,
+  #workForm .col-4 {
+    padding-right: 6px;
+    padding-left: 6px;
+  }
+
+  #workForm .col-12 {
+    flex: 0 0 100% !important;
+    width: 100% !important;
+    max-width: 100%;
+  }
+
+  #workForm .col-6 {
+    flex: 0 0 50% !important;
+    width: 50% !important;
+    max-width: 50%;
+  }
+  
+  #workForm .row.g-2 {
+    --bs-gutter-x: 0.5rem;
+    --bs-gutter-y: 0.6rem;
+  }
+
+  #workForm .input-group .btn {
+    min-height: 42px;
+    min-width: 48px;
+    padding: 0 12px;
+    font-size: 14px;
+  }
+  
+  .staff-picker-trigger {
+    min-height: 48px;
+    font-size: 16px;
+    padding: 0.6rem 0.8rem;
+  }
+  
+  .photo-upload-area {
+    padding: 28px 16px;
+    border-radius: 10px;
+    min-height: 100px;
+  }
+
+  .photo-upload-icon {
+    font-size: 2.5em;
+  }
+  
+  .date-picker-group {
+    flex-wrap: nowrap;
+  }
+  
+  .date-picker-group .btn-today {
+    flex-shrink: 0;
+    white-space: nowrap;
+    min-height: 42px;
+    padding: 0 12px;
+    font-size: 14px;
+  }
+  
+  .btn-capsule {
+    padding: 10px 20px;
+    font-size: 15px;
+    min-height: 46px;
+  }
+
+  .fee-summary-area {
+    padding: 12px 14px !important;
+  }
+
+  .fee-total-box {
+    padding: 12px 10px !important;
+    border-radius: 10px;
+  }
+
+  .fee-total-box .row.g-2 {
+    --bs-gutter-x: 0.25rem;
+    --bs-gutter-y: 0.5rem;
+  }
+
+  .fee-total-box .col-3 {
+    width: 50%;
+    flex: 0 0 auto;
+    padding: 4px 2px;
+  }
+
+  .fee-amount-label {
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+
+  .fee-amount-value {
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  .tax-options {
+    padding: 8px 0 !important;
+    gap: 12px !important;
+  }
+
+  .tax-options .form-check {
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    padding-left: 1.8em;
+  }
+
+  .tax-options .form-check-input {
+    width: 22px;
+    height: 22px;
+    margin-top: 0;
+    margin-left: -1.8em;
+  }
+
+  .tax-options .form-check-label {
+    font-size: 15px;
+    padding-top: 2px;
+  }
+
+  .btn-add-fee-row {
+    min-height: 44px;
+    font-size: 15px;
+    padding: 0.6rem 1rem;
+  }
+
+  #workForm button[type="submit"] {
+    min-height: 54px;
+    font-size: 17px;
+    font-weight: 600;
+    border-radius: 12px;
+    margin-top: 12px;
+  }
+
+  #workForm textarea.form-control {
+    min-height: 90px;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  #workForm textarea.form-control-sm {
+    min-height: 80px;
+    font-size: 15px;
+  }
+}
+
+/* ---------- 7.5 移动端横屏模式优化 ---------- */
+@media (max-width: 900px) and (orientation: landscape) {
+  body {
+    padding-top: 40px !important;
+    padding-bottom: 0 !important;
+  }
+
+  .ry-appbar.navbar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: auto !important;
+    width: 100% !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    padding: 0 8px !important;
+    background: var(--c-surface, #fff) !important;
+    backdrop-filter: none !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1) !important;
+    border-bottom: 1px solid var(--c-border, #dee2e6) !important;
+    z-index: 1060;
+    display: flex !important;
+    align-items: center !important;
+    flex-direction: row !important;
+  }
+
+  .ry-appbar .container-fluid {
+    padding: 0 !important;
+    height: 40px !important;
+    display: flex !important;
+    align-items: center !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .ry-appbar .navbar-brand {
+    display: none !important;
+  }
+
+  .ry-appbar .navbar-toggler {
+    width: 32px !important;
+    height: 32px !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    margin: 0 4px 0 0 !important;
+    order: 0;
+  }
+
+  .ry-appbar .navbar-toggler .navbar-toggler-icon {
+    width: 16px;
+    height: 16px;
+    background-size: 16px;
+  }
+
+  .ry-appbar .navbar-nav {
+    flex-direction: row !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 2px !important;
+    margin: 0 !important;
+  }
+
+  .ry-appbar .navbar-nav .nav-item {
+    margin: 0 !important;
+  }
+
+  .ry-appbar .navbar-nav .nav-link {
+    padding: 4px 8px !important;
+    height: 32px !important;
+    display: flex !important;
+    align-items: center !important;
+    font-size: 12px !important;
+    white-space: nowrap !important;
+    border-radius: 6px !important;
+  }
+
+  .ry-appbar .navbar-nav .nav-link span {
+    display: inline !important;
+  }
+
+  .ry-appbar .navbar-nav .nav-link .me-1 {
+    display: inline-block !important;
+    margin-right: 2px !important;
+  }
+
+  .ry-appbar .btn,
+  .ry-appbar .nav-link.btn {
+    min-width: 32px !important;
+    height: 32px !important;
+    padding: 0 6px !important;
+    font-size: 12px !important;
+  }
+
+  .ry-appbar .ms-auto,
+  .ry-appbar .me-auto {
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  .mobile-dock {
+    display: none !important;
+  }
+
+  .tab-content,
+  .main-content,
+  main,
+  #appContent {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+  }
+
+  .content-wrapper,
+  .tab-pane,
+  .tab-pane.active {
+    padding: 8px !important;
+  }
+
+  #workForm {
+    padding-bottom: 8px !important;
+  }
+
+  .modal-dialog {
+    margin: 4px auto !important;
+    max-width: calc(100vw - 16px) !important;
+    max-height: calc(100vh - 16px) !important;
+  }
+
+  .modal-content {
+    max-height: calc(100vh - 16px) !important;
+    overflow-y: auto !important;
+  }
+
+  .modal-body .section-header {
+    padding: 4px 8px !important;
+    font-size: 12px !important;
+    min-height: 28px !important;
+  }
+
+  .modal-body .section-body {
+    padding: 6px 8px !important;
+  }
+
+  .modal-header, .modal-footer {
+    padding: 6px 12px !important;
+    min-height: 36px !important;
+  }
+
+  .form-control, .form-select {
+    min-height: 32px !important;
+    font-size: 14px !important;
+    padding: 4px 8px !important;
+  }
+
+  .card {
+    margin-bottom: 8px !important;
+  }
+
+  .card-body {
+    padding: 8px !important;
+  }
+
+  .btn {
+    min-height: 32px !important;
+    font-size: 13px !important;
+    padding: 4px 12px !important;
+  }
+
+  .row.g-3, .row.g-2 {
+    --bs-gutter-y: 0.5rem !important;
+  }
+
+  .stat-card, .dashboard-stat {
+    padding: 8px !important;
+  }
+
+  .stat-card .stat-value {
+    font-size: 18px !important;
+  }
+
+  .stat-card .stat-label {
+    font-size: 11px !important;
+  }
+
+  .table {
+    font-size: 12px !important;
+  }
+
+  .table th, .table td {
+    padding: 4px 6px !important;
+  }
+
+  .list-group-item {
+    padding: 6px 10px !important;
+  }
+
+  .nav-tabs .nav-link {
+    padding: 4px 10px !important;
+    font-size: 12px !important;
+  }
+
+  #sidebarMenu {
+    top: 40px !important;
+    max-height: calc(100vh - 40px) !important;
+  }
+
+  .sidebar {
+    top: 40px !important;
+    width: 200px !important;
+  }
+}
+
+/* ---------- 8. 打印/导出样式 ---------- */
+@media print {
+  .dynamic-fee-table-footer,
+  .fee-row-remove,
+  .btn-add-fee-row,
+  .modal-footer,
+  .no-print,
+  .staff-picker-trigger,
+  .photo-upload-area {
+    display: none !important;
+  }
+  
+  .form-section-card {
+    break-inside: avoid;
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+    margin-bottom: 10px;
+  }
+  
+  .section-header {
+    background: #f0f0f0 !important;
+    color: #000 !important;
+    border-bottom: 2px solid #999;
+  }
+  
+  .dynamic-fee-table th,
+  .dynamic-fee-table td {
+    border: 1px solid #ccc;
+  }
+}
+
+/* ---------- 9. 快速模板选择样式 ---------- */
+.template-quick-picks {
+  padding: 0 2px;
+}
+
+.template-picks-label {
+  display: flex;
+  align-items: center;
+  padding: 0 4px;
+}
+
+.template-picks-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 2px 8px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.template-picks-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.template-chip {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border: 1px solid var(--c-border);
+  border-radius: 20px;
+  background: var(--c-surface);
+  color: var(--c-text-2);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--t-fast);
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.template-chip:hover,
+.template-chip:active {
+  background: var(--c-primary);
+  color: #fff;
+  border-color: var(--c-primary);
+  transform: scale(0.97);
+}
+
+.template-chip.active {
+  background: var(--c-primary);
+  color: #fff;
+  border-color: var(--c-primary);
+}
+
+@media (max-width: 768px) {
+  .template-chip {
+    padding: 10px 16px;
+    font-size: 14px;
+    min-height: 40px;
+    border-radius: 22px;
+  }
+
+  .template-picks-scroll {
+    gap: 10px;
+    padding: 6px 2px 10px;
+  }
+}
+
+/* ================================================
+   施工项目管理增强样式
+   ================================================ */
+
+/* ---------- 项目卡片网格 ---------- */
+.project-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.project-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md, 12px);
+  overflow: hidden;
+  cursor: pointer;
+  transition: all var(--t-fast, 0.2s);
+  display: flex;
+  flex-direction: column;
+}
+
+.project-card:hover {
+  border-color: var(--c-primary, #0d9488);
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.15);
+  transform: translateY(-2px);
+}
+
+.project-card-header {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--c-border-light);
+}
+
+.project-card-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.project-card-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--c-text);
+  line-height: 1.4;
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.project-card-no {
+  font-size: 12px;
+  color: var(--c-text-3);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.project-card-body {
+  padding: 12px 16px;
+  flex: 1;
+}
+
+.project-card-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--c-text-2);
+  margin-bottom: 8px;
+}
+
+.project-card-field i {
+  flex-shrink: 0;
+  width: 16px;
+  color: var(--c-text-3);
+  margin-top: 1px;
+}
+
+.project-card-field span {
+  flex: 1;
+  min-width: 0;
+}
+
+.project-progress {
+  margin-top: 10px;
+}
+
+.project-progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--c-text-2);
+  margin-bottom: 6px;
+}
+
+.project-card-footer {
+  padding: 10px 16px 14px;
+  border-top: 1px solid var(--c-border-light);
+  background: var(--c-surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.project-card-amount .amount-label {
+  font-size: 11px;
+  color: var(--c-text-3);
+  margin-bottom: 2px;
+}
+
+.project-card-amount .amount-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--c-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.project-card-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* ---------- 项目详情页 ---------- */
+.project-detail-view {
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.project-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.project-detail-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 200px;
+}
+
+.project-detail-title-row h5 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.project-detail-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* ---------- 详情页 Tab ---------- */
+.project-detail-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 2px solid var(--c-border);
+  margin-bottom: 16px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.project-detail-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.project-tab-btn {
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  color: var(--c-text-2);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all var(--t-fast);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.project-tab-btn:hover {
+  color: var(--c-primary);
+}
+
+.project-tab-btn.active {
+  color: var(--c-primary);
+  border-bottom-color: var(--c-primary);
+  font-weight: 600;
+}
+
+.project-detail-content {
+  position: relative;
+}
+
+.project-tab-pane {
+  display: none;
+}
+
+.project-tab-pane.active {
+  display: block;
+  animation: fadeIn 0.2s ease;
+}
+
+/* ---------- 信息行 ---------- */
+.info-row {
+  display: flex;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--c-border-light);
+  font-size: 14px;
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  width: 100px;
+  flex-shrink: 0;
+  color: var(--c-text-3);
+  font-weight: 500;
+}
+
+.info-value {
+  flex: 1;
+  color: var(--c-text);
+  word-break: break-word;
+}
+
+/* ---------- 财务网格 ---------- */
+.finance-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.finance-item {
+  background: var(--c-surface-2);
+  border-radius: var(--r-sm, 8px);
+  padding: 12px;
+  text-align: center;
+}
+
+.finance-label {
+  font-size: 12px;
+  color: var(--c-text-3);
+  margin-bottom: 4px;
+}
+
+.finance-value {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 阶段时间线 ---------- */
+.stage-timeline {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.stage-item {
+  display: flex;
+  align-items: flex-start;
+  position: relative;
+  padding-bottom: 16px;
+}
+
+.stage-item:last-child {
+  padding-bottom: 0;
+}
+
+.stage-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--c-border);
+  border: 3px solid var(--c-surface);
+  flex-shrink: 0;
+  margin-right: 12px;
+  margin-top: 2px;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 0 0 2px var(--c-border);
+}
+
+.stage-item.done .stage-dot {
+  background: var(--c-success, #198754);
+  box-shadow: 0 0 0 2px var(--c-success, #198754);
+}
+
+.stage-item.current .stage-dot {
+  background: var(--c-primary, #0d9488);
+  box-shadow: 0 0 0 2px var(--c-primary, #0d9488);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+.stage-line {
+  position: absolute;
+  left: 7px;
+  top: 18px;
+  bottom: 0;
+  width: 2px;
+  background: var(--c-border);
+}
+
+.stage-item.done .stage-line {
+  background: var(--c-success, #198754);
+}
+
+.stage-content {
+  flex: 1;
+  padding-top: 0;
+}
+
+.stage-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--c-text-2);
+}
+
+.stage-item.done .stage-name,
+.stage-item.current .stage-name {
+  color: var(--c-text);
+  font-weight: 600;
+}
+
+/* ---------- 人员列表 ---------- */
+.staff-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.staff-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: var(--r-sm, 8px);
+  background: var(--c-surface-2);
+}
+
+.staff-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--c-primary), #3d8bfd);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.staff-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.staff-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--c-text);
+}
+
+.staff-role {
+  font-size: 12px;
+  color: var(--c-text-3);
+}
+
+/* ---------- 统计卡片 ---------- */
+.stat-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-sm, 8px);
+  padding: 12px;
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--c-text-3);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 底部操作菜单 Action Sheet ---------- */
+.action-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 2000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: all var(--t-fast, 0.25s);
+}
+
+.action-sheet-overlay.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+.action-sheet {
+  width: 100%;
+  max-width: 500px;
+  background: var(--c-surface);
+  border-radius: 16px 16px 0 0;
+  padding: 8px 12px 20px;
+  transform: translateY(100%);
+  transition: transform var(--t-fast, 0.3s) cubic-bezier(0.32, 0.72, 0, 1);
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.action-sheet-overlay.show .action-sheet {
+  transform: translateY(0);
+}
+
+.action-sheet-header {
+  text-align: center;
+  padding: 12px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--c-text-2);
+  border-bottom: 1px solid var(--c-border-light);
+  margin-bottom: 8px;
+}
+
+.action-sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+
+.action-sheet-item:hover,
+.action-sheet-item:active {
+  background: var(--c-surface-hover);
+}
+
+.action-sheet-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.action-sheet-icon.repair {
+  background: rgba(255, 152, 0, 0.1);
+  color: #ff9800;
+}
+
+.action-sheet-icon.work {
+  background: rgba(13, 148, 136, 0.1);
+  color: var(--c-primary, #0d9488);
+}
+
+.action-sheet-icon.project {
+  background: rgba(103, 58, 183, 0.1);
+  color: #673ab7;
+}
+
+.action-sheet-icon.expense {
+  background: rgba(76, 175, 80, 0.1);
+  color: #4caf50;
+}
+
+.action-sheet-label {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--c-text);
+  flex: 1;
+}
+
+.action-sheet-cancel {
+  width: 100%;
+  margin-top: 8px;
+  padding: 14px;
+  background: var(--c-surface-2);
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--c-text-2);
+  cursor: pointer;
+  transition: all var(--t-fast);
+}
+
+.action-sheet-cancel:hover,
+.action-sheet-cancel:active {
+  background: var(--c-surface-active);
+}
+
+/* ---------- 阶段颜色 ---------- */
+.bg-purple {
+  background-color: #6f42c1 !important;
+}
+
+/* ---------- 移动端适配 ---------- */
+@media (max-width: 768px) {
+  .project-card-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .project-card-title {
+    font-size: 16px;
+  }
+
+  .project-detail-header {
+    gap: 8px;
+  }
+
+  .project-detail-title-row h5 {
+    font-size: 17px;
+  }
+
+  .project-detail-actions .btn {
+    padding: 0.375rem 0.6rem;
+    font-size: 13px;
+  }
+
+  .project-tab-btn {
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+
+  .info-row {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .info-label {
+    width: auto;
+    font-size: 12px;
+  }
+
+  .finance-grid {
+    gap: 8px;
+  }
+
+  .finance-item {
+    padding: 10px 8px;
+  }
+
+  .finance-value {
+    font-size: 16px;
+  }
+
+  .stat-card {
+    padding: 10px 8px;
+  }
+
+  .stat-value {
+    font-size: 16px;
+  }
+
+  .action-sheet {
+    border-radius: 20px 20px 0 0;
+    padding: 8px 16px 24px;
+  }
+
+  .action-sheet-item {
+    padding: 16px 12px;
+  }
+
+  .action-sheet-icon {
+    width: 48px;
+    height: 48px;
+    font-size: 22px;
+  }
+
+  .action-sheet-label {
+    font-size: 16px;
+  }
+
+  .action-sheet-cancel {
+    padding: 16px;
+    font-size: 16px;
+  }
+}
+
+/* ---------- 深色模式适配 ---------- */
+@media (prefers-color-scheme: dark) {
+  .project-card {
+    background: var(--c-surface);
+  }
+
+  .project-card-footer {
+    background: var(--c-surface-2);
+  }
+
+  .finance-item {
+    background: var(--c-surface-2);
+  }
+
+  .staff-item {
+    background: var(--c-surface-2);
+  }
+
+  .stat-card {
+    background: var(--c-surface);
+  }
+}
+
+/* ================================================
+   项目施工记录 - 独立接口版本样式
+   ================================================ */
+
+/* 施工记录表单分区 */
+#projectRecordModal .form-section-card {
+  margin-bottom: 12px;
+}
+
+#projectRecordModal .form-section-card:last-child {
+  margin-bottom: 0;
+}
+
+/* 施工记录表单标签 */
+#projectRecordModal .form-label.fw500.small {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 6px;
+  color: var(--c-text-2);
+}
+
+/* 总费用显示 */
+.record-total-fee {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--c-danger);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 施工类型 badge 类型颜色 */
+.badge.bg-info {
+  background-color: rgba(13, 202, 240) !important;
+}
+
+/* 分页样式增强 */
+.pagination .page-item.active .page-link {
+  background-color: var(--c-primary);
+  border-color: var(--c-primary);
+}
+
+.pagination .page-link {
+  color: var(--c-primary);
+}
+
+.pagination .page-item.disabled .page-link {
+  color: var(--c-text-3);
+}
+
+/* 施工记录表格操作按钮组 */
+#projectTabRecords .btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+/* 施工统计卡片 hover 响应式 */
+@media (max-width: 768px) {
+  #projectTabRecords .stat-card {
+    padding: 10px 8px;
+  }
+
+  #projectTabRecords .stat-value {
+    font-size: 16px;
+  }
+
+  #projectRecordModal .modal-dialog {
+    margin: 8px;
+    max-width: calc(100vw - 16px);
+  }
+
+  #projectRecordModal .form-section-card {
+    margin-bottom: 10px;
+  }
+
+  #projectRecordModal .section-header {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  #projectRecordModal .section-body {
+    padding: 10px 12px;
+  }
+}
+
+/* ================================================
+   项目施工记录增强样式
+   ================================================ */
+
+/* 项目信息显示区 */
+.project-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--c-surface-2, #f8fafc);
+  border-radius: var(--r-sm, 8px);
+  border: 1px solid var(--c-border-light, #e2e8f0);
+}
+
+.project-info-label {
+  font-size: 12px;
+  color: var(--c-text-3, #94a3b8);
+  font-weight: 500;
+}
+
+.project-info-value {
+  font-size: 14px;
+  color: var(--c-text, #1e293b);
+  font-weight: 600;
+  word-break: break-all;
+}
+
+/* 计费方式单选按钮样式 */
+#billingTypeSection .form-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 10px 16px;
+  border: 2px solid var(--c-border, #e2e8f0);
+  border-radius: var(--r-md, 10px);
+  background: var(--c-surface, #fff);
+  transition: all var(--t-fast, 0.2s);
+  margin-bottom: 0;
+}
+
+#billingTypeSection .form-check:hover {
+  border-color: var(--c-primary, #0d9488);
+  background: var(--c-surface-2, #f8fafc);
+}
+
+#billingTypeSection .form-check:has(input:checked) {
+  border-color: var(--c-primary, #0d9488);
+  background: rgba(13, 148, 136, 0.06);
+}
+
+#billingTypeSection .form-check-input {
+  margin-top: 0;
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--c-primary, #0d9488);
+}
+
+#billingTypeSection .form-check-label {
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--c-text, #1e293b);
+}
+
+/* 选择项目弹窗 */
+#selectProjectModal .modal-content {
+  border-radius: var(--r-lg, 16px);
+  border: none;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+#selectProjectModal .modal-header {
+  border-bottom: 1px solid var(--c-border-light, #e2e8f0);
+  padding: 16px 20px;
+}
+
+#selectProjectModal .modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--c-text, #1e293b);
+}
+
+#selectProjectModal .modal-body {
+  padding: 20px;
+}
+
+#selectProjectModal .form-select {
+  padding: 12px 14px;
+  font-size: 14px;
+  border-radius: var(--r-md, 10px);
+  border: 1px solid var(--c-border, #e2e8f0);
+  background: var(--c-surface, #fff);
+  color: var(--c-text, #1e293b);
+}
+
+#selectProjectModal .form-select:focus {
+  border-color: var(--c-primary, #0d9488);
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+}
+
+#selectProjectModal .modal-footer {
+  border-top: 1px solid var(--c-border-light, #e2e8f0);
+  padding: 14px 20px;
+  gap: 10px;
+}
+
+#selectProjectModal .btn-primary {
+  background: var(--c-primary, #0d9488);
+  border-color: var(--c-primary, #0d9488);
+  padding: 8px 20px;
+  font-weight: 500;
+}
+
+#selectProjectModal .btn-primary:hover {
+  background: var(--c-primary-dark, #0f766e);
+  border-color: var(--c-primary-dark, #0f766e);
+}
+
+/* 底部+号菜单第三项图标 */
+.action-sheet-icon.project {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.action-sheet-icon.project i {
+  color: #fff;
+}
+
+/* 响应式适配 */
+@media (max-width: 768px) {
+  #selectProjectModal .modal-dialog {
+    margin: 12px;
+    max-width: calc(100vw - 24px);
+  }
+
+  #selectProjectModal .modal-body {
+    padding: 16px;
+  }
+
+  .project-info-item {
+    padding: 8px 10px;
+  }
+
+  .project-info-value {
+    font-size: 13px;
+  }
+
+  #billingTypeSection .form-check {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}
+
+/* ================================================
+   项目施工记录 - 人员选择器 + 照片上传样式
+   ================================================ */
+
+/* ---------- 人员选择器 ---------- */
+.staff-picker-wrapper {
+  width: 100%;
+}
+
+.staff-search-box {
+  position: relative;
+}
+
+.staff-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--c-surface, #fff);
+  border: 1px solid var(--c-border, #dee2e6);
+  border-radius: 0 0 var(--r-md, 8px) var(--r-md, 8px);
+  max-height: 240px;
+  overflow-y: auto;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.staff-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background var(--t-fast, 0.15s);
+  border-bottom: 1px solid var(--c-border-light, #f1f3f5);
+}
+
+.staff-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.staff-dropdown-item:hover:not(.disabled) {
+  background: var(--c-hover, #f8f9fa);
+}
+
+.staff-dropdown-item.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.staff-item-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--c-primary, #0d9488), #3d8bfd);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.staff-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.staff-item-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--c-text, #1e293b);
+}
+
+.staff-item-role {
+  font-size: 12px;
+  color: var(--c-text-3, #94a3b8);
+}
+
+.staff-dropdown-empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--c-text-3, #94a3b8);
+  font-size: 13px;
+}
+
+/* ---------- 已选人员列表 ---------- */
+.selected-staff-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.selected-staff-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--c-surface-2, #f8fafc);
+  border-radius: var(--r-md, 8px);
+  border: 1px solid var(--c-border-light, #e2e8f0);
+  transition: all var(--t-fast, 0.2s);
+}
+
+.selected-staff-item:hover {
+  border-color: var(--c-primary, #0d9488);
+  background: rgba(13, 148, 136, 0.03);
+}
+
+.selected-staff-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--c-primary, #0d9488), #3d8bfd);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.selected-staff-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--c-text, #1e293b);
+  min-width: 0;
+  word-break: break-all;
+}
+
+.selected-staff-hours {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.selected-staff-hours input {
+  width: 70px;
+}
+
+.selected-staff-hours span {
+  font-size: 12px;
+  color: var(--c-text-3, #94a3b8);
+}
+
+.btn-remove-staff {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--c-text-3, #94a3b8);
+  border-radius: var(--r-sm, 6px);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--t-fast, 0.15s);
+  flex-shrink: 0;
+}
+
+.btn-remove-staff:hover {
+  background: rgba(220, 53, 69, 0.1);
+  color: var(--c-danger, #dc3545);
+}
+
+/* ---------- 照片上传区域 ---------- */
+.photo-upload-section {
+  width: 100%;
+}
+
+.photo-upload-area {
+  border: 2px dashed var(--c-border, #cbd5e1);
+  border-radius: var(--r-md, 10px);
+  padding: 24px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--t-fast, 0.2s);
+  background: var(--c-surface-2, #f8fafc);
+  margin-bottom: 12px;
+}
+
+.photo-upload-area:hover,
+.photo-upload-area.dragover {
+  border-color: var(--c-primary, #0d9488);
+  background: rgba(13, 148, 136, 0.03);
+}
+
+.photo-upload-icon {
+  font-size: 2.5em;
+  color: var(--c-text-3, #94a3b8);
+  margin-bottom: 8px;
+  transition: color var(--t-fast, 0.2s);
+}
+
+.photo-upload-area:hover .photo-upload-icon {
+  color: var(--c-primary, #0d9488);
+}
+
+.photo-upload-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--c-text, #1e293b);
+  margin-bottom: 4px;
+}
+
+.photo-upload-hint {
+  font-size: 12px;
+  color: var(--c-text-3, #94a3b8);
+}
+
+/* ---------- 照片预览网格 ---------- */
+.work-photo-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+}
+
+.photo-preview-item {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: var(--r-md, 8px);
+  overflow: hidden;
+  background: var(--c-surface-2, #f1f5f9);
+  border: 1px solid var(--c-border-light, #e2e8f0);
+  transition: all var(--t-fast, 0.2s);
+}
+
+.photo-preview-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.photo-preview-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: pointer;
+  display: block;
+}
+
+.photo-remove-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(220, 53, 69, 0.9);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity var(--t-fast, 0.2s);
+  z-index: 2;
+}
+
+.photo-preview-item:hover .photo-remove-btn {
+  opacity: 1;
+}
+
+.photo-remove-btn:hover {
+  background: rgba(220, 53, 69, 1);
+  transform: scale(1.1);
+}
+
+.photo-new-badge {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  padding: 2px 8px;
+  background: var(--c-primary, #0d9488);
+  color: white;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 10px;
+}
+
+/* ---------- 移动端适配 ---------- */
+@media (max-width: 768px) {
+  .staff-dropdown {
+    max-height: 200px;
+  }
+
+  .staff-dropdown-item {
+    padding: 12px 14px;
+  }
+
+  .selected-staff-item {
+    padding: 12px 14px;
+  }
+
+  .selected-staff-hours input {
+    width: 60px;
+    min-height: 36px;
+  }
+
+  .photo-upload-area {
+    padding: 28px 16px;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .photo-upload-icon {
+    font-size: 2.5em;
+  }
+
+  .work-photo-preview-grid {
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 8px;
+  }
+
+  .photo-remove-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+    opacity: 1;
+  }
+}
+
+/* ---------- 深色模式适配 ---------- */
+@media (prefers-color-scheme: dark) {
+  .staff-dropdown {
+    background: var(--c-surface, #1e293b);
+  }
+
+  .selected-staff-item {
+    background: var(--c-surface-2, #334155);
+  }
+
+  .photo-upload-area {
+    background: var(--c-surface-2, #334155);
+  }
+
+  .photo-preview-item {
+    background: var(--c-surface-2, #334155);
+  }
+}
+
+/* ================================================
+   v20260716-27 - 移动端体验优化
+   ================================================ */
+
+/* 按钮触摸反馈 */
+.btn {
+  -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+  touch-action: manipulation;
+  transition: transform 0.1s ease, opacity 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn:active {
+  transform: scale(0.96);
+  opacity: 0.85;
+}
+
+.btn-primary:active {
+  box-shadow: 0 0 0 3px rgba(13,110,253,0.25);
+}
+
+.btn-success:active {
+  box-shadow: 0 0 0 3px rgba(25,135,84,0.25);
+}
+
+.btn-danger:active {
+  box-shadow: 0 0 0 3px rgba(220,53,69,0.25);
+}
+
+/* 底部快捷栏安全区域适配 */
+.mobile-dock {
+  padding-bottom: env(safe-area-inset-bottom, 0) !important;
+}
+
+.navbar.fixed-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0) !important;
+}
+
+/* 可点击元素增大触摸区域 */
+.nav-link, .dropdown-item, .btn-sm {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* 防止表单按钮误触 */
+form .btn[type="submit"] {
+  min-height: 42px;
+}
+
+/* 移动端横向滚动优化（费用表格） */
+.table-responsive, .fee-table-wrap {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scroll-behavior: smooth;
+}
+
+/* 日期输入框在移动端的"今天"按钮更易点击 */
+@media (max-width: 768px) {
+  input[type="date"], input[type="datetime-local"], input[type="time"] {
+    font-size: 16px !important;
+    min-height: 40px;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .form-control, .form-select {
+    font-size: 16px !important;
+    min-height: 40px;
+  }
+
+  input[type="date"] + button,
+  .position-absolute.btn-sm {
+    min-height: 30px !important;
+    font-size: 12px !important;
+    padding: 3px 8px !important;
+  }
+
+  /* 表单间距优化 */
+  .mb-3 {
+    margin-bottom: 0.75rem !important;
+  }
+
+  .form-section-card .card-body,
+  .form-section-card .section-body {
+    padding: 10px;
+  }
+}
+
+/* 横屏模式下的安全区域 */
+@media (max-width: 900px) and (orientation: landscape) {
+  .ry-appbar.navbar {
+    padding-top: env(safe-area-inset-top, 0px) !important;
+    height: calc(40px + env(safe-area-inset-top, 0px)) !important;
+    min-height: calc(40px + env(safe-area-inset-top, 0px)) !important;
+  }
+
+  body {
+    padding-top: calc(40px + env(safe-area-inset-top, 0px)) !important;
+  }
+
+  #sidebarMenu, .sidebar {
+    top: calc(40px + env(safe-area-inset-top, 0px)) !important;
+    max-height: calc(100vh - 40px - env(safe-area-inset-top, 0px)) !important;
+  }
+}
+
+/* 防止图片拖动造成页面晃动 */
+img {
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+
+/* 长文本换行 */
+.text-wrap-break {
+  word-break: break-word;
+  overflow-wrap: break-word;
+}

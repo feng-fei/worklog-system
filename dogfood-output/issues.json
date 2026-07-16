@@ -1,0 +1,23 @@
+{
+  "issues": [
+    {
+      "n": 1,
+      "title": "支出分类无选项",
+      "severity": "high",
+      "category": "功能",
+      "description": "新增支出弹窗分类下拉只有默认选项",
+      "steps": [
+        "1. 支出管理",
+        "2. 新增支出",
+        "3. 分类下拉空"
+      ],
+      "screenshots": [
+        "C:\\Users\\Administrator\\Documents\\traework\\dogfood-output\\screenshots\\07-expense-modal.png"
+      ]
+    }
+  ],
+  "console_errors": [
+    "Error: 登录已过期\n    at apiFetch (http://172.28.10.2:8085/app.min.js?v=20260711-app49:1:1170)\n    at async loadDashboard (http://172.28.10.2:8085/app.min.js?v=20260711-app49:1:105806)",
+    "Failed to load resource: the server responded with a status of 401 (UNAUTHORIZED)"
+  ]
+}

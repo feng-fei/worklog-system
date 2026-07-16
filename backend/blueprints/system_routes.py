@@ -1,7 +1,7 @@
 from flask import request, jsonify, g, send_from_directory, current_app
 from ..models import *
 from .. import db
-from ..auth import login_required, admin_required
+from ..auth import login_required, admin_required, get_login_user_name
 from ..utils import *
 from . import system_bp
 import os
@@ -70,7 +70,7 @@ def get_operation_logs():
 def _auto_cleanup_oplogs():
     """每天自动清理一次过期操作日志"""
     try:
-        from .models import SystemSetting
+        from ..models import SystemSetting
         today_str = datetime.now().strftime('%Y-%m-%d')
         last_clean = SystemSetting.query.filter_by(key='oplog_last_cleanup').first()
         if last_clean and last_clean.value == today_str:
@@ -261,7 +261,7 @@ def restore_from_log(log_id):
 def cleanup_operation_logs():
     """清理过期操作日志"""
     try:
-        from .models import SystemSetting
+        from ..models import SystemSetting
         setting = SystemSetting.query.filter_by(key='oplog_retention_days').first()
         days = int(setting.value) if setting and setting.value.isdigit() else 90
         
@@ -282,7 +282,7 @@ def cleanup_operation_logs():
 def get_oplog_stats():
     """获取操作日志统计信息"""
     try:
-        from .models import SystemSetting
+        from ..models import SystemSetting
         setting = SystemSetting.query.filter_by(key='oplog_retention_days').first()
         days = int(setting.value) if setting and setting.value.isdigit() else 90
         
@@ -306,6 +306,25 @@ def get_oplog_stats():
 
 # ===================== 工资记录 =====================
 
+@system_bp.route('/upload', methods=['POST'])
+@login_required
+def upload_file():
+    """通用文件上传"""
+    try:
+        file = request.files.get('file')
+        if not file or not file.filename:
+            return jsonify({'error': '请选择文件'}), 400
+        if not allowed_file(file):
+            return jsonify({'error': '文件类型不支持'}), 400
+        upload_folder = current_app.config['UPLOAD_FOLDER']
+        filename = safe_filename(file.filename)
+        filepath = os.path.join(upload_folder, filename)
+        file.save(filepath)
+        return jsonify({'url': f'/uploads/{filename}', 'filename': filename})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @system_bp.route('/uploads/<filename>')
 def uploaded_file(filename):
     """获取上传的照片"""
@@ -323,7 +342,7 @@ def uploaded_file(filename):
 def get_settings():
     """获取所有系统设置"""
     try:
-        from .models import SystemSetting
+        from ..models import SystemSetting
         settings = SystemSetting.query.all()
         return jsonify({s.key: s.value for s in settings})
     except Exception as e:
@@ -336,7 +355,7 @@ def get_settings():
 def update_settings():
     """更新系统设置"""
     try:
-        from .models import SystemSetting
+        from ..models import SystemSetting
         data = request.get_json() or {}
         for key, value in data.items():
             s = SystemSetting.query.filter_by(key=key).first()
@@ -433,6 +452,26 @@ def restore_backup():
         shutil.copy2(src, db_path)
         return jsonify({'message': '数据库已恢复，请重启容器生效', 'restored_from': filename, 'hint': 'docker restart worklog-backend'})
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@system_bp.route('/backup/<filename>', methods=['DELETE'])
+@admin_required
+def delete_backup_file(filename):
+    """删除指定备份文件"""
+    try:
+        import os
+        backup_dir = '/app/data/backups'
+        filepath = os.path.join(backup_dir, filename)
+        if not os.path.exists(filepath):
+            return jsonify({'error': '备份文件不存在'}), 404
+        if '..' in filename or '/' in filename:
+            return jsonify({'error': '无效的文件名'}), 400
+        os.remove(filepath)
+        return jsonify({'message': '备份文件已删除'})
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise
         return jsonify({'error': str(e)}), 500
 
 
@@ -597,7 +636,7 @@ def create_notification():
 
 _indexes_initialized = False
 
-@api_bp.before_app_request
+@system_bp.before_app_request
 def _init_indexes_on_first_request():
     global _indexes_initialized
     if not _indexes_initialized:

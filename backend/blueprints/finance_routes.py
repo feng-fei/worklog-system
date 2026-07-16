@@ -228,6 +228,35 @@ def add_expense_category():
         return jsonify({'error': str(e)}), 500
 
 
+@finance_bp.route('/expense-categories/<int:cat_id>', methods=['PUT'])
+@login_required
+@admin_required
+def update_expense_category(cat_id):
+    try:
+        cat = ExpenseCategory.query.get_or_404(cat_id)
+        data = request.get_json() or {}
+        if 'name' in data:
+            new_name = data['name'].strip()
+            if not new_name:
+                return jsonify({'error': '分类名称不能为空'}), 400
+            if cat.is_system:
+                old_expenses = Expense.query.filter_by(category=cat.name).all()
+                old_proj_expenses = ProjectExpense.query.filter_by(category=cat.name).all()
+                for e in old_expenses:
+                    e.category = new_name
+                for e in old_proj_expenses:
+                    e.category = new_name
+            cat.name = new_name
+        for field in ['expense_type', 'sort_order']:
+            if field in data:
+                setattr(cat, field, data[field])
+        db.session.commit()
+        return jsonify(cat.to_dict())
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
 @finance_bp.route('/expense-categories/<int:cat_id>', methods=['DELETE'])
 @login_required
 @admin_required

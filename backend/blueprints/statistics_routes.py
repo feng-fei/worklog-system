@@ -6,7 +6,7 @@ from ..utils import *
 from . import statistics_bp
 import os
 import json
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from sqlalchemy import func, or_, and_
 
 
@@ -414,7 +414,7 @@ def get_profit_statistics():
         ).scalar() or 0
 
         proj_salary_total = db.session.query(func.sum(ProjectSalary.payable_amount)).filter(
-            ProjectSalary.settlement_status == 'settled',
+            ProjectSalary.status == 'settled',
             ProjectSalary.work_date >= start_d, ProjectSalary.work_date < end_d
         ).scalar() or 0
         proj_expense_total = db.session.query(func.sum(ProjectExpense.amount)).filter(

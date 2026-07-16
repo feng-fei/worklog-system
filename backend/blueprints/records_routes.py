@@ -77,52 +77,63 @@ def get_records():
 @login_required
 def create_record():
     try:
-        customer_name = request.form.get('customer_name')
+        if request.is_json:
+            data = request.get_json() or {}
+            def get_val(key, default=''):
+                return data.get(key, default)
+        else:
+            data = request.form
+            def get_val(key, default=''):
+                return data.get(key, default)
+
+        customer_name = (get_val('customer_name') or '').strip()
         if not customer_name:
             return jsonify({'error': '客户名称不能为空'}), 400
 
         photo_paths = []
-        files = request.files.getlist('photos')
-        upload_folder = current_app.config['UPLOAD_FOLDER']
-        for file in files:
-            if allowed_file(file):
-                filename = safe_filename(file.filename)
-                filepath = os.path.join(upload_folder, filename)
-                file.save(filepath)
-                # 生成缩略图 + 水印图 + 保留原图
-                try:
-                    from PIL import Image, ImageDraw, ImageFont
-                    img = Image.open(filepath)
-                    # 保留原图
-                    orig_name = filename.rsplit('.', 1)[0] + '_orig.' + filename.rsplit('.', 1)[1]
-                    img.save(os.path.join(upload_folder, orig_name))
-                    # 水印：时间戳 + 工单号（先放占位，create 后更新）
-                    ts = datetime.now().strftime('%Y-%m-%d %H:%M')
-                    draw = ImageDraw.Draw(img)
-                    # 简化水印用文字（右下角）
-                    wm_text = f'{ts}'
-                    # 用默认字体打水印
+        if not request.is_json:
+            files = request.files.getlist('photos')
+            upload_folder = current_app.config['UPLOAD_FOLDER']
+            for file in files:
+                if allowed_file(file):
+                    filename = safe_filename(file.filename)
+                    filepath = os.path.join(upload_folder, filename)
+                    file.save(filepath)
                     try:
-                        img_w, img_h = img.size
-                        draw.rectangle([img_w-220, img_h-35, img_w-5, img_h-5], fill=(0,0,0,128))
-                        draw.text((img_w-210, img_h-28), wm_text, fill=(255,255,255))
-                    except: pass
-                    img.save(filepath, quality=85)
-                    # 缩略图
-                    img.thumbnail((800, 800), Image.LANCZOS)
-                    thumb_name = filename.rsplit('.', 1)[0] + '_thumb.' + filename.rsplit('.', 1)[1]
-                    img.save(os.path.join(upload_folder, thumb_name), quality=70, optimize=True)
-                except Exception as e:
-                    print(f'No thumbnail: {e}')
-                photo_paths.append(f'/uploads/{filename}')
+                        from PIL import Image, ImageDraw, ImageFont
+                        img = Image.open(filepath)
+                        orig_name = filename.rsplit('.', 1)[0] + '_orig.' + filename.rsplit('.', 1)[1]
+                        img.save(os.path.join(upload_folder, orig_name))
+                        ts = datetime.now().strftime('%Y-%m-%d %H:%M')
+                        draw = ImageDraw.Draw(img)
+                        wm_text = f'{ts}'
+                        try:
+                            img_w, img_h = img.size
+                            draw.rectangle([img_w-220, img_h-35, img_w-5, img_h-5], fill=(0,0,0,128))
+                            draw.text((img_w-210, img_h-28), wm_text, fill=(255,255,255))
+                        except: pass
+                        img.save(filepath, quality=85)
+                        img.thumbnail((800, 800), Image.LANCZOS)
+                        thumb_name = filename.rsplit('.', 1)[0] + '_thumb.' + filename.rsplit('.', 1)[1]
+                        img.save(os.path.join(upload_folder, thumb_name), quality=70, optimize=True)
+                    except Exception as e:
+                        print(f'No thumbnail: {e}')
+                    photo_paths.append(f'/uploads/{filename}')
+        else:
+            work_photos_val = get_val('work_photos', '')
+            if work_photos_val:
+                if isinstance(work_photos_val, list):
+                    photo_paths = [p.get('url') if isinstance(p, dict) else p for p in work_photos_val]
+                elif isinstance(work_photos_val, str):
+                    photo_paths = [p.strip() for p in work_photos_val.split(',') if p.strip()]
 
-        work_date_str = request.form.get('work_date')
+        work_date_str = get_val('work_date')
         work_date = datetime.strptime(work_date_str, '%Y-%m-%d') if work_date_str else datetime.now()
 
-        record_type = request.form.get('record_type', 'construction')
+        record_type = get_val('record_type', 'construction')
 
         def get_float(key):
-            v = request.form.get(key, '0')
+            v = get_val(key, '0')
             try:
                 return float(v) if v else 0.0
             except:
@@ -134,9 +145,12 @@ def create_record():
         transport = get_float('transport_fee')
         other = get_float('other_fee')
         
-        fee_items_raw = request.form.get('fee_items', '[]')
+        fee_items_raw = get_val('fee_items', '[]')
         try:
-            fee_items = json.loads(fee_items_raw) if fee_items_raw else []
+            if isinstance(fee_items_raw, list):
+                fee_items = fee_items_raw
+            else:
+                fee_items = json.loads(fee_items_raw) if fee_items_raw else []
         except:
             fee_items = []
         
@@ -147,84 +161,88 @@ def create_record():
             transport = sum(item.get('subtotal', 0) for item in fee_items if item.get('type') == '交通')
             other = sum(item.get('subtotal', 0) for item in fee_items if item.get('type') not in ['人工', '材料', '设备', '交通'])
 
-        repair_result = request.form.get('repair_result', 'completed') if record_type == 'repair' else 'completed'
-        incomplete_reason_type = request.form.get('incomplete_reason_type', '') if repair_result == 'pending' else ''
-        incomplete_reason = request.form.get('incomplete_reason', '') if repair_result == 'pending' else ''
+        repair_result = get_val('repair_result', 'completed') if record_type == 'repair' else 'completed'
+        incomplete_reason_type = get_val('incomplete_reason_type', '') if repair_result == 'pending' else ''
+        incomplete_reason = get_val('incomplete_reason', '') if repair_result == 'pending' else ''
         if record_type == 'repair' and repair_result == 'pending' and not incomplete_reason.strip():
             return jsonify({'error': '未维修完成时必须填写原因说明'}), 400
 
+        project_id = get_val('project_id', None)
+        try:
+            project_id = int(project_id) if project_id else None
+        except:
+            project_id = None
+
         record = WorkRecord(
             customer_name=customer_name,
-            contact_name=request.form.get('contact_name', ''),
-            customer_phone=request.form.get('customer_phone', ''),
-            work_address=request.form.get('work_address', ''),
-            staff_name=request.form.get('staff_name', ''),
-            staff_names=request.form.get('staff_names', ''),
-            temp_staff_details=request.form.get('temp_staff_details', ''),
-            status=request.form.get('status', 'pending' if record_type == 'construction' else 'dispatched'),
+            contact_name=get_val('contact_name', ''),
+            customer_phone=get_val('customer_phone', ''),
+            work_address=get_val('work_address', ''),
+            staff_name=get_val('staff_name', ''),
+            staff_names=get_val('staff_names', ''),
+            temp_staff_details=get_val('temp_staff_details', ''),
+            status=get_val('status', 'pending' if record_type == 'construction' else 'dispatched'),
             record_type=record_type,
-            work_content=request.form.get('work_content', ''),
-            fault_description=request.form.get('fault_description', ''),
-            fault_diagnosis=request.form.get('fault_diagnosis', ''),
-            repair_process=request.form.get('repair_process', ''),
+            work_content=get_val('work_content', ''),
+            fault_description=get_val('fault_description', ''),
+            fault_diagnosis=get_val('fault_diagnosis', ''),
+            repair_process=get_val('repair_process', ''),
             repair_result=repair_result,
             incomplete_reason_type=incomplete_reason_type,
             incomplete_reason=incomplete_reason,
             work_date=work_date,
-            start_time=request.form.get('start_time', ''),
-            end_time=request.form.get('end_time', ''),
-            work_hours=float(request.form.get('work_hours', 0) or 0),
+            start_time=get_val('start_time', ''),
+            end_time=get_val('end_time', ''),
+            work_hours=float(get_val('work_hours', 0) or 0),
             labor_fee=labor,
             material_fee=material,
             equipment_fee_total=eq_fee,
             transport_fee=transport,
             other_fee=other,
             total_fee=labor + material + eq_fee + transport + other,
-            payment_status=request.form.get('payment_status', 'unpaid'),
+            payment_status=get_val('payment_status', 'unpaid'),
             paid_amount=get_float('paid_amount'),
-            work_subtype=request.form.get('work_subtype', ''),
-            priority=request.form.get('priority', 'normal'),
-            tax_type=request.form.get('tax_type', 'no'),
-            tax_rate=float(request.form.get('tax_rate', 0.03) or 0.03),
+            work_subtype=get_val('work_subtype', ''),
+            priority=get_val('priority', 'normal'),
+            tax_type=get_val('tax_type', 'no'),
+            tax_rate=float(get_val('tax_rate', 0.03) or 0.03),
             tax_amount=0,
             fee_items=json.dumps(fee_items, ensure_ascii=False) if fee_items else '',
-            remark=request.form.get('remark', ''),
+            remark=get_val('remark', ''),
             work_photos=','.join(photo_paths) if photo_paths else None,
             is_completed=True,
             created_by=get_login_user_name(),
-            involved_systems=request.form.get('involved_systems', ''),
-            service_category=request.form.get('service_category', ''),
-            warranty_status=request.form.get('warranty_status', 'none'),
-            warranty_days=int(request.form.get('warranty_days', 0) or 0),
-            accept_time=request.form.get('accept_time', ''),
-            customer_feedback=request.form.get('customer_feedback', ''),
-            satisfaction=request.form.get('satisfaction', '')
+            involved_systems=get_val('involved_systems', ''),
+            service_category=get_val('service_category', ''),
+            warranty_status=get_val('warranty_status', 'none'),
+            warranty_days=int(get_val('warranty_days', 0) or 0),
+            accept_time=get_val('accept_time', ''),
+            customer_feedback=get_val('customer_feedback', ''),
+            satisfaction=get_val('satisfaction', ''),
+            project_id=project_id
         )
-        # 计算税费（在_sync_equipment_details之前先算一次，后面_sync会重算覆盖为最终值）
         _sync_staff_name_from_staff_names(record)
         if record.tax_type == 'tax':
             record.tax_amount = round((labor + material + eq_fee + transport + other) * record.tax_rate, 2)
             record.total_fee += record.tax_amount
-        # 生成施工/维修编号
         record.order_no = _generate_record_no(record_type, work_date)
         db.session.add(record)
         db.session.flush()
         _sync_salary_records_for_work(record)
-        _sync_equipment_details(record, request.form.get('equipment_details', '[]'))
+        _sync_equipment_details(record, get_val('equipment_details', '[]'))
         db.session.commit()
 
-        # 维修未完成自动转待办
         if record_type == 'repair' and repair_result == 'pending':
             pending = PendingWork(
-                title=f'二次上门：{customer_name} - {request.form.get("work_subtype", "维修")}',
+                title=f'二次上门：{customer_name} - {get_val("work_subtype", "维修")}',
                 customer_name=customer_name,
-                contact_name=request.form.get('contact_name', ''),
-                contact_phone=request.form.get('customer_phone', ''),
-                work_address=request.form.get('work_address', ''),
-                staff_name=request.form.get('staff_name', ''),
+                contact_name=get_val('contact_name', ''),
+                contact_phone=get_val('customer_phone', ''),
+                work_address=get_val('work_address', ''),
+                staff_name=get_val('staff_name', ''),
                 todo_type='未完成维修',
-                priority=request.form.get('priority', 'normal'),
-                work_content=f'故障描述: {request.form.get("fault_description", "")}\n维修过程: {request.form.get("repair_process", "")}\n未完成原因: {incomplete_reason_type or "未分类"} - {incomplete_reason}',
+                priority=get_val('priority', 'normal'),
+                work_content=f'故障描述: {get_val("fault_description", "")}\n维修过程: {get_val("repair_process", "")}\n未完成原因: {incomplete_reason_type or "未分类"} - {incomplete_reason}',
                 reminder_date=work_date,
                 related_record_type='repair',
                 related_record_id=record.id
@@ -833,7 +851,7 @@ def export_pdf_range():
 @records_bp.route('/records/<int:record_id>/edits', methods=['GET'])
 @login_required
 def get_record_edits(record_id):
-    from .models import RecordEditLog
+    from ..models import RecordEditLog
     logs = RecordEditLog.query.filter_by(record_id=record_id).order_by(RecordEditLog.edited_at.desc()).all()
     return jsonify([l.to_dict() for l in logs])
 

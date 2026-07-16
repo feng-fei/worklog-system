@@ -165,6 +165,42 @@ def upload_cert_photo(staff_id):
         return jsonify({'error': str(e)}), 500
 
 
+@staffs_bp.route('/staffs/<int:staff_id>/toggle-enabled', methods=['POST'])
+@admin_required
+def toggle_staff_enabled(staff_id):
+    try:
+        staff = Staff.query.get_or_404(staff_id)
+        user = WorkerUser.query.filter_by(staff_name=staff.name).first()
+        if user:
+            user.enabled = not user.enabled
+            staff.status = 'active' if user.enabled else 'inactive'
+        else:
+            staff.status = 'inactive' if staff.status == 'active' else 'active'
+        db.session.commit()
+        return jsonify({'message': '状态已更新', 'enabled': user.enabled if user else (staff.status == 'active')})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@staffs_bp.route('/staffs/<int:staff_id>/reset-password', methods=['POST'])
+@admin_required
+def reset_staff_password(staff_id):
+    try:
+        staff = Staff.query.get_or_404(staff_id)
+        data = request.get_json() or {}
+        new_password = data.get('new_password') or data.get('password') or '123456'
+        user = WorkerUser.query.filter_by(staff_name=staff.name).first()
+        if not user:
+            return jsonify({'error': '该员工没有登录账号'}), 400
+        user.set_password(new_password)
+        db.session.commit()
+        return jsonify({'message': '密码重置成功'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
 
 # ===================== 业务辅助 =====================
 def _record_type_label(record_type):

@@ -3,8 +3,7 @@ import mimetypes
 import os
 from pathlib import Path
 
-from flask import Response, abort, request, send_from_directory, render_template_string
-from jinja2 import FileSystemLoader
+from flask import Response, abort, request, send_from_directory
 
 
 COMPRESSIBLE_EXTS = {".css", ".js", ".html", ".json", ".svg", ".txt", ".xml", ".webmanifest"}
@@ -19,9 +18,9 @@ def _cache_header(path: Path) -> str:
     return "public, max-age=3600"
 
 
-def _serve_file(frontend_dir: Path, filename: str):
-    target = (frontend_dir / filename).resolve()
-    if not str(target).startswith(str(frontend_dir.resolve())) or not target.is_file():
+def _serve_file(web_dir: Path, filename: str):
+    target = (web_dir / filename).resolve()
+    if not str(target).startswith(str(web_dir.resolve())) or not target.is_file():
         abort(404)
 
     suffix = target.suffix.lower()
@@ -35,37 +34,18 @@ def _serve_file(frontend_dir: Path, filename: str):
         resp.headers["Content-Encoding"] = "gzip"
         resp.headers["Vary"] = "Accept-Encoding"
     else:
-        resp = send_from_directory(str(frontend_dir), filename)
+        resp = send_from_directory(str(web_dir), filename)
 
     resp.headers["Cache-Control"] = _cache_header(target)
     return resp
 
 
 def setup_static_routes(app):
-    frontend_dir = Path(os.environ.get("FRONTEND_DIR", "")).resolve()
-    web_dir = frontend_dir.parent / "frontend-web" / "dist"
-    old_dir = frontend_dir
+    web_dir = Path(os.environ.get("FRONTEND_WEB_DIR", "frontend-web/dist")).resolve()
 
     @app.route("/")
     def index():
-        if web_dir.exists() and (web_dir / "index.html").exists():
-            return _serve_file(web_dir, "index.html")
-        jinja_loader = FileSystemLoader(str(old_dir))
-        env = app.jinja_env
-        env.loader = jinja_loader
-        template = env.get_template("index.html")
-        return template.render()
-
-    @app.route("/old/")
-    @app.route("/old/<path:filename>")
-    def old_frontend(filename="index.html"):
-        if filename == "index.html" or not filename:
-            jinja_loader = FileSystemLoader(str(old_dir))
-            env = app.jinja_env
-            env.loader = jinja_loader
-            template = env.get_template("index.html")
-            return template.render()
-        return _serve_file(old_dir, filename)
+        return _serve_file(web_dir, "index.html")
 
     @app.route("/<path:filename>")
     def static_files(filename):
@@ -76,10 +56,5 @@ def setup_static_routes(app):
         if web_file.exists() and web_file.is_file():
             return _serve_file(web_dir, filename)
 
-        old_file = old_dir / filename
-        if old_file.exists() and old_file.is_file():
-            return _serve_file(old_dir, filename)
+        return _serve_file(web_dir, "index.html")
 
-        if web_dir.exists() and (web_dir / "index.html").exists():
-            return _serve_file(web_dir, "index.html")
-        return _serve_file(old_dir, "index.html")

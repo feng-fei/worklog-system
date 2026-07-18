@@ -31,6 +31,8 @@ data/*.db
 
 # 临时文件
 *.log
+deploy.py
+_*.py
 
 # Docker
 docker-compose.override.yml

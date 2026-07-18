@@ -44,33 +44,24 @@ def create_app():
     # 配置 CORS - 允许所有来源
     CORS(app, resources={r"/api/*": {"origins": "*"}})
     
-    # 注册蓝图
-    # 通过环境变量 USE_MODULAR_BLUEPRINTS 控制使用单体路由还是模块化蓝图
-    # 默认使用传统单体路由（保证兼容性），设置为 true 则使用模块化蓝图
-    USE_MODULAR = os.environ.get('USE_MODULAR_BLUEPRINTS', 'false').lower() == 'true'
-    
-    if USE_MODULAR:
-        from .blueprints import (
-            auth_bp, records_bp, pending_bp, customers_bp, staffs_bp,
-            finance_bp, projects_bp, materials_bp, templates_bp,
-            statistics_bp, system_bp
-        )
-        app.register_blueprint(auth_bp, url_prefix='/api')
-        app.register_blueprint(records_bp, url_prefix='/api')
-        app.register_blueprint(pending_bp, url_prefix='/api')
-        app.register_blueprint(customers_bp, url_prefix='/api')
-        app.register_blueprint(staffs_bp, url_prefix='/api')
-        app.register_blueprint(finance_bp, url_prefix='/api')
-        app.register_blueprint(projects_bp, url_prefix='/api')
-        app.register_blueprint(materials_bp, url_prefix='/api')
-        app.register_blueprint(templates_bp, url_prefix='/api')
-        app.register_blueprint(statistics_bp, url_prefix='/api')
-        app.register_blueprint(system_bp, url_prefix='/api')
-        print("✅ 已启用模块化 Blueprints")
-    else:
-        from .routes import api_bp
-        app.register_blueprint(api_bp, url_prefix='/api')
-        print("✅ 使用传统单体 routes.py")
+    # 注册蓝图（模块化蓝图）
+    from .blueprints import (
+        auth_bp, records_bp, pending_bp, customers_bp, staffs_bp,
+        finance_bp, projects_bp, materials_bp, templates_bp,
+        statistics_bp, system_bp
+    )
+    app.register_blueprint(auth_bp, url_prefix='/api')
+    app.register_blueprint(records_bp, url_prefix='/api')
+    app.register_blueprint(pending_bp, url_prefix='/api')
+    app.register_blueprint(customers_bp, url_prefix='/api')
+    app.register_blueprint(staffs_bp, url_prefix='/api')
+    app.register_blueprint(finance_bp, url_prefix='/api')
+    app.register_blueprint(projects_bp, url_prefix='/api')
+    app.register_blueprint(materials_bp, url_prefix='/api')
+    app.register_blueprint(templates_bp, url_prefix='/api')
+    app.register_blueprint(statistics_bp, url_prefix='/api')
+    app.register_blueprint(system_bp, url_prefix='/api')
+    print("✅ 已启用模块化 Blueprints")
 
     # API请求日志中间件
     import time

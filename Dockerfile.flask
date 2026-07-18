@@ -19,16 +19,13 @@ COPY run.py .
 
 COPY frontend-web/dist/ /app/frontend-web/dist/
 
-COPY frontend/ /app/frontend/
-
 RUN mkdir -p /app/data /app/uploads
 
 ENV DATABASE_URL=sqlite:////app/data/worklog.db
 ENV SECRET_KEY=***
 ENV FLASK_ENV=production
 ENV PYTHONPATH=/app:/app/backend
-ENV FRONTEND_DIR=/app/frontend
-ENV USE_MODULAR_BLUEPRINTS=true
+ENV FRONTEND_WEB_DIR=/app/frontend-web/dist
 
 EXPOSE 5000
 

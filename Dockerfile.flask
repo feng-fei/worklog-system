@@ -18,6 +18,7 @@ COPY backend/ ./backend/
 COPY run.py .
 
 COPY frontend-web/dist/ /app/frontend-web/dist/
+COPY frontend-vue/dist/ /app/frontend-vue/dist/
 
 RUN mkdir -p /app/data /app/uploads
 
@@ -26,6 +27,7 @@ ENV SECRET_KEY=***
 ENV FLASK_ENV=production
 ENV PYTHONPATH=/app:/app/backend
 ENV FRONTEND_WEB_DIR=/app/frontend-web/dist
+ENV FRONTEND_MOBILE_DIR=/app/frontend-vue/dist
 
 EXPOSE 5000
 

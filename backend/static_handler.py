@@ -58,3 +58,19 @@ def setup_static_routes(app):
 
         return _serve_file(web_dir, "index.html")
 
+
+def setup_mobile_static_routes(app):
+    mobile_dir = Path(os.environ.get("FRONTEND_MOBILE_DIR", "frontend-vue/dist")).resolve()
+
+    @app.route("/m/")
+    def mobile_index():
+        return _serve_file(mobile_dir, "index.html")
+
+    @app.route("/m/<path:filename>")
+    def mobile_static_files(filename):
+        mobile_file = mobile_dir / filename
+        if mobile_file.exists() and mobile_file.is_file():
+            return _serve_file(mobile_dir, filename)
+
+        return _serve_file(mobile_dir, "index.html")
+

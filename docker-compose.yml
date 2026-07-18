@@ -1,0 +1,16 @@
+services:
+  worklog:
+    image: worklog-flask:alpine3
+    container_name: worklog
+    ports:
+      - "8085:5000"
+    volumes:
+      - /vol1/1000/docker/work-log-system/db:/app/data
+      - /vol1/1000/docker/work-log-system/uploads:/app/uploads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:5000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s

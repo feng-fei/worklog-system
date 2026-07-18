@@ -43,15 +43,14 @@ def _serve_file(frontend_dir: Path, filename: str):
 
 def setup_static_routes(app):
     frontend_dir = Path(os.environ.get("FRONTEND_DIR", "")).resolve()
-    vue_dir = frontend_dir.parent / "frontend-vue"
+    web_dir = frontend_dir.parent / "frontend-web" / "dist"
+    old_dir = frontend_dir
 
     @app.route("/")
     def index():
-        # 默认加载 Vue 前端
-        if vue_dir.exists() and (vue_dir / "index.html").exists():
-            return _serve_file(vue_dir, "index.html")
-        # 回退到旧前端
-        jinja_loader = FileSystemLoader(str(frontend_dir))
+        if web_dir.exists() and (web_dir / "index.html").exists():
+            return _serve_file(web_dir, "index.html")
+        jinja_loader = FileSystemLoader(str(old_dir))
         env = app.jinja_env
         env.loader = jinja_loader
         template = env.get_template("index.html")
@@ -60,29 +59,27 @@ def setup_static_routes(app):
     @app.route("/old/")
     @app.route("/old/<path:filename>")
     def old_frontend(filename="index.html"):
-        # 旧前端入口
         if filename == "index.html" or not filename:
-            jinja_loader = FileSystemLoader(str(frontend_dir))
+            jinja_loader = FileSystemLoader(str(old_dir))
             env = app.jinja_env
             env.loader = jinja_loader
             template = env.get_template("index.html")
             return template.render()
-        return _serve_file(frontend_dir, filename)
+        return _serve_file(old_dir, filename)
 
     @app.route("/<path:filename>")
     def static_files(filename):
         if filename.startswith("api/"):
             abort(404)
 
-        # Vue 前端资源优先
-        vue_file = vue_dir / filename
-        if vue_file.exists() and vue_file.is_file():
-            return _serve_file(vue_dir, filename)
+        web_file = web_dir / filename
+        if web_file.exists() and web_file.is_file():
+            return _serve_file(web_dir, filename)
 
-        # 旧前端资源
-        old_file = frontend_dir / filename
+        old_file = old_dir / filename
         if old_file.exists() and old_file.is_file():
-            return _serve_file(frontend_dir, filename)
+            return _serve_file(old_dir, filename)
 
-        # SPA 回退到 Vue 前端
-        return _serve_file(vue_dir, "index.html")
+        if web_dir.exists() and (web_dir / "index.html").exists():
+            return _serve_file(web_dir, "index.html")
+        return _serve_file(old_dir, "index.html")

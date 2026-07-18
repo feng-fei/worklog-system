@@ -64,7 +64,11 @@ def get_material(material_id):
         logs = MaterialStockLog.query.filter_by(material_id=material_id).order_by(MaterialStockLog.created_at.desc()).limit(20).all()
         is_admin = g.current_user.get('role') == 'admin'
         mat_dict = material.to_dict()
-        log_list = [l.to_dict() for l in logs]
+        log_list = []
+        for l in logs:
+            d = l.to_dict()
+            d['material_name'] = material.name
+            log_list.append(d)
         if not is_admin:
             mat_dict['unit_price'] = None
             mat_dict['supplier'] = ''
@@ -185,6 +189,7 @@ def update_material_stock(material_id):
 
         log = MaterialStockLog(
             material_id=material_id,
+            material_name=material.name,
             log_type=log_type,
             quantity=quantity,
             stock_before=stock_before,
@@ -234,8 +239,10 @@ def update_material_stock(material_id):
 
 
 @materials_bp.route('/materials/stock-logs', methods=['GET'])
+@materials_bp.route('/stock-logs', methods=['GET'])
+@materials_bp.route('/material-logs', methods=['GET'])
+@materials_bp.route('/material-stock-logs', methods=['GET'])
 @login_required
-@admin_required
 def get_stock_logs():
     try:
         material_id = request.args.get('material_id', type=int)
@@ -243,7 +250,7 @@ def get_stock_logs():
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
         page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 20, type=int)
+        per_page = request.args.get('per_page', 20, type=int) or request.args.get('page_size', 20, type=int)
 
         query = MaterialStockLog.query
         if material_id:
@@ -262,8 +269,17 @@ def get_stock_logs():
             except: pass
 
         pagination = query.order_by(MaterialStockLog.created_at.desc()).paginate(page=page, per_page=per_page)
+        material_map = {}
+        materials = Material.query.filter(Material.id.in_([l.material_id for l in pagination.items])).all()
+        for m in materials:
+            material_map[m.id] = m.name
+        records = []
+        for l in pagination.items:
+            d = l.to_dict()
+            d['material_name'] = material_map.get(l.material_id, '')
+            records.append(d)
         return jsonify({
-            'records': [l.to_dict() for l in pagination.items],
+            'records': records,
             'total': pagination.total,
             'page': page,
             'per_page': per_page,

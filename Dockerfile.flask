@@ -1,0 +1,35 @@
+FROM python:3.11-alpine AS builder
+
+RUN apk add --no-cache gcc musl-dev libffi-dev
+
+WORKDIR /app
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt --prefix=/install
+
+FROM python:3.11-alpine
+
+RUN apk add --no-cache libffi wqy-zenhei fontconfig && rm -rf /var/cache/apk/*
+
+WORKDIR /app
+
+COPY --from=builder /install /usr/local
+
+COPY backend/ ./backend/
+COPY run.py .
+
+COPY frontend-web/dist/ /app/frontend-web/dist/
+
+COPY frontend/ /app/frontend/
+
+RUN mkdir -p /app/data /app/uploads
+
+ENV DATABASE_URL=sqlite:////app/data/worklog.db
+ENV SECRET_KEY=***
+ENV FLASK_ENV=production
+ENV PYTHONPATH=/app:/app/backend
+ENV FRONTEND_DIR=/app/frontend
+ENV USE_MODULAR_BLUEPRINTS=true
+
+EXPOSE 5000
+
+CMD ["gunicorn", "-w", "1", "-b", "0.0.0.0:5000", "run:app"]

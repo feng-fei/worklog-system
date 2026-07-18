@@ -15,6 +15,8 @@ from sqlalchemy import func, or_, and_
 def get_customers():
     try:
         q = request.args.get('q', '')
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', request.args.get('page_size', 100)))
         query = Customer.query
         if q:
             like = f'%{q}%'
@@ -25,8 +27,15 @@ def get_customers():
                 Customer.contact_name.like(like),
                 Customer.credit_code.like(like)
             ))
-        customers = query.order_by(Customer.name).all()
-        return jsonify([c.to_dict() for c in customers])
+        pagination = query.order_by(Customer.name).paginate(page=page, per_page=per_page, error_out=False)
+        return jsonify({
+            'records': [c.to_dict() for c in pagination.items],
+            'customers': [c.to_dict() for c in pagination.items],
+            'total': pagination.total,
+            'page': page,
+            'per_page': per_page,
+            'pages': pagination.pages
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -52,7 +61,13 @@ def create_customer():
             contact_name=(data.get('contact_name') or '').strip(),
             phone=data.get('phone', ''),
             address=data.get('address', ''),
-            remark=data.get('remark', '')
+            remark=data.get('remark', ''),
+            invoice_title=data.get('invoice_title', ''),
+            tax_number=data.get('tax_number', ''),
+            bank_name=data.get('bank_name', ''),
+            bank_account=data.get('bank_account', ''),
+            invoice_address=data.get('invoice_address', ''),
+            invoice_phone=data.get('invoice_phone', '')
         )
         db.session.add(customer)
         db.session.commit()
@@ -163,6 +178,10 @@ def update_customer(customer_id):
             customer.address = data['address']
         if 'remark' in data:
             customer.remark = data['remark']
+        invoice_fields = ['invoice_title', 'tax_number', 'bank_name', 'bank_account', 'invoice_address', 'invoice_phone']
+        for field in invoice_fields:
+            if field in data:
+                setattr(customer, field, data[field])
         db.session.commit()
         return jsonify(customer.to_dict())
     except Exception as e:

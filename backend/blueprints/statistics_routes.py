@@ -14,19 +14,39 @@ from sqlalchemy import func, or_, and_
 @login_required
 def get_statistics():
     try:
+        range_type = request.args.get('range', 'month')
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
 
-        start = datetime.strptime(start_date, '%Y-%m-%d') if start_date else datetime.now() - timedelta(days=30)
-        end = datetime.strptime(end_date, '%Y-%m-%d') if end_date else datetime.now()
-        end = end + timedelta(days=1)
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        month_start = today.replace(day=1)
+        if month_start.month == 12:
+            month_end = datetime(month_start.year + 1, 1, 1)
+        else:
+            month_end = datetime(month_start.year, month_start.month + 1, 1)
 
-        # 基础过滤
-        base_filter = [WorkRecord.work_date >= start, WorkRecord.work_date < end]
+        if range_type == 'week':
+            start = today - timedelta(days=today.weekday())
+            end = start + timedelta(days=7)
+        elif range_type == 'month':
+            start = month_start
+            end = month_end
+        elif range_type == 'year':
+            start = today.replace(month=1, day=1)
+            end = datetime(start.year + 1, 1, 1)
+        else:
+            start = datetime.strptime(start_date, '%Y-%m-%d') if start_date else datetime.now() - timedelta(days=30)
+            end = datetime.strptime(end_date, '%Y-%m-%d') if end_date else datetime.now()
+            end = end + timedelta(days=1)
+
         user_role = g.current_user.get('role', 'worker')
         user_staff_name = g.current_user.get('staff_name', '')
-        if user_role == 'worker':
-            base_filter.append(
+        is_admin = user_role == 'admin'
+
+        # 基础过滤 - 工单
+        record_filter = [WorkRecord.work_date >= start, WorkRecord.work_date < end]
+        if not is_admin:
+            record_filter.append(
                 db.or_(
                     WorkRecord.staff_names.like(f'%{user_staff_name}%'),
                     WorkRecord.staff_name == user_staff_name,
@@ -34,68 +54,163 @@ def get_statistics():
                 )
             )
 
-        total_works = WorkRecord.query.filter(*base_filter).count()
-        construction_count = WorkRecord.query.filter(*base_filter, WorkRecord.record_type == 'construction').count()
-        repair_count = WorkRecord.query.filter(*base_filter, WorkRecord.record_type == 'repair').count()
+        # 本月过滤
+        month_record_filter = [WorkRecord.work_date >= month_start, WorkRecord.work_date < month_end]
+        if not is_admin:
+            month_record_filter.append(
+                db.or_(
+                    WorkRecord.staff_names.like(f'%{user_staff_name}%'),
+                    WorkRecord.staff_name == user_staff_name,
+                    WorkRecord.created_by == user_staff_name
+                )
+            )
 
-        pending_count = PendingWork.query.filter_by(status='pending').count()
-        paid_amount = db.session.query(func.sum(WorkRecord.paid_amount)).filter(*base_filter).scalar() or 0
-        unpaid_amount = db.session.query(func.sum(WorkRecord.total_fee - WorkRecord.paid_amount)).filter(*base_filter, WorkRecord.payment_status.in_(['unpaid','partial','monthly'])).scalar() or 0
-        unpaid_salary = db.session.query(func.sum(SalaryRecord.payable_amount - SalaryRecord.paid_amount)).filter_by(status='unsettled').scalar() or 0
+        # ==================== 工单统计 ====================
+        total_records = WorkRecord.query.count() if is_admin else _apply_record_permission(WorkRecord.query).count()
+        pending_records = WorkRecord.query.filter(WorkRecord.status.in_(['pending', 'dispatched'])).count() if is_admin else _apply_record_permission(WorkRecord.query.filter(WorkRecord.status.in_(['pending', 'dispatched']))).count()
+        in_progress_records = WorkRecord.query.filter(WorkRecord.status.in_(['in_progress', 'callback', 'settlement'])).count() if is_admin else _apply_record_permission(WorkRecord.query.filter(WorkRecord.status.in_(['in_progress', 'callback', 'settlement']))).count()
+        completed_records = WorkRecord.query.filter(WorkRecord.status == 'completed').count() if is_admin else _apply_record_permission(WorkRecord.query.filter(WorkRecord.status == 'completed')).count()
+        
+        month_new_records = WorkRecord.query.filter(*month_record_filter, WorkRecord.created_at >= month_start).count()
+        month_completed_records = WorkRecord.query.filter(*month_record_filter, WorkRecord.status == 'completed').count()
 
-        staff_stats = db.session.query(
+        # 类型分布
+        construction_count = WorkRecord.query.filter(*record_filter, WorkRecord.record_type == 'construction').count()
+        repair_count = WorkRecord.query.filter(*record_filter, WorkRecord.record_type == 'repair').count()
+        inspection_count = WorkRecord.query.filter(*record_filter, WorkRecord.record_type == 'inspection').count()
+        total_works = WorkRecord.query.filter(*record_filter).count()
+
+        # 上期对比
+        period_days = (end - start).days
+        last_start = start - timedelta(days=period_days)
+        last_end = start
+        last_record_filter = [WorkRecord.work_date >= last_start, WorkRecord.work_date < last_end]
+        if not is_admin:
+            last_record_filter.append(
+                db.or_(
+                    WorkRecord.staff_names.like(f'%{user_staff_name}%'),
+                    WorkRecord.staff_name == user_staff_name,
+                    WorkRecord.created_by == user_staff_name
+                )
+            )
+        last_period_count = WorkRecord.query.filter(*last_record_filter).count()
+        growth_rate = (total_works - last_period_count) / last_period_count if last_period_count > 0 else 0
+
+        # ==================== 财务统计 ====================
+        # 本月收款（实际到账）
+        month_payments_filter = [PaymentRecord.payment_date >= month_start.date(), PaymentRecord.payment_date < month_end.date()]
+        if not is_admin:
+            month_payments_filter.append(
+                db.or_(PaymentRecord.created_by == user_staff_name)
+            )
+        month_income = db.session.query(func.sum(PaymentRecord.amount)).filter(*month_payments_filter).scalar() or 0
+
+        # 本月支出
+        month_expense_date_filter = [Expense.expense_date >= month_start.date(), Expense.expense_date < month_end.date()]
+        if is_admin:
+            month_expense = db.session.query(func.sum(Expense.amount)).filter(*month_expense_date_filter).scalar() or 0
+            month_project_expense = db.session.query(func.sum(ProjectExpense.amount)).filter(
+                ProjectExpense.expense_date >= month_start.date(), ProjectExpense.expense_date < month_end.date()
+            ).scalar() or 0
+            month_salary_paid = db.session.query(func.sum(SalaryRecord.paid_amount)).filter(
+                SalaryRecord.status == 'settled',
+                SalaryRecord.settlement_date >= month_start.strftime('%Y-%m-%d'),
+                SalaryRecord.settlement_date < month_end.strftime('%Y-%m-%d')
+            ).scalar() or 0
+            month_expense = float(month_expense) + float(month_project_expense) + float(month_salary_paid)
+        else:
+            month_expense = 0
+
+        month_profit = float(month_income) - float(month_expense)
+
+        # 待收款总额
+        pending_payment_query = db.session.query(func.sum(WorkRecord.total_fee - WorkRecord.paid_amount)).filter(
+            WorkRecord.payment_status.in_(['unpaid', 'partial', 'monthly'])
+        )
+        if not is_admin:
+            pending_payment_query = _apply_record_permission(pending_payment_query)
+        pending_receivable = pending_payment_query.scalar() or 0
+
+        # ==================== 客户统计 ====================
+        total_customers = Customer.query.count()
+        month_new_customers = Customer.query.filter(Customer.created_at >= month_start).count()
+
+        # ==================== 员工统计 ====================
+        total_staffs = Staff.query.filter_by(status='active').count()
+
+        # 本月工单完成排行
+        staff_ranking_data = db.session.query(
             WorkRecord.staff_name,
-            func.count(WorkRecord.id).label('count')
-        ).filter(*base_filter).group_by(WorkRecord.staff_name).all()
+            func.count(WorkRecord.id).label('record_count'),
+            func.sum(WorkRecord.work_hours).label('work_hours'),
+        ).filter(*month_record_filter, WorkRecord.staff_name != '', WorkRecord.status == 'completed').group_by(WorkRecord.staff_name).order_by(func.count(WorkRecord.id).desc()).limit(10).all()
 
-        # 工时统计
-        labor_summary = db.session.query(
-            WorkRecord.staff_name,
-            func.count(WorkRecord.id).label('work_count'),
-            func.sum(WorkRecord.labor_fee).label('total_labor'),
-            func.sum(WorkRecord.material_fee).label('total_material'),
-            func.sum(WorkRecord.transport_fee).label('total_transport'),
-            func.sum(WorkRecord.other_fee).label('total_other'),
-            func.sum(WorkRecord.total_fee).label('total_fee')
-        ).filter(*base_filter).group_by(WorkRecord.staff_name).all()
+        # 客户工单排行（全周期）
+        customer_ranking_data = db.session.query(
+            WorkRecord.customer_name,
+            func.count(WorkRecord.id).label('record_count'),
+            func.sum(WorkRecord.total_fee).label('total_amount'),
+        ).filter(WorkRecord.customer_name != '').group_by(WorkRecord.customer_name).order_by(func.count(WorkRecord.id).desc()).limit(5).all()
 
-        # 总体汇总
+        # 费用汇总
         totals = db.session.query(
             func.sum(WorkRecord.labor_fee),
             func.sum(WorkRecord.material_fee),
             func.sum(WorkRecord.transport_fee),
             func.sum(WorkRecord.other_fee),
             func.sum(WorkRecord.total_fee)
-        ).filter(*base_filter).first()
+        ).filter(*record_filter).first()
 
         return jsonify({
+            # 工单统计
+            'total_records': total_records,
+            'pending_records': pending_records,
+            'in_progress_records': in_progress_records,
+            'completed_records': completed_records,
+            'month_new_records': month_new_records,
+            'month_completed_records': month_completed_records,
+            # 兼容旧字段
+            'total_count': total_works,
             'total_works': total_works,
+            'completed_count': completed_records,
+            'pending_count': PendingWork.query.filter_by(status='pending').count() if is_admin else _apply_pending_permission(PendingWork.query.filter_by(status='pending')).count(),
+            'completion_rate': completed_records / total_records if total_records > 0 else 0,
+            'current_period': total_works,
+            'last_period': last_period_count,
+            'growth_rate': growth_rate,
             'construction_count': construction_count,
+            'maintenance_count': repair_count,
+            'inspection_count': inspection_count,
             'repair_count': repair_count,
-            'pending_count': pending_count,
-            'paid_amount': float(paid_amount),
-            'unpaid_amount': float(unpaid_amount),
-            'unpaid_salary': float(unpaid_salary),
-            'staff_stats': [{'name': s[0], 'count': s[1]} for s in staff_stats if s[0]],
-            'fee_summary': [{
-                'staff_name': s[0],
-                'work_count': s[1],
-                'labor_fee': float(s[2] or 0),
-                'material_fee': float(s[3] or 0),
-                'transport_fee': float(s[4] or 0),
-                'other_fee': float(s[5] or 0),
-                'total_fee': float(s[6] or 0)
-            } for s in labor_summary if s[0]],
+            # 财务统计
+            'month_income': float(month_income),
+            'month_expense': float(month_expense),
+            'month_profit': round(month_profit, 2),
+            'pending_receivable': float(pending_receivable),
+            'paid_amount': float(totals[4] or 0) if totals else 0,
+            'unpaid_amount': float(pending_receivable),
+            'unpaid_salary': 0,
+            # 客户统计
+            'total_customers': total_customers,
+            'month_new_customers': month_new_customers,
+            # 员工统计
+            'total_staffs': total_staffs,
+            'staff_ranking': [{'staff_name': s[0], 'record_count': s[1], 'work_hours': float(s[2] or 0)} for s in staff_ranking_data],
+            'customer_ranking': [{'customer_name': c[0], 'record_count': c[1], 'total_amount': float(c[2] or 0)} for c in customer_ranking_data],
+            'staff_stats': [],
+            'fee_summary': [],
             'totals': {
-                'labor_fee': float(totals[0] or 0),
-                'material_fee': float(totals[1] or 0),
-                'transport_fee': float(totals[2] or 0),
-                'other_fee': float(totals[3] or 0),
-                'total_fee': float(totals[4] or 0)
+                'labor_fee': float(totals[0] or 0) if totals else 0,
+                'material_fee': float(totals[1] or 0) if totals else 0,
+                'transport_fee': float(totals[2] or 0) if totals else 0,
+                'other_fee': float(totals[3] or 0) if totals else 0,
+                'total_fee': float(totals[4] or 0) if totals else 0
             },
             'date_range': {'start': start.date().isoformat(), 'end': (end - timedelta(days=1)).date().isoformat()}
         })
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 # ===================== 导出 =====================
@@ -275,7 +390,8 @@ def get_dashboard():
             'customer_count': customer_count,
             'material_count': material_count,
             'today_records': [r.to_dict() for r in today_records],
-            'urgent_pending': [{'id':p.id,'title':p.title,'customer_name':p.customer_name,'work_content':p.work_content,'staff_name':p.staff_name,'reminder_date':p.reminder_date.isoformat(),'work_address':p.work_address,'status':p.status} for p in top_pending],
+            'recent_records': [r.to_dict() for r in today_records],
+            'urgent_pending': [{'id':p.id,'title':p.title,'customer_name':p.customer_name,'work_content':p.work_content,'staff_name':p.staff_name,'reminder_date':p.reminder_date.isoformat() if p.reminder_date else None,'work_address':p.work_address,'status':p.status} for p in top_pending],
             'recent_payments': [p.to_dict() for p in recent_payments],
             'recent_expenses': [e.to_dict() for e in recent_expenses],
             'top_customers': [{'customer_name': c[0], 'count': c[1], 'amount': float(c[2] or 0)} for c in top_customers if c[0]]
@@ -490,7 +606,7 @@ def _recalculate_project_totals(project_id):
             return
         salary_total = db.session.query(func.coalesce(func.sum(ProjectSalary.payable_amount), 0)).filter(
             ProjectSalary.project_id == project_id,
-            ProjectSalary.settlement_status == 'settled'
+            ProjectSalary.status == 'settled'
         ).scalar() or 0
         expense_total = db.session.query(func.coalesce(func.sum(ProjectExpense.amount), 0)).filter(
             ProjectExpense.project_id == project_id

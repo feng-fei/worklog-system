@@ -1132,55 +1132,122 @@ def _adjust_material_stock(eq, old_qty, new_qty, record):
 def _sync_to_customer_equipment(eq, record, action):
     """设备明细同步到客户设备档案"""
     try:
-        repair_method = eq.repair_method or ''
-        if '新增' not in repair_method and action != 'delete':
-            return
-        
         customer_name = record.customer_name
         if not customer_name:
             return
         
+        device_name = eq.device_name or ''
+        device_brand = eq.device_brand or ''
+        device_model = eq.device_model or ''
+        
         if action == 'delete':
             CustomerEquipment.query.filter_by(
                 customer_name=customer_name,
-                equipment_type=eq.device_name or '',
-                brand=eq.device_brand or '',
-                model=eq.device_model or ''
+                equipment_type=device_name,
+                brand=device_brand,
+                model=device_model
             ).delete(synchronize_session=False)
+            return
+        
+        if not device_name and not device_model:
             return
         
         existing = CustomerEquipment.query.filter_by(
             customer_name=customer_name,
-            equipment_type=eq.device_name or '',
-            brand=eq.device_brand or '',
-            model=eq.device_model or ''
+            equipment_type=device_name,
+            brand=device_brand,
+            model=device_model
         ).first()
+        
+        work_date = record.work_date.date() if hasattr(record.work_date, 'date') else record.work_date
         
         if existing:
             existing.quantity = (existing.quantity or 0) + (eq.quantity or 0)
             existing.location = eq.location or existing.location
             if eq.remark:
                 existing.remark = (existing.remark or '') + f'\n工单{record.order_no or ""}: {eq.remark}'
+            ce = existing
         else:
-            from datetime import date as date_type
-            work_date = record.work_date.date() if hasattr(record.work_date, 'date') else record.work_date
+            from datetime import timedelta
+            warranty_start = work_date + timedelta(days=1)
+            warranty_end = warranty_start + timedelta(days=365)
+            next_maintenance = work_date + timedelta(days=90)
+            maintenance_cycle = 90
+            
             ce = CustomerEquipment(
                 customer_name=customer_name,
-                equipment_type=eq.device_name or '',
+                equipment_type=device_name,
                 system_type=eq.system_type or '',
-                brand=eq.device_brand or '',
-                model=eq.device_model or '',
+                brand=device_brand,
+                model=device_model,
                 quantity=eq.quantity or 1,
                 install_date=work_date,
+                warranty_start=warranty_start,
+                warranty_end=warranty_end,
                 location=eq.location or record.work_address or '',
                 contact_name=record.contact_name or '',
                 contact_phone=record.customer_phone or '',
                 status='normal',
+                next_maintenance=next_maintenance,
+                maintenance_cycle=maintenance_cycle,
                 remark=f'来自工单{record.order_no or ""}\n{eq.remark or ""}'
             )
             db.session.add(ce)
+            db.session.flush()
+            
+            _create_maintenance_for_equipment(ce, record)
     except Exception as e:
         print(f'[客户设备档案] 同步失败: {e}', flush=True)
+
+def _create_maintenance_for_equipment(ce, record):
+    """为新设备创建维保计划和首个待办提醒"""
+    try:
+        from datetime import timedelta
+        plan_name = f'{ce.equipment_type or "设备"}定期维护 - {ce.customer_name}'
+        work_date = ce.install_date or datetime.now().date()
+        start_date = work_date
+        next_date = work_date + timedelta(days=90)
+        
+        staff_names_str = record.staff_names or record.staff_name or ''
+        first_staff = staff_names_str.split(',')[0].strip() if staff_names_str else ''
+        
+        plan = MaintenancePlan(
+            plan_name=plan_name,
+            plan_type='periodic',
+            customer_name=ce.customer_name,
+            equipment_id=ce.id,
+            system_type=ce.system_type or '',
+            cycle_type='month',
+            cycle_value=3,
+            start_date=start_date,
+            next_date=next_date,
+            staff_name=first_staff,
+            work_content=f'{ce.equipment_type or "设备"}（{ce.brand} {ce.model}）定期维护检查',
+            priority='normal',
+            status='active',
+            created_by=getattr(record, 'created_by', '') or get_login_user_name(),
+            remark=f'自动创建：设备{ce.equipment_type or ""}安装后每3个月定期维护'
+        )
+        db.session.add(plan)
+        db.session.flush()
+        
+        pending = PendingWork(
+            title=f'维保提醒：{plan_name}',
+            customer_name=ce.customer_name,
+            contact_name=ce.contact_name or '',
+            contact_phone=ce.contact_phone or '',
+            work_address=ce.location or record.work_address or '',
+            staff_name=first_staff,
+            todo_type='维保提醒',
+            priority='normal',
+            work_content=f'{ce.equipment_type or "设备"}（{ce.brand} {ce.model}）已安装3个月，需要进行定期维护检查。\n安装日期：{ce.install_date}\n下次维护：{next_date}',
+            reminder_date=datetime.combine(next_date, datetime.min.time()),
+            related_record_type='maintenance',
+            related_record_id=plan.id
+        )
+        db.session.add(pending)
+    except Exception as e:
+        print(f'[维保计划] 自动创建失败: {e}', flush=True)
 
 def _record_payload_from_pending(pending, record_type):
     return {
@@ -1277,51 +1344,67 @@ def create_record():
         else:
             data = request.form
             def get_val(key, default=''):
-                return get_val(key, default)
+                return data.get(key, default)
 
         customer_name = (get_val('customer_name') or '').strip()
-        if not customer_name:
-            return jsonify({'error': '客户名称不能为空'}), 400
-
-        photo_paths = []
-        files = request.files.getlist('photos')
-        upload_folder = current_app.config['UPLOAD_FOLDER']
-        for file in files:
-            if allowed_file(file):
-                filename = safe_filename(file.filename)
-                filepath = os.path.join(upload_folder, filename)
-                file.save(filepath)
-                # 生成缩略图 + 水印图 + 保留原图
-                try:
-                    from PIL import Image, ImageDraw, ImageFont
-                    img = Image.open(filepath)
-                    # 保留原图
-                    orig_name = filename.rsplit('.', 1)[0] + '_orig.' + filename.rsplit('.', 1)[1]
-                    img.save(os.path.join(upload_folder, orig_name))
-                    # 水印：时间戳 + 工单号（先放占位，create 后更新）
-                    ts = datetime.now().strftime('%Y-%m-%d %H:%M')
-                    draw = ImageDraw.Draw(img)
-                    # 简化水印用文字（右下角）
-                    wm_text = f'{ts}'
-                    # 用默认字体打水印
-                    try:
-                        img_w, img_h = img.size
-                        draw.rectangle([img_w-220, img_h-35, img_w-5, img_h-5], fill=(0,0,0,128))
-                        draw.text((img_w-210, img_h-28), wm_text, fill=(255,255,255))
-                    except: pass
-                    img.save(filepath, quality=85)
-                    # 缩略图
-                    img.thumbnail((800, 800), Image.LANCZOS)
-                    thumb_name = filename.rsplit('.', 1)[0] + '_thumb.' + filename.rsplit('.', 1)[1]
-                    img.save(os.path.join(upload_folder, thumb_name), quality=70, optimize=True)
-                except Exception as e:
-                    print(f'No thumbnail: {e}')
-                photo_paths.append(f'/uploads/{filename}')
-
+        
         work_date_str = get_val('work_date')
         work_date = datetime.strptime(work_date_str, '%Y-%m-%d') if work_date_str else datetime.now()
 
         record_type = get_val('record_type', 'construction')
+
+        project_id = get_val('project_id', None)
+        try:
+            project_id = int(project_id) if project_id else None
+        except:
+            project_id = None
+
+        is_project_construction = record_type == 'project_construction' or (project_id and record_type == 'construction')
+        
+        if not is_project_construction and not customer_name:
+            return jsonify({'error': '客户名称不能为空'}), 400
+        
+        if is_project_construction and not customer_name and project_id:
+            project = Project.query.get(project_id)
+            if project:
+                customer_name = project.customer_name or ''
+
+        photo_paths = []
+        if not request.is_json:
+            files = request.files.getlist('photos')
+            upload_folder = current_app.config['UPLOAD_FOLDER']
+            for file in files:
+                if allowed_file(file):
+                    filename = safe_filename(file.filename)
+                    filepath = os.path.join(upload_folder, filename)
+                    file.save(filepath)
+                    try:
+                        from PIL import Image, ImageDraw, ImageFont
+                        img = Image.open(filepath)
+                        orig_name = filename.rsplit('.', 1)[0] + '_orig.' + filename.rsplit('.', 1)[1]
+                        img.save(os.path.join(upload_folder, orig_name))
+                        ts = datetime.now().strftime('%Y-%m-%d %H:%M')
+                        draw = ImageDraw.Draw(img)
+                        wm_text = f'{ts}'
+                        try:
+                            img_w, img_h = img.size
+                            draw.rectangle([img_w-220, img_h-35, img_w-5, img_h-5], fill=(0,0,0,128))
+                            draw.text((img_w-210, img_h-28), wm_text, fill=(255,255,255))
+                        except: pass
+                        img.save(filepath, quality=85)
+                        img.thumbnail((800, 800), Image.LANCZOS)
+                        thumb_name = filename.rsplit('.', 1)[0] + '_thumb.' + filename.rsplit('.', 1)[1]
+                        img.save(os.path.join(upload_folder, thumb_name), quality=70, optimize=True)
+                    except Exception as e:
+                        print(f'No thumbnail: {e}')
+                    photo_paths.append(f'/uploads/{filename}')
+        else:
+            work_photos_val = get_val('work_photos', '')
+            if work_photos_val:
+                if isinstance(work_photos_val, list):
+                    photo_paths = [p.get('url') if isinstance(p, dict) else p for p in work_photos_val]
+                elif isinstance(work_photos_val, str):
+                    photo_paths = [p.strip() for p in work_photos_val.split(',') if p.strip()]
 
         def get_float(key):
             v = get_val(key, '0')
@@ -1400,7 +1483,8 @@ def create_record():
             warranty_days=int(get_val('warranty_days', 0) or 0),
             accept_time=get_val('accept_time', ''),
             customer_feedback=get_val('customer_feedback', ''),
-            satisfaction=get_val('satisfaction', '')
+            satisfaction=get_val('satisfaction', ''),
+            project_id=project_id
         )
         # 计算税费（在_sync_equipment_details之前先算一次，后面_sync会重算覆盖为最终值）
         _sync_staff_name_from_staff_names(record)
@@ -1629,7 +1713,7 @@ def update_record(record_id):
 
         old_status = snapshot_before.get('status', '')
         new_status = record.status
-        status_labels = {'pending':'待处理','dispatched':'已派单','in_progress':'处理中','callback':'待回访','settlement':'待结算','completed':'已完成','unable':'无法维修','cancelled':'已取消','rework':'返工'}
+        status_labels = {'pending':'待办工单','dispatched':'已派单','in_progress':'进行中','callback':'待回访','settlement':'待结算','completed':'已完成','unable':'无法维修','cancelled':'已取消','rework':'返工'}
         if old_status != new_status:
             notify_users = set()
             if record.created_by:
@@ -3567,7 +3651,7 @@ def get_dashboard():
             'customer_count': customer_count,
             'material_count': material_count,
             'today_records': [r.to_dict() for r in today_records],
-            'urgent_pending': [{'id':p.id,'title':p.title,'customer_name':p.customer_name,'work_content':p.work_content,'staff_name':p.staff_name,'reminder_date':p.reminder_date.isoformat(),'work_address':p.work_address,'status':p.status} for p in top_pending],
+            'urgent_pending': [{'id':p.id,'title':p.title,'customer_name':p.customer_name,'work_content':p.work_content,'staff_name':p.staff_name,'reminder_date':p.reminder_date.isoformat() if p.reminder_date else None,'work_address':p.work_address,'status':p.status} for p in top_pending],
             'recent_payments': [p.to_dict() for p in recent_payments],
             'recent_expenses': [e.to_dict() for e in recent_expenses],
             'top_customers': [{'customer_name': c[0], 'count': c[1], 'amount': float(c[2] or 0)} for c in top_customers if c[0]]
@@ -3575,56 +3659,85 @@ def get_dashboard():
     except Exception as e:
         if isinstance(e, HTTPException):
             raise
-        return jsonify({'error': str(e)}), 500
+        import traceback
+        print(f'[DASHBOARD ERROR] {str(e)}', flush=True)
+        print(traceback.format_exc(), flush=True)
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
 
 
 # ===================== 日历 =====================
 
 @api_bp.route('/calendar', methods=['GET'])
+@api_bp.route('/records/calendar', methods=['GET'])
 @login_required
 def get_calendar_data():
     try:
+        start_param = request.args.get('start')
+        end_param = request.args.get('end')
         year = request.args.get('year', type=int)
         month = request.args.get('month', type=int)
-        if not year or not month:
-            return jsonify([])
-        start_date = datetime(year, month, 1)
-        if month == 12:
-            end_date = datetime(year + 1, 1, 1)
-        else:
-            end_date = datetime(year, month + 1, 1)
+        
+        start_date = None
+        end_date = None
+        
+        if start_param and end_param:
+            try:
+                start_date = datetime.strptime(start_param, '%Y-%m-%d')
+                end_date = datetime.strptime(end_param, '%Y-%m-%d') + timedelta(days=1)
+            except:
+                pass
+        
+        if not start_date and year and month:
+            start_date = datetime(year, month, 1)
+            if month == 12:
+                end_date = datetime(year + 1, 1, 1)
+            else:
+                end_date = datetime(year, month + 1, 1)
+        
+        if not start_date:
+            today = datetime.now()
+            start_date = datetime(today.year, today.month, 1)
+            if today.month == 12:
+                end_date = datetime(today.year + 1, 1, 1)
+            else:
+                end_date = datetime(today.year, today.month + 1, 1)
         
         query = WorkRecord.query.filter(
             WorkRecord.work_date >= start_date,
             WorkRecord.work_date < end_date
         )
-        # 权限过滤
-        user_role = g.current_user.get('role', 'worker')
-        user_staff_name = g.current_user.get('staff_name', '')
-        if user_role == 'worker':
-            query = query.filter(
-                db.or_(
-                    WorkRecord.staff_names.like(f'%{user_staff_name}%'),
-                    WorkRecord.staff_name == user_staff_name,
-                    WorkRecord.created_by == user_staff_name
-                )
-            )
+        query = _apply_record_permission(query)
         records = query.all()
+        
+        records_list = []
         calendar_data = {}
         for record in records:
+            r_dict = record.to_dict()
+            records_list.append(r_dict)
             date_key = record.work_date.strftime('%Y-%m-%d')
             if date_key not in calendar_data:
                 calendar_data[date_key] = []
             calendar_data[date_key].append({
                 'id': record.id,
-                'customer_name': record.customer_name,
-                'work_content': record.work_content[:50] if record.work_content else ''
+                'order_no': record.order_no or '',
+                'customer_name': record.customer_name or '',
+                'record_type': record.record_type or '',
+                'work_content': (record.work_content or '')[:50],
+                'status': record.status or '',
+                'staff_names': record.staff_names or record.staff_name or ''
+            })
+        
+        if start_param and end_param:
+            return jsonify({
+                'success': True,
+                'records': records_list,
+                'calendar': calendar_data
             })
         return jsonify(calendar_data)
     except Exception as e:
         if isinstance(e, HTTPException):
             raise
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # ===================== 收款/应收账款管理 =====================
@@ -5107,7 +5220,11 @@ def get_material(material_id):
         logs = MaterialStockLog.query.filter_by(material_id=material_id).order_by(MaterialStockLog.created_at.desc()).limit(20).all()
         is_admin = g.current_user.get('role') == 'admin'
         mat_dict = material.to_dict()
-        log_list = [l.to_dict() for l in logs]
+        log_list = []
+        for l in logs:
+            d = l.to_dict()
+            d['material_name'] = material.name
+            log_list.append(d)
         if not is_admin:
             mat_dict['unit_price'] = None
             mat_dict['supplier'] = ''
@@ -5283,7 +5400,7 @@ def get_stock_logs():
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
         page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 20, type=int)
+        per_page = request.args.get('per_page', 20, type=int) or request.args.get('page_size', 20, type=int)
 
         query = MaterialStockLog.query
         if material_id:
@@ -5302,8 +5419,17 @@ def get_stock_logs():
             except: pass
 
         pagination = query.order_by(MaterialStockLog.created_at.desc()).paginate(page=page, per_page=per_page)
+        material_map = {}
+        materials = Material.query.filter(Material.id.in_([l.material_id for l in pagination.items])).all()
+        for m in materials:
+            material_map[m.id] = m.name
+        records = []
+        for l in pagination.items:
+            d = l.to_dict()
+            d['material_name'] = material_map.get(l.material_id, '')
+            records.append(d)
         return jsonify({
-            'records': [l.to_dict() for l in pagination.items],
+            'records': records,
             'total': pagination.total,
             'page': page,
             'per_page': per_page,

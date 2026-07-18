@@ -74,14 +74,14 @@ def parse_date(date_str):
 def paginate_query(query, page, per_page, to_dict_method='to_dict'):
     """通用分页工具函数"""
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-    items = []
+    records = []
     for item in pagination.items:
         if hasattr(item, to_dict_method):
-            items.append(getattr(item, to_dict_method)())
+            records.append(getattr(item, to_dict_method)())
         else:
-            items.append(item)
+            records.append(item)
     return {
-        'items': items,
+        'records': records,
         'total': pagination.total,
         'page': page,
         'per_page': per_page,
@@ -431,8 +431,9 @@ def _adjust_material_stock(eq, old_qty, new_qty, record):
                 material_name=material.name,
                 log_type=log_type,
                 quantity=change_qty,
-                unit_price=material.unit_price or 0,
+                stock_before=current_stock,
                 stock_after=material.stock,
+                unit_price=material.unit_price or 0,
                 related_type='work_record',
                 related_id=record.id,
                 remark=f'工单{record.order_no or ""} {_record_type_label(record.record_type)}设备明细变更',
@@ -559,17 +560,37 @@ def _ensure_indexes():
 
 def _log_operation(target_type, target_id, action, snapshot_before=None, snapshot_after=None, target_title=''):
     try:
+        changes = []
+        if action == 'update' and snapshot_before and snapshot_after:
+            field_labels = _get_field_labels(target_type)
+            important_fields = list(field_labels.keys()) if field_labels else []
+            if not important_fields:
+                important_fields = list(snapshot_before.keys()) if isinstance(snapshot_before, dict) else []
+            for key in important_fields:
+                old_val = snapshot_before.get(key) if isinstance(snapshot_before, dict) else None
+                new_val = snapshot_after.get(key) if isinstance(snapshot_after, dict) else None
+                if old_val != new_val:
+                    label = field_labels.get(key, key)
+                    changes.append({
+                        'field': key,
+                        'label': label,
+                        'old': old_val,
+                        'new': new_val
+                    })
         log = OperationLog(
             target_type=target_type,
             target_id=target_id,
             action=action,
-            operator=get_login_user_name(),
+            user=get_login_user_name(),
             target_title=target_title or '',
-            snapshot_before=json.dumps(snapshot_before, ensure_ascii=False) if snapshot_before else '',
-            snapshot_after=json.dumps(snapshot_after, ensure_ascii=False) if snapshot_after else '',
+            snapshot_before=json.dumps(snapshot_before, ensure_ascii=False, default=str) if snapshot_before else '',
+            snapshot_after=json.dumps(snapshot_after, ensure_ascii=False, default=str) if snapshot_after else '',
+            changes_summary=json.dumps(changes, ensure_ascii=False) if changes else '',
         )
         db.session.add(log)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print(f'记录操作日志失败: {e}')
 
 
@@ -678,7 +699,7 @@ def _recalculate_project_totals(project_id):
             return
         salary_total = db.session.query(func.coalesce(func.sum(ProjectSalary.payable_amount), 0)).filter(
             ProjectSalary.project_id == project_id,
-            ProjectSalary.settlement_status == 'settled'
+            ProjectSalary.status == 'settled'
         ).scalar() or 0
         expense_total = db.session.query(func.coalesce(func.sum(ProjectExpense.amount), 0)).filter(
             ProjectExpense.project_id == project_id

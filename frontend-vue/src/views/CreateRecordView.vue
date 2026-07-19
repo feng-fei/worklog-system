@@ -43,6 +43,8 @@ import { recordsApi } from '@/api'
 import { useUserStore } from '@/stores/user'
 import { toast } from '@/components/ui/toast/useToast'
 import type { ExpenseItem } from '@/types'
+import ExpenseRecorder from '@/components/ExpenseRecorder.vue'
+import type { ExpenseItem as ExpenseRecorderItem } from '@/components/ExpenseRecorder.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -289,6 +291,37 @@ const stepConfig = [
 
 const totalExpense = computed(() => {
   return expenseItems.value.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
+})
+
+const staffList = computed<string[]>(() => {
+  return []
+})
+
+const convertToNewFormat = (items: ExpenseItem[]): ExpenseRecorderItem[] => {
+  return items.map(item => ({
+    expense_type: item.category,
+    category: item.category,
+    amount: item.amount,
+    description: item.remark || '',
+    staff_name: '',
+    receipt_photos: [],
+    expense_date: new Date().toISOString().split('T')[0],
+  }))
+}
+
+const convertToOldFormat = (items: ExpenseRecorderItem[]): ExpenseItem[] => {
+  return items.map(item => ({
+    category: item.expense_type || item.category || 'other',
+    amount: item.amount,
+    remark: item.description || '',
+  }))
+}
+
+const recorderItems = computed({
+  get: () => convertToNewFormat(expenseItems.value),
+  set: (items: ExpenseRecorderItem[]) => {
+    expenseItems.value = convertToOldFormat(items)
+  },
 })
 
 const totalFee = computed(() => {
@@ -943,95 +976,8 @@ const currentTypeConfig = computed(() => typeConfig.find(t => t.key === recordTy
                   </Card>
 
                   <Card class="shadow-sm border-border">
-                    <CardHeader class="pb-3">
-                      <div class="flex items-center justify-between">
-                        <CardTitle class="text-base font-semibold flex items-center gap-2">
-                          <Receipt class="w-4 h-4 text-primary" />
-                          <span>费用支出明细</span>
-                          <Badge variant="outline" class="text-xs font-normal">
-                            {{ expenseItems.length }} 条
-                          </Badge>
-                        </CardTitle>
-                        <button
-                          class="flex items-center gap-1 text-xs text-primary font-medium hover:underline"
-                          @click="addExpenseItem"
-                        >
-                          <Plus class="w-3.5 h-3.5" />
-                          添加支出
-                        </button>
-                      </div>
-                    </CardHeader>
-                    <CardContent class="pt-0">
-                      <div v-if="expenseItems.length === 0" class="py-8 text-center">
-                        <div class="w-12 h-12 mx-auto rounded-full bg-muted/50 flex items-center justify-center mb-3">
-                          <Receipt class="w-6 h-6 text-muted-foreground" />
-                        </div>
-                        <p class="text-sm text-muted-foreground mb-3">暂无支出记录</p>
-                        <Button variant="outline" size="sm" @click="addExpenseItem">
-                          <Plus class="w-4 h-4 mr-1" />
-                          添加第一条支出
-                        </Button>
-                      </div>
-
-                      <div v-else class="space-y-3">
-                        <div
-                          v-for="(item, index) in expenseItems"
-                          :key="index"
-                          class="p-3 rounded-xl border border-border bg-card hover:border-primary/30 transition-colors"
-                        >
-                          <div class="flex items-start gap-3">
-                            <div class="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                              <component :is="getExpenseCategoryIcon(item.category)" class="w-4 h-4 text-muted-foreground" />
-                            </div>
-                            <div class="flex-1 min-w-0 space-y-2">
-                              <div class="flex items-center gap-2">
-                                <select
-                                  v-model="item.category"
-                                  class="text-sm font-medium text-foreground bg-transparent border-none outline-none cursor-pointer focus:ring-0 p-0"
-                                >
-                                  <option v-for="cat in expenseCategories" :key="cat.value" :value="cat.value">
-                                    {{ cat.label }}
-                                  </option>
-                                </select>
-                              </div>
-                              <div class="flex items-center gap-2">
-                                <div class="relative flex-1">
-                                  <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">¥</span>
-                                  <Input
-                                    v-model.number="item.amount"
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    placeholder="金额"
-                                    class="h-9 rounded-lg pl-7 text-sm"
-                                  />
-                                </div>
-                                <Input
-                                  v-model="item.remark"
-                                  placeholder="备注（可选）"
-                                  class="h-9 rounded-lg text-sm flex-1"
-                                />
-                                <button
-                                  class="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
-                                  @click="removeExpenseItem(index)"
-                                >
-                                  <Trash2 class="w-4 h-4" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div class="flex items-center justify-between p-4 rounded-xl bg-muted/50 mt-4">
-                          <div class="flex items-center gap-2">
-                            <span class="text-sm text-muted-foreground">支出合计</span>
-                            <Badge variant="outline" class="text-xs">
-                              {{ expenseItems.length }} 项
-                            </Badge>
-                          </div>
-                          <span class="text-lg font-semibold text-destructive">-¥{{ totalExpense.toFixed(2) }}</span>
-                        </div>
-                      </div>
+                    <CardContent class="pt-6">
+                      <ExpenseRecorder v-model="recorderItems" :staff-options="staffList" />
                     </CardContent>
                   </Card>
 

@@ -1,22 +1,21 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi } from '@/api'
-
-export interface User {
-  id: number
-  username: string
-  staff_name: string
-  role: string
-  staff_id: number | null
-  enabled: boolean
-}
+import type { User } from '@/types'
 
 export const useUserStore = defineStore('user', () => {
   const token = ref<string | null>(localStorage.getItem('token'))
   const user = ref<User | null>(null)
+  const isInitializing = ref(false)
 
   const isLoggedIn = computed(() => !!token.value)
   const isAdmin = computed(() => user.value?.role === 'admin')
+
+  const isTokenExpired = () => {
+    if (!user.value?.exp) return false
+    const now = Math.floor(Date.now() / 1000)
+    return user.value.exp < now
+  }
 
   const setToken = (t: string) => {
     token.value = t
@@ -24,13 +23,12 @@ export const useUserStore = defineStore('user', () => {
   }
 
   const setUserInfo = (u: User) => {
-    user.value = u
-    localStorage.setItem('user', JSON.stringify(u))
+    user.value = { ...u, id: u.id || u.user_id || 0 }
+    localStorage.setItem('user', JSON.stringify(user.value))
   }
 
   const login = async (username: string, password: string) => {
-    const res = await authApi.login({ username, password })
-    const data = res.data
+    const data = await authApi.login(username, password)
     if (data.token) {
       setToken(data.token)
       if (data.user) {
@@ -44,12 +42,9 @@ export const useUserStore = defineStore('user', () => {
 
   const fetchUser = async () => {
     try {
-      const res = await authApi.me()
-      const data = res.data
-      if (data.user) {
-        setUserInfo(data.user)
-      }
-      return data.user
+      const userData = await authApi.me()
+      setUserInfo(userData)
+      return userData
     } catch (e) {
       console.error('获取用户信息失败', e)
       throw e
@@ -74,9 +69,36 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  const initAuth = async () => {
+    isInitializing.value = true
+    try {
+      initFromStorage()
+
+      if (!token.value) {
+        return
+      }
+
+      if (isTokenExpired()) {
+        logout()
+        return
+      }
+
+      if (!user.value) {
+        try {
+          await fetchUser()
+        } catch (e) {
+          logout()
+        }
+      }
+    } finally {
+      isInitializing.value = false
+    }
+  }
+
   return {
     token,
     user,
+    isInitializing,
     isLoggedIn,
     isAdmin,
     setToken,
@@ -85,5 +107,7 @@ export const useUserStore = defineStore('user', () => {
     fetchUser,
     logout,
     initFromStorage,
+    initAuth,
+    isTokenExpired,
   }
 })

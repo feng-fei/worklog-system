@@ -25,18 +25,14 @@ import { useUserStore } from '@/stores/user'
 import { useTheme } from '@/composables/useTheme'
 import { toast } from '@/components/ui/toast/useToast'
 import { statisticsApi } from '@/api'
+import type { DashboardStats } from '@/types'
 
 const router = useRouter()
 const userStore = useUserStore()
 const { themeMode, setTheme } = useTheme()
 
-const stats = ref({
-  month_records: 0,
-  month_output: 0,
-  completion_rate: 0,
-})
-
-const useMock = import.meta.env.DEV
+const loading = ref(false)
+const stats = ref<DashboardStats | null>(null)
 
 const displayName = computed(() => {
   return userStore.user?.staff_name || userStore.user?.username || '管理员'
@@ -48,6 +44,19 @@ const roleLabel = computed(() => {
 
 const avatarFallback = computed(() => {
   return displayName.value.charAt(0)
+})
+
+const monthCount = computed(() => stats.value?.month_count ?? 0)
+
+const monthTotalInWan = computed(() => {
+  const total = stats.value?.month_total ?? 0
+  return (total / 10000).toFixed(1)
+})
+
+const completionRate = computed(() => {
+  const count = stats.value?.month_count ?? 0
+  if (count === 0) return 0
+  return Math.round((count / count) * 100)
 })
 
 const menuGroups = ref([
@@ -116,21 +125,21 @@ const getMenuItemBadge = (item: any) => {
   return item.badge
 }
 
-onMounted(async () => {
-  if (!useMock) {
-    try {
-      const res = await statisticsApi.dashboard()
-      stats.value = res.data
-    } catch (e) {
-      console.error('Failed to load stats:', e)
-    }
-  } else {
-    stats.value = {
-      month_records: 128,
-      month_output: 8.6,
-      completion_rate: 98,
-    }
+const fetchStats = async () => {
+  loading.value = true
+  try {
+    const data = await statisticsApi.dashboard()
+    stats.value = data
+  } catch (e) {
+    console.error('Failed to load stats:', e)
+    toast('加载统计数据失败', { type: 'error' })
+  } finally {
+    loading.value = false
   }
+}
+
+onMounted(() => {
+  fetchStats()
 })
 </script>
 
@@ -155,15 +164,24 @@ onMounted(async () => {
 
       <div class="grid grid-cols-3 gap-4 mt-6">
         <div class="text-center">
-          <p class="text-2xl font-bold text-white">{{ stats.month_records }}</p>
+          <p class="text-2xl font-bold text-white">
+            <span v-if="loading">--</span>
+            <span v-else>{{ monthCount }}</span>
+          </p>
           <p class="text-xs text-white/70 mt-0.5">本月工单</p>
         </div>
         <div class="text-center">
-          <p class="text-2xl font-bold text-white">¥{{ stats.month_output }}w</p>
+          <p class="text-2xl font-bold text-white">
+            <span v-if="loading">--</span>
+            <span v-else>¥{{ monthTotalInWan }}w</span>
+          </p>
           <p class="text-xs text-white/70 mt-0.5">本月产值</p>
         </div>
         <div class="text-center">
-          <p class="text-2xl font-bold text-white">{{ stats.completion_rate }}%</p>
+          <p class="text-2xl font-bold text-white">
+            <span v-if="loading">--</span>
+            <span v-else>{{ completionRate }}%</span>
+          </p>
           <p class="text-xs text-white/70 mt-0.5">完成率</p>
         </div>
       </div>

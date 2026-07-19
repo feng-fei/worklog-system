@@ -8,11 +8,17 @@ const userStore = useUserStore()
 
 onMounted(() => {
   initTheme()
-  userStore.initFromStorage()
+  userStore.initAuth()
 })
 </script>
 
 <template>
-  <RouterView />
+  <div v-if="userStore.isInitializing" class="min-h-screen flex items-center justify-center bg-background">
+    <div class="flex flex-col items-center gap-4">
+      <div class="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      <p class="text-muted-foreground">加载中...</p>
+    </div>
+  </div>
+  <RouterView v-else />
   <Toaster />
 </template>

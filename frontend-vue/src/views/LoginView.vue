@@ -103,7 +103,7 @@ const handleLogin = async () => {
           </Button>
 
           <p class="text-center text-xs text-slate-400 pt-2">
-            测试账号 admin / 123456
+            默认账号 admin / admin123
           </p>
         </CardContent>
       </Card>

@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   ArrowLeft,
   Wrench,
-  Construction,
-  Building2,
+  ShieldCheck,
+  Hammer,
+  ClipboardCheck,
   Save,
   Send,
   User,
@@ -20,39 +21,165 @@ import {
   Trash2,
   ChevronRight,
   CheckCircle2,
+  Loader2,
+  Image as ImageIcon,
+  Sparkles,
 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import PhotoUpload from '@/components/PhotoUpload.vue'
 import { recordsApi } from '@/api'
+import { useUserStore } from '@/stores/user'
+import { toast } from '@/components/ui/toast/useToast'
 
 const router = useRouter()
+const userStore = useUserStore()
 
 const step = ref(1)
 const submitting = ref(false)
+const errorMsg = ref('')
+const createdId = ref<number | null>(null)
+const showTemplatePicker = ref(false)
 
 const form = ref({
-  record_type: '',
-  title: '',
+  record_type: 'repair' as 'construction' | 'maintenance' | 'repair' | 'inspection',
   customer_name: '',
   contact_person: '',
   contact_phone: '',
   address: '',
-  start_time: '',
-  estimated_hours: '',
-  staff_names: '',
-  description: '',
-  materials: [] as { name: string; quantity: string; unit: string }[],
+  appointment_date: '',
+  staff_name: '',
+  fault_phenomenon: '',
+  fault_judgment: '',
+  remark: '',
+  labour_fee: 0,
+  material_fee: 0,
+  travel_fee: 0,
+  other_fee: 0,
+})
+
+const photos = ref<string[]>([])
+
+interface RecordTemplate {
+  id: string
+  name: string
+  record_type: string
+  fault_phenomenon: string
+  fault_judgment: string
+  labour_fee: number
+  material_fee: number
+  travel_fee: number
+  other_fee: number
+  remark: string
+}
+
+const defaultTemplates: RecordTemplate[] = [
+  {
+    id: 'tpl-ac-repair',
+    name: '空调常规维修',
+    record_type: 'repair',
+    fault_phenomenon: '空调不制冷/制热效果差',
+    fault_judgment: '需现场检查冷媒压力、压缩机运行状态',
+    labour_fee: 200,
+    material_fee: 0,
+    travel_fee: 0,
+    other_fee: 0,
+    remark: '',
+  },
+  {
+    id: 'tpl-ac-maintain',
+    name: '空调季度保养',
+    record_type: 'maintenance',
+    fault_phenomenon: '',
+    fault_judgment: '季度常规保养：清洗滤网、检查电气、测试运行',
+    labour_fee: 150,
+    material_fee: 0,
+    travel_fee: 0,
+    other_fee: 0,
+    remark: '含滤网清洗、电气检查、冷媒检测',
+  },
+  {
+    id: 'tpl-fire-inspect',
+    name: '消防系统年检',
+    record_type: 'inspection',
+    fault_phenomenon: '',
+    fault_judgment: '消防系统年度检测：报警、喷淋、消火栓、防排烟',
+    labour_fee: 800,
+    material_fee: 0,
+    travel_fee: 0,
+    other_fee: 0,
+    remark: '年度消防检测，出具检测报告',
+  },
+]
+
+const templates = ref<RecordTemplate[]>([...defaultTemplates])
+
+const loadTemplates = () => {
+  try {
+    const saved = localStorage.getItem('record_templates')
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      templates.value = [...defaultTemplates, ...parsed]
+    }
+  } catch {}
+}
+
+const saveTemplate = () => {
+  const name = prompt('请输入模板名称')
+  if (!name) return
+  const newTpl: RecordTemplate = {
+    id: 'tpl-custom-' + Date.now(),
+    name,
+    record_type: form.value.record_type,
+    fault_phenomenon: form.value.fault_phenomenon,
+    fault_judgment: form.value.fault_judgment,
+    labour_fee: form.value.labour_fee,
+    material_fee: form.value.material_fee,
+    travel_fee: form.value.travel_fee,
+    other_fee: form.value.other_fee,
+    remark: form.value.remark,
+  }
+  const customTpls = templates.value.filter(t => !defaultTemplates.find(d => d.id === t.id))
+  customTpls.push(newTpl)
+  localStorage.setItem('record_templates', JSON.stringify(customTpls))
+  templates.value = [...defaultTemplates, ...customTpls]
+  toast('模板已保存', { type: 'success' })
+}
+
+const applyTemplate = (tpl: RecordTemplate) => {
+  form.value.record_type = tpl.record_type as any
+  form.value.fault_phenomenon = tpl.fault_phenomenon
+  form.value.fault_judgment = tpl.fault_judgment
+  form.value.labour_fee = tpl.labour_fee
+  form.value.material_fee = tpl.material_fee
+  form.value.travel_fee = tpl.travel_fee
+  form.value.other_fee = tpl.other_fee
+  form.value.remark = tpl.remark
+  showTemplatePicker.value = false
+  step.value = 2
+  toast(`已应用模板：${tpl.name}`, { type: 'success' })
+}
+
+onMounted(() => {
+  loadTemplates()
+  if (userStore.user?.staff_name) {
+    form.value.staff_name = userStore.user.staff_name
+  }
 })
 
 const types = [
-  { key: 'construction', label: '施工单', icon: Wrench, color: 'from-blue-500 to-blue-600', desc: '单次施工任务' },
-  { key: 'repair', label: '维修单', icon: Construction, color: 'from-emerald-500 to-emerald-600', desc: '设备维修/抢修' },
-  { key: 'project', label: '项目施工', icon: Building2, color: 'from-violet-500 to-violet-600', desc: '大型项目工程' },
+  { key: 'repair', label: '维修单', icon: Hammer, color: 'from-amber-500 to-orange-500', desc: '设备维修/故障抢修' },
+  { key: 'construction', label: '施工单', icon: Wrench, color: 'from-blue-500 to-blue-600', desc: '安装施工/新建工程' },
+  { key: 'maintenance', label: '维保单', icon: ShieldCheck, color: 'from-purple-500 to-purple-600', desc: '定期保养/维护' },
+  { key: 'inspection', label: '巡检单', icon: ClipboardCheck, color: 'from-cyan-500 to-teal-600', desc: '例行巡检/安全检查' },
 ]
 
-const selectedType = computed(() => types.find(t => t.key === form.value.record_type))
+const totalFee = computed(() => {
+  const f = form.value
+  return (Number(f.labour_fee) || 0) + (Number(f.material_fee) || 0) + (Number(f.travel_fee) || 0) + (Number(f.other_fee) || 0)
+})
 
 const goBack = () => {
   if (step.value > 1) {
@@ -63,7 +190,7 @@ const goBack = () => {
 }
 
 const onSelectType = (key: string) => {
-  form.value.record_type = key
+  form.value.record_type = key as any
 }
 
 const nextStep = () => {
@@ -71,40 +198,77 @@ const nextStep = () => {
   step.value++
 }
 
-const addMaterial = () => {
-  form.value.materials.push({ name: '', quantity: '', unit: '个' })
-}
-
-const removeMaterial = (index: number) => {
-  form.value.materials.splice(index, 1)
-}
-
 const handleSubmit = async () => {
-  if (!form.value.title || !form.value.customer_name) {
-    alert('请填写必填项')
+  errorMsg.value = ''
+  if (!form.value.customer_name) {
+    errorMsg.value = '请填写客户名称'
     return
   }
 
   submitting.value = true
   try {
-    await recordsApi.create({
-      ...form.value,
-      materials: form.value.materials.filter(m => m.name),
-    })
+    const formData = new FormData()
+    formData.append('record_type', form.value.record_type)
+    formData.append('customer_name', form.value.customer_name)
+    if (form.value.contact_person) formData.append('contact_person', form.value.contact_person)
+    if (form.value.contact_phone) formData.append('contact_phone', form.value.contact_phone)
+    if (form.value.address) formData.append('address', form.value.address)
+    if (form.value.appointment_date) formData.append('appointment_date', form.value.appointment_date)
+    if (form.value.staff_name) formData.append('staff_name', form.value.staff_name)
+    if (form.value.fault_phenomenon) formData.append('fault_phenomenon', form.value.fault_phenomenon)
+    if (form.value.fault_judgment) formData.append('fault_judgment', form.value.fault_judgment)
+    if (form.value.remark) formData.append('remark', form.value.remark)
+    formData.append('labour_fee', String(form.value.labour_fee || 0))
+    formData.append('material_fee', String(form.value.material_fee || 0))
+    formData.append('travel_fee', String(form.value.travel_fee || 0))
+    formData.append('other_fee', String(form.value.other_fee || 0))
+    formData.append('total_fee', String(totalFee.value))
+    formData.append('payment_status', 'unpaid')
+    formData.append('priority', 'normal')
+    formData.append('status', 'pending')
+
+    const result = await recordsApi.create(formData)
+    createdId.value = result.id
     step.value = 3
-  } catch (e) {
-    alert('创建失败，请重试')
+  } catch (e: any) {
+    errorMsg.value = e.response?.data?.error || '创建失败，请重试'
   } finally {
     submitting.value = false
   }
 }
 
-const handleSaveDraft = () => {
-  alert('草稿已保存')
+const goToDetail = () => {
+  if (createdId.value) {
+    router.replace(`/record/${createdId.value}`)
+  } else {
+    router.push('/records')
+  }
 }
 
 const goToList = () => {
   router.push('/records')
+}
+
+const resetForm = () => {
+  form.value = {
+    record_type: 'repair',
+    customer_name: '',
+    contact_person: '',
+    contact_phone: '',
+    address: '',
+    appointment_date: '',
+    staff_name: userStore.user?.staff_name || '',
+    fault_phenomenon: '',
+    fault_judgment: '',
+    remark: '',
+    labour_fee: 0,
+    material_fee: 0,
+    travel_fee: 0,
+    other_fee: 0,
+  }
+  photos.value = []
+  createdId.value = null
+  step.value = 1
 }
 
 const stepTitles = ['选择类型', '填写信息', '创建完成']
@@ -156,7 +320,7 @@ const stepTitles = ['选择类型', '填写信息', '创建完成']
             <div
               v-if="i < stepTitles.length - 1"
               :class="[
-                'w-6 mx-2 h-0.5 rounded-full',
+                'w-4 sm:w-8 mx-1 sm:mx-2 h-0.5 rounded-full',
                 step > i + 1 ? 'bg-primary' : 'bg-muted'
               ]"
             />
@@ -207,89 +371,89 @@ const stepTitles = ['选择类型', '填写信息', '创建完成']
           </div>
         </button>
       </div>
+
+      <div class="pt-4">
+        <button
+          class="w-full flex items-center justify-center gap-2 p-4 rounded-2xl border border-dashed border-primary/30 text-primary hover:bg-primary/5 transition-colors"
+          @click="showTemplatePicker = true"
+        >
+          <FileText class="w-5 h-5" />
+          <span class="font-medium">使用模板快速填充</span>
+        </button>
+      </div>
     </div>
 
     <div v-else-if="step === 2" class="flex-1 px-4 py-4 space-y-5 overflow-y-auto">
-      <div class="space-y-4">
-        <div class="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <FileText class="w-4 h-4 text-primary" />
-          <span>基本信息</span>
-        </div>
-
-        <div class="space-y-3">
-          <div class="space-y-1.5">
-            <Label for="title">工单标题 <span class="text-destructive">*</span></Label>
-            <Input
-              id="title"
-              v-model="form.title"
-              placeholder="请输入工单标题"
-              class="h-11 rounded-xl"
-            />
-          </div>
-        </div>
+      <div v-if="errorMsg" class="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-sm flex items-center gap-2">
+        <span>{{ errorMsg }}</span>
       </div>
 
-      <div class="h-px bg-border -mx-4" />
-
-      <div class="space-y-4">
+      <div class="flex items-center justify-between">
         <div class="flex items-center gap-2 text-sm font-semibold text-foreground">
           <User class="w-4 h-4 text-primary" />
           <span>客户信息</span>
         </div>
+        <button
+          class="flex items-center gap-1 text-xs text-primary font-medium"
+          @click="showTemplatePicker = true"
+        >
+          <Sparkles class="w-3.5 h-3.5" />
+          模板
+        </button>
+      </div>
 
-        <div class="space-y-3">
+      <div class="space-y-3">
+        <div class="space-y-1.5">
+          <Label for="customer">客户名称 <span class="text-destructive">*</span></Label>
+          <div class="relative">
+            <Input
+              id="customer"
+              v-model="form.customer_name"
+              placeholder="请输入客户名称"
+              class="h-11 rounded-xl pl-9"
+            />
+            <User class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
           <div class="space-y-1.5">
-            <Label for="customer">客户名称 <span class="text-destructive">*</span></Label>
+            <Label for="contact">联系人</Label>
             <div class="relative">
               <Input
-                id="customer"
-                v-model="form.customer_name"
-                placeholder="请输入客户名称"
+                id="contact"
+                v-model="form.contact_person"
+                placeholder="联系人姓名"
                 class="h-11 rounded-xl pl-9"
               />
               <User class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             </div>
           </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div class="space-y-1.5">
-              <Label for="contact">联系人</Label>
-              <div class="relative">
-                <Input
-                  id="contact"
-                  v-model="form.contact_person"
-                  placeholder="联系人姓名"
-                  class="h-11 rounded-xl pl-9"
-                />
-                <User class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              </div>
-            </div>
-            <div class="space-y-1.5">
-              <Label for="phone">联系电话</Label>
-              <div class="relative">
-                <Input
-                  id="phone"
-                  v-model="form.contact_phone"
-                  placeholder="联系电话"
-                  class="h-11 rounded-xl pl-9"
-                  type="tel"
-                />
-                <Phone class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              </div>
-            </div>
-          </div>
-
           <div class="space-y-1.5">
-            <Label for="address">施工地址</Label>
+            <Label for="phone">联系电话</Label>
             <div class="relative">
               <Input
-                id="address"
-                v-model="form.address"
-                placeholder="请输入施工地址"
+                id="phone"
+                v-model="form.contact_phone"
+                placeholder="联系电话"
                 class="h-11 rounded-xl pl-9"
+                type="tel"
               />
-              <MapPin class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Phone class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             </div>
+          </div>
+        </div>
+
+        <div class="space-y-1.5">
+          <Label for="address">施工地址</Label>
+          <div class="relative">
+            <Input
+              id="address"
+              v-model="form.address"
+              placeholder="请输入施工地址"
+              class="h-11 rounded-xl pl-9"
+            />
+            <MapPin class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           </div>
         </div>
       </div>
@@ -299,16 +463,16 @@ const stepTitles = ['选择类型', '填写信息', '创建完成']
       <div class="space-y-4">
         <div class="flex items-center gap-2 text-sm font-semibold text-foreground">
           <Calendar class="w-4 h-4 text-primary" />
-          <span>时间安排</span>
+          <span>预约安排</span>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
           <div class="space-y-1.5">
-            <Label for="start-time">开始时间</Label>
+            <Label for="appointment-date">预约时间</Label>
             <div class="relative">
               <Input
-                id="start-time"
-                v-model="form.start_time"
+                id="appointment-date"
+                v-model="form.appointment_date"
                 type="datetime-local"
                 class="h-11 rounded-xl pl-9"
               />
@@ -316,92 +480,16 @@ const stepTitles = ['选择类型', '填写信息', '创建完成']
             </div>
           </div>
           <div class="space-y-1.5">
-            <Label for="hours">预计工时</Label>
+            <Label for="staff">负责人</Label>
             <div class="relative">
               <Input
-                id="hours"
-                v-model="form.estimated_hours"
-                placeholder="小时"
+                id="staff"
+                v-model="form.staff_name"
+                placeholder="负责人姓名"
                 class="h-11 rounded-xl pl-9"
-                type="number"
               />
-              <Clock class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Users class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="h-px bg-border -mx-4" />
-
-      <div class="space-y-4">
-        <div class="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <Users class="w-4 h-4 text-primary" />
-          <span>施工人员</span>
-        </div>
-
-        <div class="space-y-1.5">
-          <Label for="staff">施工人员</Label>
-          <div class="relative">
-            <Input
-              id="staff"
-              v-model="form.staff_names"
-              placeholder="多个人员用逗号分隔"
-              class="h-11 rounded-xl pl-9"
-            />
-            <Users class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          </div>
-        </div>
-      </div>
-
-      <div class="h-px bg-border -mx-4" />
-
-      <div class="space-y-4">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <Package class="w-4 h-4 text-primary" />
-            <span>物料清单</span>
-          </div>
-          <button
-            class="text-xs text-primary font-medium flex items-center gap-1 tap-highlight-transparent"
-            @click="addMaterial"
-          >
-            <Plus class="w-3.5 h-3.5" />
-            添加
-          </button>
-        </div>
-
-        <div v-if="form.materials.length === 0" class="text-center py-6 text-muted-foreground text-sm">
-          暂无物料，点击上方添加
-        </div>
-
-        <div v-else class="space-y-2">
-          <div
-            v-for="(m, index) in form.materials"
-            :key="index"
-            class="flex items-center gap-2"
-          >
-            <Input
-              v-model="m.name"
-              placeholder="物料名称"
-              class="h-10 rounded-lg flex-1"
-            />
-            <Input
-              v-model="m.quantity"
-              placeholder="数量"
-              class="h-10 rounded-lg w-20"
-              type="number"
-            />
-            <Input
-              v-model="m.unit"
-              placeholder="单位"
-              class="h-10 rounded-lg w-16"
-            />
-            <button
-              class="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors tap-highlight-transparent"
-              @click="removeMaterial(index)"
-            >
-              <Trash2 class="w-4 h-4" />
-            </button>
           </div>
         </div>
       </div>
@@ -411,14 +499,125 @@ const stepTitles = ['选择类型', '填写信息', '创建完成']
       <div class="space-y-4">
         <div class="flex items-center gap-2 text-sm font-semibold text-foreground">
           <FileText class="w-4 h-4 text-primary" />
-          <span>工作内容</span>
+          <span>问题描述</span>
         </div>
 
-        <Textarea
-          v-model="form.description"
-          placeholder="请详细描述工作内容..."
-          class="min-h-[120px] rounded-xl resize-none"
-        />
+        <div class="space-y-3">
+          <div class="space-y-1.5">
+            <Label for="phenomenon">故障现象</Label>
+            <Textarea
+              id="phenomenon"
+              v-model="form.fault_phenomenon"
+              placeholder="请描述故障现象..."
+              class="min-h-[80px] rounded-xl resize-none"
+            />
+          </div>
+
+          <div class="space-y-1.5">
+            <Label for="judgment">初步判断</Label>
+            <Textarea
+              id="judgment"
+              v-model="form.fault_judgment"
+              placeholder="请描述故障原因初步判断（可选）..."
+              class="min-h-[80px] rounded-xl resize-none"
+            />
+          </div>
+
+          <div class="space-y-1.5">
+            <Label for="remark">备注</Label>
+            <Textarea
+              id="remark"
+              v-model="form.remark"
+              placeholder="其他备注信息（可选）..."
+              class="min-h-[60px] rounded-xl resize-none"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div class="h-px bg-border -mx-4" />
+
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <ImageIcon class="w-4 h-4 text-primary" />
+            <span>现场照片</span>
+          </div>
+          <button
+            class="flex items-center gap-1 text-xs text-primary font-medium"
+            @click="saveTemplate"
+          >
+            <Save class="w-3.5 h-3.5" />
+            存为模板
+          </button>
+        </div>
+
+        <PhotoUpload v-model="photos" :max="9" />
+      </div>
+
+      <div class="h-px bg-border -mx-4" />
+
+      <div class="space-y-4">
+        <div class="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <span class="w-4 h-4 flex items-center justify-center text-primary font-bold">¥</span>
+          <span>费用预估</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1.5">
+            <Label for="labour-fee">人工费</Label>
+            <Input
+              id="labour-fee"
+              v-model.number="form.labour_fee"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0"
+              class="h-11 rounded-xl"
+            />
+          </div>
+          <div class="space-y-1.5">
+            <Label for="material-fee">物料费</Label>
+            <Input
+              id="material-fee"
+              v-model.number="form.material_fee"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0"
+              class="h-11 rounded-xl"
+            />
+          </div>
+          <div class="space-y-1.5">
+            <Label for="travel-fee">差旅费</Label>
+            <Input
+              id="travel-fee"
+              v-model.number="form.travel_fee"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0"
+              class="h-11 rounded-xl"
+            />
+          </div>
+          <div class="space-y-1.5">
+            <Label for="other-fee">其他费用</Label>
+            <Input
+              id="other-fee"
+              v-model.number="form.other_fee"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0"
+              class="h-11 rounded-xl"
+            />
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between p-3 rounded-xl bg-muted/50">
+          <span class="text-sm text-muted-foreground">预估总费用</span>
+          <span class="text-lg font-bold text-foreground">¥{{ totalFee.toFixed(2) }}</span>
+        </div>
       </div>
     </div>
 
@@ -428,22 +627,29 @@ const stepTitles = ['选择类型', '填写信息', '创建完成']
       </div>
       <h2 class="text-xl font-bold text-foreground mb-2">工单创建成功</h2>
       <p class="text-muted-foreground text-sm text-center mb-8">
-        工单已成功创建，您可以在工单列表中查看
+        工单已成功创建，您可以查看详情或继续创建
       </p>
 
       <div class="w-full space-y-3">
         <Button
           class="w-full h-12 rounded-xl text-base font-semibold"
-          @click="goToList"
+          @click="goToDetail"
         >
-          查看工单列表
+          查看工单详情
         </Button>
         <Button
           variant="outline"
           class="w-full h-12 rounded-xl text-base font-medium"
-          @click="step = 1; form = { record_type: '', title: '', customer_name: '', contact_person: '', contact_phone: '', address: '', start_time: '', estimated_hours: '', staff_names: '', description: '', materials: [] }"
+          @click="goToList"
         >
-          继续创建
+          返回工单列表
+        </Button>
+        <Button
+          variant="ghost"
+          class="w-full h-12 rounded-xl text-base font-medium"
+          @click="resetForm"
+        >
+          继续创建新工单
         </Button>
       </div>
     </div>
@@ -454,21 +660,11 @@ const stepTitles = ['选择类型', '填写信息', '创建完成']
     >
       <div class="flex gap-3">
         <Button
-          v-if="step === 1"
-          variant="outline"
-          class="flex-1 h-12 rounded-xl text-base font-medium"
-          @click="handleSaveDraft"
-        >
-          <Save class="w-4 h-4 mr-2" />
-          保存草稿
-        </Button>
-        <Button
-          v-else
           variant="outline"
           class="flex-1 h-12 rounded-xl text-base font-medium"
           @click="goBack"
         >
-          上一步
+          {{ step === 1 ? '取消' : '上一步' }}
         </Button>
         <Button
           v-if="step === 1"
@@ -485,10 +681,87 @@ const stepTitles = ['选择类型', '填写信息', '创建完成']
           :disabled="submitting"
           @click="handleSubmit"
         >
-          <Send v-if="!submitting" class="w-4 h-4 mr-2" />
+          <Loader2 v-if="submitting" class="w-4 h-4 mr-2 animate-spin" />
+          <Send v-else class="w-4 h-4 mr-2" />
           {{ submitting ? '提交中...' : '提交工单' }}
         </Button>
       </div>
     </div>
+
+    <Teleport to="body">
+      <Transition name="fade">
+        <div
+          v-if="showTemplatePicker"
+          class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
+          @click.self="showTemplatePicker = false"
+        >
+          <div class="w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl bg-background shadow-2xl max-h-[80vh] overflow-hidden animate-slide-up">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-border">
+              <h3 class="font-semibold text-foreground">选择模板</h3>
+              <button
+                class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors"
+                @click="showTemplatePicker = false"
+              >
+                <Trash2 class="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+            <div class="p-4 space-y-2 overflow-y-auto max-h-[60vh]">
+              <button
+                v-for="tpl in templates"
+                :key="tpl.id"
+                class="w-full p-3 rounded-xl border border-border hover:border-primary hover:bg-primary/5 transition-all text-left"
+                @click="applyTemplate(tpl)"
+              >
+                <div class="flex items-center justify-between">
+                  <span class="font-medium text-foreground">{{ tpl.name }}</span>
+                  <span class="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                    {{ types.find(t => t.key === tpl.record_type)?.label || tpl.record_type }}
+                  </span>
+                </div>
+                <p class="text-xs text-muted-foreground mt-1 line-clamp-2">
+                  {{ tpl.fault_judgment || tpl.fault_phenomenon || '无描述' }}
+                </p>
+                <p class="text-xs text-primary mt-1">
+                  ¥{{ (tpl.labour_fee + tpl.material_fee + tpl.travel_fee + tpl.other_fee).toFixed(2) }} 起
+                </p>
+              </button>
+              <div v-if="templates.length === 0" class="py-8 text-center text-muted-foreground text-sm">
+                暂无模板
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+.animate-slide-up {
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+</style>

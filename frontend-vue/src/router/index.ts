@@ -38,6 +38,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/ProfileView.vue'),
         meta: { title: '我的', icon: 'User' },
       },
+      {
+        path: 'statistics',
+        name: 'statistics',
+        component: () => import('@/views/StatisticsView.vue'),
+        meta: { title: '统计概览' },
+      },
     ],
   },
   {
@@ -45,6 +51,18 @@ const routes: RouteRecordRaw[] = [
     name: 'create-record',
     component: () => import('@/views/CreateRecordView.vue'),
     meta: { title: '新建工单' },
+  },
+  {
+    path: '/pending-create',
+    name: 'create-pending',
+    component: () => import('@/views/CreatePendingView.vue'),
+    meta: { title: '新建待办' },
+  },
+  {
+    path: '/customer-create',
+    name: 'create-customer',
+    component: () => import('@/views/CreateCustomerView.vue'),
+    meta: { title: '新建客户' },
   },
   {
     path: '/record/:id',
@@ -89,6 +107,18 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '物料详情' },
   },
   {
+    path: '/staffs',
+    name: 'staffs',
+    component: () => import('@/views/StaffsView.vue'),
+    meta: { title: '团队成员' },
+  },
+  {
+    path: '/projects',
+    name: 'projects',
+    component: () => import('@/views/ProjectsView.vue'),
+    meta: { title: '项目管理' },
+  },
+  {
     path: '/:pathMatch(.*)*',
     redirect: '/dashboard',
   },
@@ -102,7 +132,7 @@ const router = createRouter({
   },
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const title = to.meta?.title as string | undefined
   if (title) {
     document.title = `${title} · 工单管理系统`
@@ -112,6 +142,10 @@ router.beforeEach((to) => {
 
   const userStore = useUserStore()
   const isPublic = to.meta?.public === true
+
+  if (userStore.isInitializing) {
+    return true
+  }
 
   if (!isPublic && !userStore.isLoggedIn) {
     return { name: 'login', query: { redirect: to.fullPath } }

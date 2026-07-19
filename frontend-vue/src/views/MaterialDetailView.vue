@@ -14,64 +14,66 @@ import {
   Minus,
   Plus,
   Edit,
-  Trash2,
-  TrendingUp,
-  TrendingDown,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { materialsApi } from '@/api'
+import type { Material } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
 
 const materialId = computed(() => Number(route.params.id))
 const loading = ref(true)
+const error = ref<string | null>(null)
+const material = ref<Material | null>(null)
 
-const mockMaterial = {
-  id: 1,
-  name: '铜管 Φ16mm',
-  sku: 'WL-TG-001',
-  category: 'hvac',
-  category_label: '暖通',
-  unit: '米',
-  stock: 156,
-  min_stock: 50,
-  price: 12.5,
-  cost_price: 8.2,
-  supplier: '华东铜管厂',
-  supplier_phone: '13800138000',
-  created_at: '2025-06-15',
-  updated_at: '2026-07-18',
-  remark: '常用空调铜管，规格16mm',
-  recentRecords: [
-    { id: 1, record_no: 'GD20260718001', title: '某大厦12层空调安装', quantity: 85, type: '出库', date: '2026-07-18' },
-    { id: 2, record_no: 'RK20260710001', title: '采购入库', quantity: 200, type: '入库', date: '2026-07-10' },
-    { id: 3, record_no: 'GD20260705003', title: 'B栋办公区网络布线', quantity: 30, type: '出库', date: '2026-07-05' },
-  ],
+const categoryLabels: Record<string, string> = {
+  electrical: '电气',
+  hvac: '暖通',
+  network: '网络',
+  fire: '消防',
 }
 
-const useMock = import.meta.env.DEV
-const material = ref(mockMaterial as any)
+const getCategoryLabel = (category?: string) => {
+  if (!category) return ''
+  return categoryLabels[category] || category
+}
 
-const isLowStock = computed(() => material.value.stock < material.value.min_stock)
+const formatDate = (dateStr?: string) => {
+  if (!dateStr) return '-'
+  const date = new Date(dateStr)
+  if (isNaN(date.getTime())) return dateStr
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const isLowStock = computed(() => material.value?.is_low_stock ?? false)
 
 const goBack = () => {
   router.back()
 }
 
-onMounted(async () => {
-  if (!useMock) {
-    try {
-      const res = await materialsApi.get(materialId.value)
-      material.value = res.data
-    } catch (e) {
-      console.error('Failed to load material:', e)
-    } finally {
-      loading.value = false
-    }
-  } else {
+const fetchMaterial = async () => {
+  loading.value = true
+  error.value = null
+  try {
+    const data = await materialsApi.get(materialId.value)
+    material.value = data
+  } catch (e: any) {
+    error.value = e?.message || '加载失败，请稍后重试'
+    console.error('Failed to load material:', e)
+  } finally {
     loading.value = false
   }
+}
+
+onMounted(() => {
+  fetchMaterial()
 })
 </script>
 
@@ -96,10 +98,22 @@ onMounted(async () => {
 
     <main class="flex-1 overflow-y-auto pt-12 safe-area-top pb-24 safe-area-bottom">
       <div v-if="loading" class="flex items-center justify-center py-20">
-        <div class="text-muted-foreground text-sm">加载中...</div>
+        <Loader2 class="w-8 h-8 animate-spin text-primary" />
       </div>
 
-      <div v-else class="p-4 space-y-4">
+      <div v-else-if="error" class="flex flex-col items-center justify-center py-16 text-center px-4">
+        <AlertCircle class="w-12 h-12 text-red-400 mb-3" />
+        <p class="text-sm text-muted-foreground mb-4">{{ error }}</p>
+        <button
+          class="flex items-center gap-2 text-sm text-primary font-medium px-4 py-2 rounded-lg hover:bg-primary/10 transition-colors"
+          @click="fetchMaterial"
+        >
+          <RefreshCw class="w-4 h-4" />
+          重试
+        </button>
+      </div>
+
+      <div v-else-if="material" class="p-4 space-y-4">
         <div
           :class="[
             'rounded-2xl p-5 shadow-lg text-white',
@@ -117,9 +131,9 @@ onMounted(async () => {
                 <h2 class="text-lg font-bold">{{ material.name }}</h2>
                 <div class="flex items-center gap-2 mt-1">
                   <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/20 backdrop-blur">
-                    {{ material.category_label }}
+                    {{ getCategoryLabel(material.category) }}
                   </span>
-                  <span class="text-xs text-white/80">{{ material.sku }}</span>
+                  <span class="text-xs text-white/80">{{ material.material_no }}</span>
                 </div>
               </div>
             </div>
@@ -135,7 +149,7 @@ onMounted(async () => {
               <p class="text-xs text-white/70 mt-0.5">最低库存</p>
             </div>
             <div class="text-center">
-              <p class="text-2xl font-bold">¥{{ material.price }}</p>
+              <p class="text-2xl font-bold">¥{{ material.unit_price }}</p>
               <p class="text-xs text-white/70 mt-0.5">单价</p>
             </div>
           </div>
@@ -148,17 +162,74 @@ onMounted(async () => {
 
         <div class="bg-card rounded-2xl p-5 shadow-sm border border-border space-y-4">
           <h3 class="text-sm font-semibold text-foreground flex items-center gap-2">
-            <DollarSign class="w-4 h-4 text-primary" />
-            价格信息
+            <Package class="w-4 h-4 text-primary" />
+            基本信息
           </h3>
 
           <div class="space-y-3">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2.5 text-sm">
-                <DollarSign class="w-4 h-4 text-muted-foreground" />
-                <span class="text-muted-foreground">销售单价</span>
+                <Barcode class="w-4 h-4 text-muted-foreground" />
+                <span class="text-muted-foreground">物料编号</span>
               </div>
-              <span class="text-sm font-semibold text-foreground">¥{{ material.price.toFixed(2) }}/{{ material.unit }}</span>
+              <span class="text-sm font-medium text-foreground">{{ material.material_no }}</span>
+            </div>
+
+            <div class="h-px bg-border/60" />
+
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2.5 text-sm">
+                <Tag class="w-4 h-4 text-muted-foreground" />
+                <span class="text-muted-foreground">分类</span>
+              </div>
+              <span class="text-sm font-medium text-foreground">{{ getCategoryLabel(material.category) }}</span>
+            </div>
+
+            <div class="h-px bg-border/60" />
+
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2.5 text-sm">
+                <Package class="w-4 h-4 text-muted-foreground" />
+                <span class="text-muted-foreground">单位</span>
+              </div>
+              <span class="text-sm font-medium text-foreground">{{ material.unit }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-card rounded-2xl p-5 shadow-sm border border-border space-y-4">
+          <h3 class="text-sm font-semibold text-foreground flex items-center gap-2">
+            <DollarSign class="w-4 h-4 text-primary" />
+            库存与价格
+          </h3>
+
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2.5 text-sm">
+                <Package class="w-4 h-4 text-muted-foreground" />
+                <span class="text-muted-foreground">当前库存</span>
+              </div>
+              <span class="text-sm font-semibold text-foreground">{{ material.stock }}{{ material.unit }}</span>
+            </div>
+
+            <div class="h-px bg-border/60" />
+
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2.5 text-sm">
+                <AlertTriangle class="w-4 h-4 text-muted-foreground" />
+                <span class="text-muted-foreground">最低库存</span>
+              </div>
+              <span class="text-sm font-medium text-foreground">{{ material.min_stock }}{{ material.unit }}</span>
+            </div>
+
+            <div class="h-px bg-border/60" />
+
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2.5 text-sm">
+                <Package class="w-4 h-4 text-muted-foreground" />
+                <span class="text-muted-foreground">最高库存</span>
+              </div>
+              <span class="text-sm font-medium text-foreground">{{ material.max_stock }}{{ material.unit }}</span>
             </div>
 
             <div class="h-px bg-border/60" />
@@ -166,9 +237,9 @@ onMounted(async () => {
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2.5 text-sm">
                 <DollarSign class="w-4 h-4 text-muted-foreground" />
-                <span class="text-muted-foreground">成本单价</span>
+                <span class="text-muted-foreground">单价</span>
               </div>
-              <span class="text-sm font-medium text-foreground">¥{{ material.cost_price.toFixed(2) }}/{{ material.unit }}</span>
+              <span class="text-sm font-semibold text-foreground">¥{{ material.unit_price.toFixed(2) }}/{{ material.unit }}</span>
             </div>
           </div>
         </div>
@@ -185,24 +256,8 @@ onMounted(async () => {
                 <Building2 class="w-4 h-4 text-muted-foreground" />
                 <span class="text-muted-foreground">供应商</span>
               </div>
-              <span class="text-sm font-medium text-foreground">{{ material.supplier }}</span>
+              <span class="text-sm font-medium text-foreground">{{ material.supplier || '-' }}</span>
             </div>
-
-            <div class="h-px bg-border/60" />
-
-            <button
-              class="w-full flex items-center justify-between tap-highlight-transparent"
-              @click="material.supplier_phone && (window.location.href = `tel:${material.supplier_phone}`)"
-            >
-              <div class="flex items-center gap-2.5 text-sm">
-                <Package class="w-4 h-4 text-muted-foreground" />
-                <span class="text-muted-foreground">联系电话</span>
-              </div>
-              <div class="flex items-center gap-1.5">
-                <span class="text-sm text-primary font-medium">{{ material.supplier_phone }}</span>
-                <span class="text-xs text-primary">拨打</span>
-              </div>
-            </button>
           </div>
         </div>
 
@@ -218,7 +273,7 @@ onMounted(async () => {
                 <Calendar class="w-4 h-4 text-muted-foreground" />
                 <span class="text-muted-foreground">创建时间</span>
               </div>
-              <span class="text-sm text-foreground font-medium">{{ material.created_at }}</span>
+              <span class="text-sm text-foreground font-medium">{{ formatDate(material.created_at) }}</span>
             </div>
 
             <div class="h-px bg-border/60" />
@@ -228,7 +283,7 @@ onMounted(async () => {
                 <Calendar class="w-4 h-4 text-muted-foreground" />
                 <span class="text-muted-foreground">更新时间</span>
               </div>
-              <span class="text-sm text-foreground font-medium">{{ material.updated_at }}</span>
+              <span class="text-sm text-foreground font-medium">{{ formatDate((material as any).updated_at) }}</span>
             </div>
           </div>
         </div>
@@ -239,43 +294,11 @@ onMounted(async () => {
               <Barcode class="w-4 h-4 text-primary" />
               出入库记录
             </h3>
-            <button class="text-xs text-primary font-medium">
-              全部
-            </button>
           </div>
 
-          <div class="space-y-2">
-            <div
-              v-for="record in material.recentRecords"
-              :key="record.id"
-              class="flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 transition-colors"
-            >
-              <div class="flex items-center gap-3">
-                <div
-                  :class="[
-                    'w-9 h-9 rounded-lg flex items-center justify-center',
-                    record.type === '入库'
-                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                      : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                  ]"
-                >
-                  <TrendingUp v-if="record.type === '入库'" class="w-4 h-4" />
-                  <TrendingDown v-else class="w-4 h-4" />
-                </div>
-                <div>
-                  <p class="text-sm font-medium text-foreground">{{ record.title }}</p>
-                  <p class="text-xs text-muted-foreground">{{ record.record_no }} · {{ record.date }}</p>
-                </div>
-              </div>
-              <span
-                :class="[
-                  'text-sm font-semibold',
-                  record.type === '入库' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
-                ]"
-              >
-                {{ record.type === '入库' ? '+' : '-' }}{{ record.quantity }}
-              </span>
-            </div>
+          <div class="py-8 text-center">
+            <div class="text-4xl mb-2">📋</div>
+            <p class="text-sm text-muted-foreground">暂无记录</p>
           </div>
         </div>
 

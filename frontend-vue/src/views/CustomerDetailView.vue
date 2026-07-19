@@ -13,48 +13,79 @@ import {
   ChevronRight,
   Edit,
   Trash2,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { customersApi } from '@/api'
+import type { Customer, WorkRecord } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
 
 const customerId = computed(() => Number(route.params.id))
 const loading = ref(true)
+const error = ref<string | null>(null)
+const customer = ref<Customer | null>(null)
+const records = ref<WorkRecord[]>([])
 
-const mockCustomer = {
-  id: 1,
-  name: '华信科技有限公司',
-  short_name: '华信科技',
-  level: 'vip',
-  contact_person: '张经理',
-  contact_phone: '13800138001',
-  address: '北京市朝阳区建国路88号华信大厦',
-  email: 'contact@huaxin.com',
-  created_at: '2025-03-15',
-  record_count: 28,
-  completed_count: 25,
-  total_amount: 128500,
-  last_service: '2026-07-18',
-  remark: '重要客户，需优先服务',
-  recentRecords: [
-    { id: 1, record_no: 'GD20260718001', title: '12层空调安装', status: 'in_progress', status_label: '进行中', created_at: '今天 09:30' },
-    { id: 2, record_no: 'WX20260715002', title: '消防系统年检', status: 'completed', status_label: '已完成', created_at: '7月15日' },
-    { id: 3, record_no: 'GD20260710005', title: '网络布线工程', status: 'completed', status_label: '已完成', created_at: '7月10日' },
-  ],
+const formatDate = (dateStr?: string) => {
+  if (!dateStr) return ''
+  try {
+    const d = new Date(dateStr)
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  } catch {
+    return dateStr
+  }
 }
 
-const useMock = import.meta.env.DEV
-const customer = ref(mockCustomer as any)
+const getRecordTypeLabel = (type: string) => {
+  const labels: Record<string, string> = {
+    construction: '施工',
+    maintenance: '维保',
+    repair: '维修',
+    inspection: '巡检',
+  }
+  return labels[type] || type
+}
+
+const getStatusLabel = (status: string) => {
+  const labels: Record<string, string> = {
+    pending: '待处理',
+    in_progress: '进行中',
+    completed: '已完成',
+    cancelled: '已取消',
+  }
+  return labels[status] || status
+}
 
 const getStatusColor = (status: string) => {
   const colors: Record<string, string> = {
     pending: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/50 dark:text-red-400 dark:border-red-900',
     in_progress: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-900',
     completed: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-900',
+    cancelled: 'bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950/50 dark:text-gray-400 dark:border-gray-900',
   }
   return colors[status] || colors.pending
+}
+
+const fetchCustomer = async () => {
+  loading.value = true
+  error.value = null
+  try {
+    const res = await customersApi.get(customerId.value)
+    customer.value = res.customer
+    records.value = res.records || []
+  } catch (e: any) {
+    error.value = e?.message || '加载失败，请重试'
+    console.error('Failed to load customer:', e)
+  } finally {
+    loading.value = false
+  }
 }
 
 const goBack = () => {
@@ -66,24 +97,13 @@ const goToRecord = (id: number) => {
 }
 
 const handleCall = () => {
-  if (customer.value.contact_phone) {
-    window.location.href = `tel:${customer.value.contact_phone}`
+  if (customer.value?.phone) {
+    window.location.href = `tel:${customer.value.phone}`
   }
 }
 
-onMounted(async () => {
-  if (!useMock) {
-    try {
-      const res = await customersApi.get(customerId.value)
-      customer.value = res.data
-    } catch (e) {
-      console.error('Failed to load customer:', e)
-    } finally {
-      loading.value = false
-    }
-  } else {
-    loading.value = false
-  }
+onMounted(() => {
+  fetchCustomer()
 })
 </script>
 
@@ -107,40 +127,31 @@ onMounted(async () => {
     </header>
 
     <main class="flex-1 overflow-y-auto pt-12 safe-area-top pb-24 safe-area-bottom">
-      <div v-if="loading" class="flex items-center justify-center py-20">
+      <div v-if="loading" class="flex flex-col items-center justify-center py-20">
+        <Loader2 class="w-8 h-8 animate-spin text-primary mb-3" />
         <div class="text-muted-foreground text-sm">加载中...</div>
       </div>
 
-      <div v-else class="p-4 space-y-4">
+      <div v-else-if="error" class="flex flex-col items-center justify-center py-20 text-center px-6">
+        <AlertCircle class="w-12 h-12 text-red-400 mb-3" />
+        <p class="text-sm text-muted-foreground mb-4">{{ error }}</p>
+        <Button variant="outline" size="sm" @click="fetchCustomer">
+          <RefreshCw class="w-4 h-4 mr-2" />
+          重试
+        </Button>
+      </div>
+
+      <div v-else-if="customer" class="p-4 space-y-4">
         <div class="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-5 text-white shadow-lg shadow-blue-500/20">
-          <div class="flex items-start justify-between mb-4">
+          <div class="flex items-start justify-between">
             <div class="flex items-center gap-3">
               <div class="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center">
                 <Building2 class="w-7 h-7 text-white" />
               </div>
               <div>
                 <h2 class="text-lg font-bold">{{ customer.name }}</h2>
-                <div class="flex items-center gap-2 mt-1">
-                  <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-400 text-amber-900">
-                    VIP 客户
-                  </span>
-                </div>
+                <p class="text-sm text-white/70 mt-1">{{ customer.short_name }}</p>
               </div>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-3 gap-3 pt-4 border-t border-white/20">
-            <div class="text-center">
-              <p class="text-2xl font-bold">{{ customer.record_count }}</p>
-              <p class="text-xs text-white/70 mt-0.5">总工单</p>
-            </div>
-            <div class="text-center">
-              <p class="text-2xl font-bold">{{ customer.completed_count }}</p>
-              <p class="text-xs text-white/70 mt-0.5">已完成</p>
-            </div>
-            <div class="text-center">
-              <p class="text-2xl font-bold">¥{{ (customer.total_amount / 10000).toFixed(1) }}万</p>
-              <p class="text-xs text-white/70 mt-0.5">累计产值</p>
             </div>
           </div>
         </div>
@@ -157,24 +168,32 @@ onMounted(async () => {
                 <User class="w-4 h-4 text-muted-foreground" />
                 <span class="text-muted-foreground">联系人</span>
               </div>
-              <span class="text-sm text-foreground font-medium">{{ customer.contact_person }}</span>
+              <span class="text-sm text-foreground font-medium">{{ customer.contact_name || '-' }}</span>
             </div>
 
             <div class="h-px bg-border/60" />
 
             <button
+              v-if="customer.phone"
               class="w-full flex items-center justify-between tap-highlight-transparent"
               @click="handleCall"
             >
               <div class="flex items-center gap-2.5 text-sm">
                 <Phone class="w-4 h-4 text-muted-foreground" />
-                <span class="text-muted-foreground">联系电话</span>
+                <span class="text-muted-foreground">电话</span>
               </div>
               <div class="flex items-center gap-1.5">
-                <span class="text-sm text-primary font-medium">{{ customer.contact_phone }}</span>
+                <span class="text-sm text-primary font-medium">{{ customer.phone }}</span>
                 <span class="text-xs text-primary">拨打</span>
               </div>
             </button>
+            <div v-else class="flex items-center justify-between">
+              <div class="flex items-center gap-2.5 text-sm">
+                <Phone class="w-4 h-4 text-muted-foreground" />
+                <span class="text-muted-foreground">电话</span>
+              </div>
+              <span class="text-sm text-foreground font-medium">-</span>
+            </div>
 
             <div class="h-px bg-border/60" />
 
@@ -183,7 +202,7 @@ onMounted(async () => {
                 <MapPin class="w-4 h-4 text-muted-foreground mt-0.5" />
                 <span class="text-muted-foreground">地址</span>
               </div>
-              <span class="text-sm text-foreground font-medium text-right max-w-[60%]">{{ customer.address }}</span>
+              <span class="text-sm text-foreground font-medium text-right max-w-[60%]">{{ customer.address || '-' }}</span>
             </div>
           </div>
         </div>
@@ -191,7 +210,7 @@ onMounted(async () => {
         <div class="bg-card rounded-2xl p-5 shadow-sm border border-border space-y-4">
           <h3 class="text-sm font-semibold text-foreground flex items-center gap-2">
             <Calendar class="w-4 h-4 text-primary" />
-            服务信息
+            基本信息
           </h3>
 
           <div class="space-y-3">
@@ -200,17 +219,7 @@ onMounted(async () => {
                 <Calendar class="w-4 h-4 text-muted-foreground" />
                 <span class="text-muted-foreground">创建时间</span>
               </div>
-              <span class="text-sm text-foreground font-medium">{{ customer.created_at }}</span>
-            </div>
-
-            <div class="h-px bg-border/60" />
-
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2.5 text-sm">
-                <Calendar class="w-4 h-4 text-muted-foreground" />
-                <span class="text-muted-foreground">最近服务</span>
-              </div>
-              <span class="text-sm text-foreground font-medium">{{ customer.last_service }}</span>
+              <span class="text-sm text-foreground font-medium">{{ formatDate(customer.created_at) }}</span>
             </div>
           </div>
         </div>
@@ -230,22 +239,29 @@ onMounted(async () => {
             </button>
           </div>
 
-          <div class="space-y-2">
+          <div v-if="records.length === 0" class="text-center py-8">
+            <FileText class="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
+            <p class="text-sm text-muted-foreground">暂无工单记录</p>
+          </div>
+
+          <div v-else class="space-y-2">
             <button
-              v-for="record in customer.recentRecords"
+              v-for="record in records"
               :key="record.id"
               class="w-full flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 transition-colors tap-highlight-transparent text-left"
               @click="goToRecord(record.id)"
             >
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-1">
-                  <span class="text-xs text-muted-foreground">{{ record.record_no }}</span>
+                  <span class="text-xs text-muted-foreground">{{ record.order_no }}</span>
+                  <span class="text-xs text-muted-foreground">·</span>
+                  <span class="text-xs text-muted-foreground">{{ getRecordTypeLabel(record.record_type) }}</span>
                 </div>
-                <p class="text-sm font-medium text-foreground truncate">{{ record.title }}</p>
+                <p class="text-sm font-medium text-foreground truncate">{{ record.fault_description || record.remark || getRecordTypeLabel(record.record_type) }}</p>
               </div>
               <div class="flex items-center gap-2">
-                <span :class="['px-2 py-0.5 rounded-full text-xs font-medium border', getStatusColor(record.status)]">
-                  {{ record.status_label }}
+                <span :class="['px-2 py-0.5 rounded-full text-xs font-medium border whitespace-nowrap', getStatusColor(record.status)]">
+                  {{ getStatusLabel(record.status) }}
                 </span>
                 <ChevronRight class="w-4 h-4 text-muted-foreground/50 shrink-0" />
               </div>

@@ -1,60 +1,81 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, MoreVertical, MapPin, User, Calendar, Clock, Phone, FileText } from 'lucide-vue-next'
+import { ArrowLeft, MoreVertical, MapPin, User, Calendar, Clock, Phone, FileText, Loader2, AlertCircle, Package, DollarSign, CheckCircle, Wrench } from 'lucide-vue-next'
 import { recordsApi } from '@/api'
+import type { WorkRecord } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
 const recordId = Number(route.params.id)
 
 const loading = ref(true)
+const error = ref('')
+const record = ref<WorkRecord | null>(null)
 
-const mockRecord = {
-  id: 1,
-  record_no: 'GD20260718001',
-  record_type: 'construction',
-  type_label: '施工单',
-  title: '某大厦12层空调安装',
-  status: 'in_progress',
-  status_label: '进行中',
-  customer_name: '华信科技有限公司',
-  contact_name: '张经理',
-  contact_phone: '138****8888',
-  address: '北京市朝阳区建国路88号某大厦12层',
-  start_time: '2026-07-18 09:30',
-  end_time: '2026-07-18 18:00',
-  staff_names: '张三、李四、王五',
-  fault_description: '',
-  fault_diagnosis: '',
-  repair_process: '安装10台中央空调，包括室内机和室外机的安装、调试和验收。',
-  materials: [
-    { name: '中央空调室内机', quantity: 10, unit: '台' },
-    { name: '中央空调室外机', quantity: 2, unit: '台' },
-    { name: '铜管', quantity: 50, unit: '米' },
-  ],
+const typeLabels: Record<string, string> = {
+  construction: '施工单',
+  maintenance: '维保单',
+  repair: '维修单',
+  inspection: '巡检单',
 }
 
-const record = ref<any>(mockRecord)
-
-const useMock = import.meta.env.DEV
-
-const getTypeColor = (type: string) => {
-  const colors: Record<string, string> = {
-    construction: 'bg-blue-50 text-blue-700',
-    repair: 'bg-emerald-50 text-emerald-700',
-    project: 'bg-violet-50 text-violet-700',
-  }
-  return colors[type] || 'bg-slate-50 text-slate-700'
+const typeColorCls: Record<string, string> = {
+  construction: 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
+  maintenance: 'bg-purple-50 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400',
+  repair: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
+  inspection: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-400',
 }
 
-const getStatusColor = (status: string) => {
-  const colors: Record<string, string> = {
-    pending: 'bg-red-50 text-red-700',
-    in_progress: 'bg-amber-50 text-amber-700',
-    completed: 'bg-slate-100 text-slate-600',
+const statusLabels: Record<string, string> = {
+  pending: '待接单',
+  in_progress: '进行中',
+  completed: '已完成',
+  cancelled: '已取消',
+}
+
+const statusColorCls: Record<string, string> = {
+  pending: 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400',
+  in_progress: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
+  completed: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
+  cancelled: 'bg-slate-100 text-slate-600 dark:bg-slate-500/10 dark:text-slate-400',
+}
+
+const paymentLabels: Record<string, string> = {
+  unpaid: '未付款',
+  partial: '部分付款',
+  paid: '已付款',
+  monthly: '月结',
+}
+
+const paymentColorCls: Record<string, string> = {
+  unpaid: 'text-red-500',
+  partial: 'text-amber-500',
+  paid: 'text-emerald-500',
+  monthly: 'text-blue-500',
+}
+
+const formatDate = (dateStr?: string) => {
+  if (!dateStr) return '待定'
+  try {
+    const d = new Date(dateStr)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  } catch {
+    return dateStr
   }
-  return colors[status] || 'bg-slate-100 text-slate-600'
+}
+
+const fetchDetail = async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    record.value = await recordsApi.get(recordId)
+  } catch (e: any) {
+    error.value = e.response?.data?.error || '获取工单详情失败'
+    console.error('获取工单详情失败', e)
+  } finally {
+    loading.value = false
+  }
 }
 
 const goBack = () => {
@@ -65,25 +86,34 @@ const goBack = () => {
   }
 }
 
-const fetchDetail = async () => {
-  if (useMock) {
-    loading.value = false
-    return
+const primaryButton = computed(() => {
+  if (!record.value) return null
+  switch (record.value.status) {
+    case 'pending':
+      return { label: '开始施工', action: 'start' }
+    case 'in_progress':
+      return { label: '完成工单', action: 'complete' }
+    default:
+      return null
   }
+})
+
+const handleAction = async (action: string) => {
+  if (!record.value) return
   try {
-    loading.value = true
-    const res = await recordsApi.get(recordId)
-    record.value = res.data
-  } catch (e) {
-    console.error('获取工单详情失败', e)
-  } finally {
-    loading.value = false
+    if (action === 'start') {
+      await recordsApi.updateStatus(recordId, 'in_progress')
+      record.value.status = 'in_progress'
+    } else if (action === 'complete') {
+      await recordsApi.updateStatus(recordId, 'completed')
+      record.value.status = 'completed'
+    }
+  } catch (e: any) {
+    alert(e.response?.data?.error || '操作失败')
   }
 }
 
-onMounted(() => {
-  fetchDetail()
-})
+onMounted(fetchDetail)
 </script>
 
 <template>
@@ -106,53 +136,73 @@ onMounted(() => {
     </div>
 
     <div v-if="loading" class="flex-1 flex items-center justify-center">
-      <div class="text-muted-foreground text-sm">加载中...</div>
+      <Loader2 class="w-8 h-8 animate-spin text-primary" />
     </div>
 
-    <div v-else class="flex-1 overflow-y-auto">
+    <div v-else-if="error" class="flex-1 flex flex-col items-center justify-center text-center px-4">
+      <AlertCircle class="w-12 h-12 text-red-400 mb-3" />
+      <p class="text-sm text-muted-foreground mb-4">{{ error }}</p>
+      <button class="text-sm text-primary font-medium" @click="fetchDetail">重试</button>
+    </div>
+
+    <div v-else-if="record" class="flex-1 overflow-y-auto">
       <div class="px-4 py-4 space-y-4">
         <div class="bg-card rounded-2xl p-5 shadow-sm border border-border">
           <div class="flex items-start justify-between mb-3">
             <div class="flex items-center gap-2">
-              <span :class="['px-2.5 py-1 rounded-full text-xs font-medium', getTypeColor(record.record_type)]">
-                {{ record.type_label }}
+              <span :class="['px-2.5 py-1 rounded-full text-xs font-medium', typeColorCls[record.record_type] || typeColorCls.construction]">
+                {{ typeLabels[record.record_type] || record.record_type }}
               </span>
-              <span class="text-xs text-muted-foreground">{{ record.record_no }}</span>
+              <span class="text-xs text-muted-foreground">{{ record.order_no }}</span>
             </div>
-            <span :class="['px-2.5 py-1 rounded-full text-xs font-medium', getStatusColor(record.status)]">
-              {{ record.status_label }}
+            <span :class="['px-2.5 py-1 rounded-full text-xs font-medium', statusColorCls[record.status] || statusColorCls.pending]">
+              {{ statusLabels[record.status] || record.status }}
             </span>
           </div>
-          <h2 class="text-xl font-bold text-foreground">{{ record.title }}</h2>
+          <h2 class="text-xl font-bold text-foreground">{{ record.customer_name }}</h2>
+          <div class="mt-3 flex items-center justify-between text-sm">
+            <span class="text-muted-foreground">费用总额</span>
+            <span class="font-bold text-lg text-foreground">¥{{ (record.total_fee || 0).toFixed(2) }}</span>
+          </div>
+          <div v-if="record.payment_status" class="mt-1 flex items-center justify-between text-xs">
+            <span class="text-muted-foreground">付款状态</span>
+            <span :class="['font-medium', paymentColorCls[record.payment_status] || '']">
+              {{ paymentLabels[record.payment_status] || record.payment_status }}
+            </span>
+          </div>
         </div>
 
         <div class="bg-card rounded-2xl p-5 shadow-sm border border-border space-y-4">
-          <h3 class="text-sm font-semibold text-foreground">客户信息</h3>
+          <h3 class="text-sm font-semibold text-foreground flex items-center gap-2">
+            <User class="w-4 h-4" /> 客户信息
+          </h3>
           <div class="space-y-3">
             <div class="flex items-center gap-3">
-              <div class="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950 flex items-center justify-center">
+              <div class="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950 flex items-center justify-center shrink-0">
                 <User class="w-4.5 h-4.5 text-blue-600 dark:text-blue-400" />
               </div>
-              <div class="flex-1">
-                <p class="text-sm text-muted-foreground">客户名称</p>
-                <p class="text-sm font-medium text-foreground">{{ record.customer_name }}</p>
+              <div class="flex-1 min-w-0">
+                <p class="text-xs text-muted-foreground">客户名称</p>
+                <p class="text-sm font-medium text-foreground truncate">{{ record.customer_name }}</p>
               </div>
             </div>
-            <div class="flex items-center gap-3">
-              <div class="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950 flex items-center justify-center">
+            <div v-if="record.contact_person" class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950 flex items-center justify-center shrink-0">
                 <Phone class="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" />
               </div>
-              <div class="flex-1">
-                <p class="text-sm text-muted-foreground">联系人</p>
-                <p class="text-sm font-medium text-foreground">{{ record.contact_name }} · {{ record.contact_phone }}</p>
+              <div class="flex-1 min-w-0">
+                <p class="text-xs text-muted-foreground">联系人</p>
+                <p class="text-sm font-medium text-foreground truncate">
+                  {{ record.contact_person }}<span v-if="record.contact_phone"> · {{ record.contact_phone }}</span>
+                </p>
               </div>
             </div>
-            <div class="flex items-center gap-3">
-              <div class="w-9 h-9 rounded-xl bg-violet-50 dark:bg-violet-950 flex items-center justify-center">
+            <div v-if="record.address" class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-xl bg-violet-50 dark:bg-violet-950 flex items-center justify-center shrink-0">
                 <MapPin class="w-4.5 h-4.5 text-violet-600 dark:text-violet-400" />
               </div>
-              <div class="flex-1">
-                <p class="text-sm text-muted-foreground">施工地址</p>
+              <div class="flex-1 min-w-0">
+                <p class="text-xs text-muted-foreground">施工地址</p>
                 <p class="text-sm font-medium text-foreground">{{ record.address }}</p>
               </div>
             </div>
@@ -160,49 +210,99 @@ onMounted(() => {
         </div>
 
         <div class="bg-card rounded-2xl p-5 shadow-sm border border-border space-y-4">
-          <h3 class="text-sm font-semibold text-foreground">时间安排</h3>
+          <h3 class="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Calendar class="w-4 h-4" /> 时间安排
+          </h3>
           <div class="space-y-3">
             <div class="flex items-center gap-3">
-              <div class="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950 flex items-center justify-center">
+              <div class="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950 flex items-center justify-center shrink-0">
                 <Calendar class="w-4.5 h-4.5 text-amber-600 dark:text-amber-400" />
               </div>
               <div class="flex-1 flex justify-between">
-                <p class="text-sm text-muted-foreground">开始时间</p>
-                <p class="text-sm font-medium text-foreground">{{ record.start_time }}</p>
+                <p class="text-sm text-muted-foreground">创建时间</p>
+                <p class="text-sm font-medium text-foreground">{{ formatDate(record.created_at) }}</p>
               </div>
             </div>
-            <div class="flex items-center gap-3">
-              <div class="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950 flex items-center justify-center">
+            <div v-if="record.appointment_date" class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950 flex items-center justify-center shrink-0">
                 <Clock class="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div class="flex-1 flex justify-between">
-                <p class="text-sm text-muted-foreground">预计完成</p>
-                <p class="text-sm font-medium text-foreground">{{ record.end_time }}</p>
+                <p class="text-sm text-muted-foreground">预约时间</p>
+                <p class="text-sm font-medium text-foreground">{{ formatDate(record.appointment_date) }}</p>
+              </div>
+            </div>
+            <div v-if="record.completed_at" class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950 flex items-center justify-center shrink-0">
+                <CheckCircle class="w-4.5 h-4.5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div class="flex-1 flex justify-between">
+                <p class="text-sm text-muted-foreground">完成时间</p>
+                <p class="text-sm font-medium text-foreground">{{ formatDate(record.completed_at) }}</p>
               </div>
             </div>
           </div>
         </div>
 
         <div class="bg-card rounded-2xl p-5 shadow-sm border border-border space-y-4">
-          <h3 class="text-sm font-semibold text-foreground">施工人员</h3>
-          <p class="text-sm text-foreground">{{ record.staff_names }}</p>
+          <h3 class="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Wrench class="w-4 h-4" /> 施工人员
+          </h3>
+          <p class="text-sm text-foreground">{{ record.staff_name || '未分配' }}</p>
         </div>
 
-        <div v-if="record.repair_process" class="bg-card rounded-2xl p-5 shadow-sm border border-border space-y-4">
-          <h3 class="text-sm font-semibold text-foreground">工作内容</h3>
-          <p class="text-sm text-foreground leading-relaxed">{{ record.repair_process }}</p>
+        <div v-if="record.fault_phenomenon" class="bg-card rounded-2xl p-5 shadow-sm border border-border space-y-4">
+          <h3 class="text-sm font-semibold text-foreground flex items-center gap-2">
+            <FileText class="w-4 h-4" /> 故障现象
+          </h3>
+          <p class="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{{ record.fault_phenomenon }}</p>
         </div>
 
-        <div v-if="record.materials && record.materials.length > 0" class="bg-card rounded-2xl p-5 shadow-sm border border-border space-y-4">
-          <h3 class="text-sm font-semibold text-foreground">物料清单</h3>
+        <div v-if="record.fault_judgment" class="bg-card rounded-2xl p-5 shadow-sm border border-border space-y-4">
+          <h3 class="text-sm font-semibold text-foreground flex items-center gap-2">
+            <FileText class="w-4 h-4" /> 故障判断
+          </h3>
+          <p class="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{{ record.fault_judgment }}</p>
+        </div>
+
+        <div v-if="record.process_result" class="bg-card rounded-2xl p-5 shadow-sm border border-border space-y-4">
+          <h3 class="text-sm font-semibold text-foreground flex items-center gap-2">
+            <FileText class="w-4 h-4" /> 处理结果
+          </h3>
+          <p class="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{{ record.process_result }}</p>
+        </div>
+
+        <div v-if="record.remark" class="bg-card rounded-2xl p-5 shadow-sm border border-border space-y-4">
+          <h3 class="text-sm font-semibold text-foreground flex items-center gap-2">
+            <FileText class="w-4 h-4" /> 备注
+          </h3>
+          <p class="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{{ record.remark }}</p>
+        </div>
+
+        <div v-if="record.labour_fee || record.material_fee || record.travel_fee || record.other_fee" class="bg-card rounded-2xl p-5 shadow-sm border border-border space-y-4">
+          <h3 class="text-sm font-semibold text-foreground flex items-center gap-2">
+            <DollarSign class="w-4 h-4" /> 费用明细
+          </h3>
           <div class="space-y-2">
-            <div
-              v-for="(m, idx) in record.materials"
-              :key="idx"
-              class="flex items-center justify-between py-2 border-b border-border/50 last:border-0"
-            >
-              <span class="text-sm text-foreground">{{ m.name }}</span>
-              <span class="text-sm font-medium text-foreground">{{ m.quantity }} {{ m.unit }}</span>
+            <div v-if="record.labour_fee" class="flex items-center justify-between py-1">
+              <span class="text-sm text-muted-foreground">人工费</span>
+              <span class="text-sm font-medium text-foreground">¥{{ record.labour_fee.toFixed(2) }}</span>
+            </div>
+            <div v-if="record.material_fee" class="flex items-center justify-between py-1">
+              <span class="text-sm text-muted-foreground">物料费</span>
+              <span class="text-sm font-medium text-foreground">¥{{ record.material_fee.toFixed(2) }}</span>
+            </div>
+            <div v-if="record.travel_fee" class="flex items-center justify-between py-1">
+              <span class="text-sm text-muted-foreground">差旅费</span>
+              <span class="text-sm font-medium text-foreground">¥{{ record.travel_fee.toFixed(2) }}</span>
+            </div>
+            <div v-if="record.other_fee" class="flex items-center justify-between py-1">
+              <span class="text-sm text-muted-foreground">其他费用</span>
+              <span class="text-sm font-medium text-foreground">¥{{ record.other_fee.toFixed(2) }}</span>
+            </div>
+            <div class="flex items-center justify-between pt-2 border-t border-border/50">
+              <span class="text-sm font-medium text-foreground">合计</span>
+              <span class="text-base font-bold text-foreground">¥{{ (record.total_fee || 0).toFixed(2) }}</span>
             </div>
           </div>
         </div>
@@ -211,13 +311,20 @@ onMounted(() => {
       <div class="h-24"></div>
     </div>
 
-    <div class="sticky bottom-0 bg-background/80 backdrop-blur-lg border-t border-border p-4 safe-area-bottom">
+    <div v-if="record" class="sticky bottom-0 bg-background/80 backdrop-blur-lg border-t border-border p-4 safe-area-bottom">
       <div class="flex gap-3">
-        <button class="flex-1 h-12 rounded-xl border border-input text-sm font-medium text-foreground hover:bg-muted/50 active:bg-muted transition-colors tap-highlight-transparent">
+        <button
+          class="flex-1 h-12 rounded-xl border border-input text-sm font-medium text-foreground hover:bg-muted/50 active:bg-muted transition-colors tap-highlight-transparent"
+          @click="router.push(`/record/${recordId}/edit`)"
+        >
           编辑
         </button>
-        <button class="flex-1 h-12 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-lg shadow-primary/20 active:scale-[0.98] transition-all tap-highlight-transparent">
-          开始施工
+        <button
+          v-if="primaryButton"
+          class="flex-1 h-12 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-lg shadow-primary/20 active:scale-[0.98] transition-all tap-highlight-transparent"
+          @click="handleAction(primaryButton.action)"
+        >
+          {{ primaryButton.label }}
         </button>
       </div>
     </div>

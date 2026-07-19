@@ -74,7 +74,7 @@ const removeLocalPreview = (index: number) => {
 
 <template>
   <div class="space-y-3">
-    <div class="grid grid-cols-3 gap-2">
+    <div class="grid grid-cols-3 md:grid-cols-6 gap-2 md:gap-3">
       <div
         v-for="(photo, idx) in photos"
         :key="photo"

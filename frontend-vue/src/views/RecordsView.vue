@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { Search, Filter, RefreshCw, Loader2, AlertCircle } from 'lucide-vue-next'
+import { Search, Filter, RefreshCw, Loader2, AlertCircle, ChevronDown, LayoutGrid, List } from 'lucide-vue-next'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import PullRefresh from '@/components/business/PullRefresh.vue'
 import { recordsApi } from '@/api'
 import { useList } from '@/composables/useList'
@@ -11,6 +13,8 @@ import type { WorkRecord } from '@/types'
 const router = useRouter()
 const searchQuery = ref('')
 const activeTab = ref('all')
+const showFilters = ref(false)
+const viewMode = ref<'grid' | 'list'>('grid')
 
 const tabs = [
   { key: 'all', label: '全部', status: '' },
@@ -123,47 +127,82 @@ const handleScroll = (e: Event) => {
 
 <template>
   <div class="flex flex-col h-full">
-    <div class="px-4 py-3 bg-card/80 backdrop-blur-lg border-b border-border sticky top-0 z-10">
-      <div class="flex items-center gap-2 mb-3">
-        <div class="relative flex-1">
-          <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            v-model="searchQuery"
-            placeholder="搜索工单编号/客户/内容"
-            class="pl-9 h-10 text-sm rounded-xl bg-muted/50 border-input"
-            @keyup.enter="handleSearch"
-          />
+    <div class="px-4 py-3 md:px-6 lg:px-8 md:py-4 bg-card/80 backdrop-blur-lg border-b border-border sticky top-0 z-10">
+      <div class="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
+        <div class="flex items-center gap-2 flex-1">
+          <div class="relative flex-1">
+            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              v-model="searchQuery"
+              placeholder="搜索工单编号/客户/内容"
+              class="pl-9 h-10 text-sm rounded-xl bg-muted/50 border-input"
+              @keyup.enter="handleSearch"
+            />
+          </div>
+          <button
+            class="p-2.5 rounded-xl bg-muted/50 border border-input text-foreground hover:bg-muted/80 transition-colors active:scale-95"
+            @click="refresh"
+          >
+            <RefreshCw :class="['w-4 h-4', (refreshing || loading) && 'animate-spin']" />
+          </button>
+          <button
+            class="md:hidden p-2.5 rounded-xl bg-muted/50 border border-input text-foreground active:scale-95 transition-transform"
+            @click="showFilters = !showFilters"
+          >
+            <Filter :class="['w-4 h-4', showFilters && 'text-primary']" />
+          </button>
         </div>
-        <button
-          class="p-2.5 rounded-xl bg-muted/50 border border-input text-foreground active:scale-95 transition-transform"
-          @click="refresh"
-        >
-          <RefreshCw :class="['w-4 h-4', (refreshing || loading) && 'animate-spin']" />
-        </button>
-        <button class="p-2.5 rounded-xl bg-muted/50 border border-input text-foreground active:scale-95 transition-transform">
-          <Filter class="w-4 h-4" />
-        </button>
+
+        <div class="hidden md:flex items-center gap-3">
+          <div class="flex gap-1.5 bg-muted/50 p-1 rounded-xl">
+            <button
+              :class="[
+                'p-2 rounded-lg transition-all',
+                viewMode === 'list' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'
+              ]"
+              @click="viewMode = 'list'"
+            >
+              <List class="w-4 h-4" />
+            </button>
+            <button
+              :class="[
+                'p-2 rounded-lg transition-all',
+                viewMode === 'grid' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'
+              ]"
+              @click="viewMode = 'grid'"
+            >
+              <LayoutGrid class="w-4 h-4" />
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
-        <button
-          v-for="tab in tabs"
-          :key="tab.key"
-          :class="[
-            'px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all',
-            activeTab === tab.key
-              ? 'bg-primary text-primary-foreground shadow-md'
-              : 'bg-muted text-muted-foreground hover:bg-muted/80'
-          ]"
-          @click="handleTabChange(tab.key)"
-        >
-          {{ tab.label }}
-        </button>
+      <div
+        :class="[
+          'overflow-hidden transition-all duration-300 md:overflow-visible',
+          showFilters ? 'max-h-96 mt-3 md:mt-0' : 'max-h-0 md:max-h-none md:mt-3'
+        ]"
+      >
+        <div class="flex flex-wrap gap-2 md:gap-2">
+          <button
+            v-for="tab in tabs"
+            :key="tab.key"
+            :class="[
+              'px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all',
+              activeTab === tab.key
+                ? 'bg-primary text-primary-foreground shadow-md'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            ]"
+            @click="handleTabChange(tab.key)"
+          >
+            {{ tab.label }}
+          </button>
+        </div>
       </div>
     </div>
 
     <PullRefresh @refresh="refresh">
-      <div class="flex-1 overflow-y-auto px-4 py-3 space-y-3" @scroll="handleScroll">
+      <div class="flex-1 overflow-y-auto px-4 py-3 md:px-6 lg:px-8 md:py-4" @scroll="handleScroll">
         <div v-if="loading && records.length === 0" class="flex items-center justify-center py-20">
           <Loader2 class="w-8 h-8 animate-spin text-primary" />
         </div>
@@ -175,34 +214,81 @@ const handleScroll = (e: Event) => {
         </div>
 
         <template v-else>
-          <div
-            v-for="record in records"
-            :key="record.id"
-            class="bg-card rounded-2xl p-4 shadow-sm border border-border active:scale-[0.985] transition-all cursor-pointer"
-            @click="goToDetail(record.id)"
-          >
-            <div class="flex items-start justify-between gap-3">
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 mb-1.5">
+          <div v-if="viewMode === 'grid'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+            <Card
+              v-for="record in records"
+              :key="record.id"
+              class="shadow-sm border-border cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-primary/20 group"
+              @click="goToDetail(record.id)"
+            >
+              <CardContent class="p-4">
+                <div class="flex items-start justify-between gap-3 mb-3">
                   <span :class="['px-2 py-0.5 rounded-full text-xs font-medium', typeColorCls[record.record_type] || typeColorCls.construction]">
                     {{ typeLabels[record.record_type] || record.record_type }}
                   </span>
-                  <span class="text-xs text-muted-foreground truncate">{{ record.order_no }}</span>
+                  <span :class="['px-2.5 py-1 rounded-full text-xs font-medium shrink-0', statusColorCls[record.status] || statusColorCls.pending]">
+                    {{ statusLabels[record.status] || record.status }}
+                  </span>
                 </div>
-                <h3 class="font-semibold text-foreground text-[15px] truncate">{{ record.customer_name }}</h3>
-                <p v-if="record.address" class="text-sm text-muted-foreground mt-1 truncate">{{ record.address }}</p>
-                <div class="flex items-center gap-3 mt-2.5 text-xs text-muted-foreground">
+                <h3 class="font-semibold text-foreground text-base mb-1 truncate">{{ record.customer_name }}</h3>
+                <p class="text-xs text-muted-foreground mb-2">{{ record.order_no }}</p>
+                <p v-if="record.address" class="text-sm text-muted-foreground mb-3 line-clamp-2 h-10">{{ record.address }}</p>
+                <div class="flex items-center justify-between text-xs text-muted-foreground pt-3 border-t border-border/50">
                   <span>{{ record.staff_name || '未分配' }}</span>
-                  <span>·</span>
-                  <span>{{ formatDate(record.created_at) }}</span>
-                  <span v-if="record.total_fee > 0" class="ml-auto font-medium text-foreground">
+                  <span v-if="record.total_fee > 0" class="font-medium text-foreground">
                     ¥{{ record.total_fee.toFixed(0) }}
                   </span>
                 </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div v-else class="hidden md:block">
+            <div class="bg-card rounded-2xl border border-border overflow-hidden shadow-sm">
+              <div class="overflow-x-auto">
+                <table class="w-full">
+                  <thead>
+                    <tr class="border-b border-border bg-muted/30">
+                      <th class="text-left text-xs font-medium text-muted-foreground px-4 py-3">工单编号</th>
+                      <th class="text-left text-xs font-medium text-muted-foreground px-4 py-3">客户名称</th>
+                      <th class="text-left text-xs font-medium text-muted-foreground px-4 py-3">类型</th>
+                      <th class="text-left text-xs font-medium text-muted-foreground px-4 py-3">状态</th>
+                      <th class="text-left text-xs font-medium text-muted-foreground px-4 py-3">负责人</th>
+                      <th class="text-left text-xs font-medium text-muted-foreground px-4 py-3">创建时间</th>
+                      <th class="text-right text-xs font-medium text-muted-foreground px-4 py-3">费用</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="record in records"
+                      :key="record.id"
+                      class="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors cursor-pointer group"
+                      @click="goToDetail(record.id)"
+                    >
+                      <td class="px-4 py-3 text-sm text-muted-foreground font-mono">{{ record.order_no }}</td>
+                      <td class="px-4 py-3">
+                        <p class="text-sm font-medium text-foreground truncate max-w-[200px]">{{ record.customer_name }}</p>
+                        <p v-if="record.address" class="text-xs text-muted-foreground truncate max-w-[200px] mt-0.5">{{ record.address }}</p>
+                      </td>
+                      <td class="px-4 py-3">
+                        <span :class="['px-2 py-0.5 rounded-full text-xs font-medium', typeColorCls[record.record_type] || typeColorCls.construction]">
+                          {{ typeLabels[record.record_type] || record.record_type }}
+                        </span>
+                      </td>
+                      <td class="px-4 py-3">
+                        <span :class="['px-2.5 py-1 rounded-full text-xs font-medium', statusColorCls[record.status] || statusColorCls.pending]">
+                          {{ statusLabels[record.status] || record.status }}
+                        </span>
+                      </td>
+                      <td class="px-4 py-3 text-sm text-muted-foreground">{{ record.staff_name || '未分配' }}</td>
+                      <td class="px-4 py-3 text-sm text-muted-foreground">{{ formatDate(record.created_at) }}</td>
+                      <td class="px-4 py-3 text-sm font-medium text-foreground text-right">
+                        {{ record.total_fee > 0 ? '¥' + record.total_fee.toFixed(0) : '-' }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
-              <span :class="['px-2.5 py-1 rounded-full text-xs font-medium shrink-0', statusColorCls[record.status] || statusColorCls.pending]">
-                {{ statusLabels[record.status] || record.status }}
-              </span>
             </div>
           </div>
 
@@ -225,11 +311,10 @@ const handleScroll = (e: Event) => {
 </template>
 
 <style scoped>
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 </style>

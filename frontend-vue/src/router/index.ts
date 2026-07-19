@@ -11,7 +11,7 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/',
-    component: () => import('@/components/layout/MobileLayout.vue'),
+    component: () => import('@/components/layout/AppLayout.vue'),
     redirect: '/dashboard',
     children: [
       {
@@ -125,7 +125,7 @@ const routes: RouteRecordRaw[] = [
 ]
 
 const router = createRouter({
-  history: createWebHistory(import.meta.env.DEV ? '/' : '/m/'),
+  history: createWebHistory('/'),
   routes,
   scrollBehavior() {
     return { top: 0 }

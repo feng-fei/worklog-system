@@ -44,9 +44,8 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
-      const isMobile = window.location.pathname.startsWith('/m/')
       const redirect = encodeURIComponent(window.location.pathname + window.location.search)
-      window.location.href = isMobile ? `/m/login?redirect=${redirect}` : `/login?redirect=${redirect}`
+      window.location.href = `/login?redirect=${redirect}`
       return Promise.reject(error)
     }
 

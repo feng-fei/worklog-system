@@ -8,7 +8,6 @@ export default defineConfig(({ command }) => {
   const isDev = command === 'serve'
 
   return {
-    base: isDev ? '/' : '/m/',
     plugins: [
       vue(),
       viteMockServe({
@@ -28,8 +27,8 @@ export default defineConfig(({ command }) => {
           display: 'standalone',
           display_override: ['window-controls-overlay', 'standalone', 'minimal-ui'],
           orientation: 'portrait',
-          start_url: isDev ? '/?source=pwa' : '/m/?source=pwa',
-          scope: isDev ? '/' : '/m/',
+          start_url: '/?source=pwa',
+          scope: '/',
           lang: 'zh-CN',
           dir: 'ltr',
           categories: ['business', 'productivity', 'utilities'],

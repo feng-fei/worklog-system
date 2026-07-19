@@ -29,6 +29,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import PhotoUpload from '@/components/PhotoUpload.vue'
 import { recordsApi } from '@/api'
 import { useUserStore } from '@/stores/user'
@@ -176,6 +177,8 @@ const types = [
   { key: 'inspection', label: '巡检单', icon: ClipboardCheck, color: 'from-cyan-500 to-teal-600', desc: '例行巡检/安全检查' },
 ]
 
+const stepTitles = ['选择类型', '填写信息', '创建完成']
+
 const totalFee = computed(() => {
   const f = form.value
   return (Number(f.labour_fee) || 0) + (Number(f.material_fee) || 0) + (Number(f.travel_fee) || 0) + (Number(f.other_fee) || 0)
@@ -270,27 +273,25 @@ const resetForm = () => {
   createdId.value = null
   step.value = 1
 }
-
-const stepTitles = ['选择类型', '填写信息', '创建完成']
 </script>
 
 <template>
   <div class="min-h-screen-safe bg-background flex flex-col">
     <header class="sticky top-0 z-20 bg-background/80 backdrop-blur-xl border-b border-border safe-area-top">
-      <div class="flex items-center h-12 px-2">
+      <div class="flex items-center h-12 px-2 md:h-14 md:px-6 lg:px-8">
         <button
           class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-muted transition-colors tap-highlight-transparent"
           @click="goBack"
         >
           <ArrowLeft class="w-5 h-5 text-foreground" />
         </button>
-        <h1 class="flex-1 text-center font-semibold text-foreground text-base -ml-9">
+        <h1 class="flex-1 text-center font-semibold text-foreground text-base md:text-lg -ml-9 md:-ml-0">
           新建工单
         </h1>
       </div>
 
-      <div class="px-4 pb-3">
-        <div class="flex items-center justify-between">
+      <div class="px-4 pb-3 md:px-6 lg:px-8 md:pb-4">
+        <div class="flex items-center justify-between max-w-3xl mx-auto">
           <div
             v-for="(title, i) in stepTitles"
             :key="i"
@@ -298,7 +299,7 @@ const stepTitles = ['选择类型', '填写信息', '创建完成']
           >
             <div
               :class="[
-                'w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold transition-all',
+                'w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all',
                 step > i + 1
                   ? 'bg-primary text-primary-foreground'
                   : step === i + 1
@@ -306,12 +307,12 @@ const stepTitles = ['选择类型', '填写信息', '创建完成']
                   : 'bg-muted text-muted-foreground'
               ]"
             >
-              <CheckCircle2 v-if="step > i + 1" class="w-4 h-4" />
+              <CheckCircle2 v-if="step > i + 1" class="w-4 h-4 md:w-5 md:h-5" />
               <span v-else>{{ i + 1 }}</span>
             </div>
             <span
               :class="[
-                'ml-2 text-sm font-medium',
+                'ml-2 text-sm font-medium hidden sm:inline',
                 step >= i + 1 ? 'text-foreground' : 'text-muted-foreground'
               ]"
             >
@@ -320,7 +321,7 @@ const stepTitles = ['选择类型', '填写信息', '创建完成']
             <div
               v-if="i < stepTitles.length - 1"
               :class="[
-                'w-4 sm:w-8 mx-1 sm:mx-2 h-0.5 rounded-full',
+                'w-4 sm:w-8 md:w-12 lg:w-16 mx-1 sm:mx-2 h-0.5 rounded-full flex-1 max-w-[80px]',
                 step > i + 1 ? 'bg-primary' : 'bg-muted'
               ]"
             />
@@ -329,328 +330,345 @@ const stepTitles = ['选择类型', '填写信息', '创建完成']
       </div>
     </header>
 
-    <div v-if="step === 1" class="flex-1 px-4 py-6 space-y-6 overflow-y-auto">
-      <div class="text-center">
-        <h2 class="text-xl font-bold text-foreground">选择工单类型</h2>
-        <p class="text-sm text-muted-foreground mt-1.5">请选择您要创建的工单类型</p>
-      </div>
+    <div class="flex-1 overflow-y-auto">
+      <div class="md:px-6 lg:px-8 md:py-6">
+        <div v-if="step === 1" class="px-4 py-6 md:py-0 md:max-w-3xl md:mx-auto">
+          <div class="text-center mb-6 md:mb-8">
+            <h2 class="text-xl md:text-2xl font-bold text-foreground">选择工单类型</h2>
+            <p class="text-sm text-muted-foreground mt-1.5">请选择您要创建的工单类型</p>
+          </div>
 
-      <div class="space-y-3">
-        <button
-          v-for="t in types"
-          :key="t.key"
-          :class="[
-            'w-full p-4 rounded-2xl border-2 transition-all text-left active:scale-[0.98]',
-            form.record_type === t.key
-              ? 'border-primary bg-card shadow-md'
-              : 'border-border bg-card hover:border-primary/50 shadow-sm'
-          ]"
-          @click="onSelectType(t.key)"
-        >
-          <div class="flex items-center gap-3">
-            <div :class="['w-12 h-12 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-md', t.color]">
-              <component :is="t.icon" class="w-6 h-6 text-white" />
-            </div>
-            <div class="flex-1">
-              <h3 class="font-semibold text-foreground">{{ t.label }}</h3>
-              <p class="text-sm text-muted-foreground mt-0.5">{{ t.desc }}</p>
-            </div>
-            <div
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-6">
+            <button
+              v-for="t in types"
+              :key="t.key"
               :class="[
-                'w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all',
+                'w-full p-4 md:p-5 rounded-2xl border-2 transition-all text-left hover:-translate-y-0.5',
                 form.record_type === t.key
-                  ? 'border-primary bg-primary'
-                  : 'border-muted-foreground/30'
+                  ? 'border-primary bg-card shadow-lg'
+                  : 'border-border bg-card hover:border-primary/50 shadow-sm hover:shadow-md'
               ]"
+              @click="onSelectType(t.key)"
             >
-              <CheckCircle2
-                v-if="form.record_type === t.key"
-                class="w-3 h-3 text-primary-foreground"
-              />
-            </div>
+              <div class="flex items-center gap-3 md:gap-4">
+                <div :class="['w-12 h-12 md:w-14 md:h-14 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-md', t.color]">
+                  <component :is="t.icon" class="w-6 h-6 md:w-7 md:h-7 text-white" />
+                </div>
+                <div class="flex-1">
+                  <h3 class="font-semibold text-foreground text-base md:text-lg">{{ t.label }}</h3>
+                  <p class="text-sm text-muted-foreground mt-0.5">{{ t.desc }}</p>
+                </div>
+                <div
+                  :class="[
+                    'w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0',
+                    form.record_type === t.key
+                      ? 'border-primary bg-primary'
+                      : 'border-muted-foreground/30'
+                  ]"
+                >
+                  <CheckCircle2
+                    v-if="form.record_type === t.key"
+                    class="w-3 h-3 text-primary-foreground"
+                  />
+                </div>
+              </div>
+            </button>
           </div>
-        </button>
-      </div>
 
-      <div class="pt-4">
-        <button
-          class="w-full flex items-center justify-center gap-2 p-4 rounded-2xl border border-dashed border-primary/30 text-primary hover:bg-primary/5 transition-colors"
-          @click="showTemplatePicker = true"
-        >
-          <FileText class="w-5 h-5" />
-          <span class="font-medium">使用模板快速填充</span>
-        </button>
-      </div>
-    </div>
-
-    <div v-else-if="step === 2" class="flex-1 px-4 py-4 space-y-5 overflow-y-auto">
-      <div v-if="errorMsg" class="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-sm flex items-center gap-2">
-        <span>{{ errorMsg }}</span>
-      </div>
-
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <User class="w-4 h-4 text-primary" />
-          <span>客户信息</span>
-        </div>
-        <button
-          class="flex items-center gap-1 text-xs text-primary font-medium"
-          @click="showTemplatePicker = true"
-        >
-          <Sparkles class="w-3.5 h-3.5" />
-          模板
-        </button>
-      </div>
-
-      <div class="space-y-3">
-        <div class="space-y-1.5">
-          <Label for="customer">客户名称 <span class="text-destructive">*</span></Label>
-          <div class="relative">
-            <Input
-              id="customer"
-              v-model="form.customer_name"
-              placeholder="请输入客户名称"
-              class="h-11 rounded-xl pl-9"
-            />
-            <User class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <div class="pt-2">
+            <button
+              class="w-full flex items-center justify-center gap-2 p-4 rounded-2xl border border-dashed border-primary/30 text-primary hover:bg-primary/5 transition-colors"
+              @click="showTemplatePicker = true"
+            >
+              <FileText class="w-5 h-5" />
+              <span class="font-medium">使用模板快速填充</span>
+            </button>
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-3">
-          <div class="space-y-1.5">
-            <Label for="contact">联系人</Label>
-            <div class="relative">
-              <Input
-                id="contact"
-                v-model="form.contact_person"
-                placeholder="联系人姓名"
-                class="h-11 rounded-xl pl-9"
-              />
-              <User class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            </div>
+        <div v-else-if="step === 2" class="px-4 py-4 md:py-0 md:max-w-4xl md:mx-auto">
+          <div v-if="errorMsg" class="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-sm flex items-center gap-2 mb-4 md:mb-6 animate-fade-in">
+            <span>{{ errorMsg }}</span>
           </div>
-          <div class="space-y-1.5">
-            <Label for="phone">联系电话</Label>
-            <div class="relative">
-              <Input
-                id="phone"
-                v-model="form.contact_phone"
-                placeholder="联系电话"
-                class="h-11 rounded-xl pl-9"
-                type="tel"
-              />
-              <Phone class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            </div>
+
+          <div class="space-y-5 md:space-y-6">
+            <Card class="shadow-sm border-border">
+              <CardHeader class="pb-3">
+                <div class="flex items-center justify-between">
+                  <CardTitle class="text-base font-semibold flex items-center gap-2">
+                    <User class="w-4 h-4 text-primary" />
+                    <span>客户信息</span>
+                  </CardTitle>
+                  <button
+                    class="flex items-center gap-1 text-xs text-primary font-medium hover:underline"
+                    @click="showTemplatePicker = true"
+                  >
+                    <Sparkles class="w-3.5 h-3.5" />
+                    模板
+                  </button>
+                </div>
+              </CardHeader>
+              <CardContent class="pt-0">
+                <div class="space-y-4">
+                  <div class="space-y-1.5">
+                    <Label for="customer">客户名称 <span class="text-destructive">*</span></Label>
+                    <div class="relative">
+                      <Input
+                        id="customer"
+                        v-model="form.customer_name"
+                        placeholder="请输入客户名称"
+                        class="h-11 rounded-xl pl-9"
+                      />
+                      <User class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    </div>
+                  </div>
+
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                    <div class="space-y-1.5">
+                      <Label for="contact">联系人</Label>
+                      <div class="relative">
+                        <Input
+                          id="contact"
+                          v-model="form.contact_person"
+                          placeholder="联系人姓名"
+                          class="h-11 rounded-xl pl-9"
+                        />
+                        <User class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                    <div class="space-y-1.5">
+                      <Label for="phone">联系电话</Label>
+                      <div class="relative">
+                        <Input
+                          id="phone"
+                          v-model="form.contact_phone"
+                          placeholder="联系电话"
+                          class="h-11 rounded-xl pl-9"
+                          type="tel"
+                        />
+                        <Phone class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="space-y-1.5">
+                    <Label for="address">施工地址</Label>
+                    <div class="relative">
+                      <Input
+                        id="address"
+                        v-model="form.address"
+                        placeholder="请输入施工地址"
+                        class="h-11 rounded-xl pl-9"
+                      />
+                      <MapPin class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card class="shadow-sm border-border">
+              <CardHeader class="pb-3">
+                <CardTitle class="text-base font-semibold flex items-center gap-2">
+                  <Calendar class="w-4 h-4 text-primary" />
+                  <span>预约安排</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent class="pt-0">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                  <div class="space-y-1.5">
+                    <Label for="appointment-date">预约时间</Label>
+                    <div class="relative">
+                      <Input
+                        id="appointment-date"
+                        v-model="form.appointment_date"
+                        type="datetime-local"
+                        class="h-11 rounded-xl pl-9"
+                      />
+                      <Clock class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    </div>
+                  </div>
+                  <div class="space-y-1.5">
+                    <Label for="staff">负责人</Label>
+                    <div class="relative">
+                      <Input
+                        id="staff"
+                        v-model="form.staff_name"
+                        placeholder="负责人姓名"
+                        class="h-11 rounded-xl pl-9"
+                      />
+                      <Users class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card class="shadow-sm border-border">
+              <CardHeader class="pb-3">
+                <CardTitle class="text-base font-semibold flex items-center gap-2">
+                  <FileText class="w-4 h-4 text-primary" />
+                  <span>问题描述</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent class="pt-0">
+                <div class="space-y-4">
+                  <div class="space-y-1.5">
+                    <Label for="phenomenon">故障现象</Label>
+                    <Textarea
+                      id="phenomenon"
+                      v-model="form.fault_phenomenon"
+                      placeholder="请描述故障现象..."
+                      class="min-h-[80px] rounded-xl resize-none"
+                    />
+                  </div>
+
+                  <div class="space-y-1.5">
+                    <Label for="judgment">初步判断</Label>
+                    <Textarea
+                      id="judgment"
+                      v-model="form.fault_judgment"
+                      placeholder="请描述故障原因初步判断（可选）..."
+                      class="min-h-[80px] rounded-xl resize-none"
+                    />
+                  </div>
+
+                  <div class="space-y-1.5">
+                    <Label for="remark">备注</Label>
+                    <Textarea
+                      id="remark"
+                      v-model="form.remark"
+                      placeholder="其他备注信息（可选）..."
+                      class="min-h-[60px] rounded-xl resize-none"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card class="shadow-sm border-border">
+              <CardHeader class="pb-3">
+                <div class="flex items-center justify-between">
+                  <CardTitle class="text-base font-semibold flex items-center gap-2">
+                    <ImageIcon class="w-4 h-4 text-primary" />
+                    <span>现场照片</span>
+                  </CardTitle>
+                  <button
+                    class="flex items-center gap-1 text-xs text-primary font-medium hover:underline"
+                    @click="saveTemplate"
+                  >
+                    <Save class="w-3.5 h-3.5" />
+                    存为模板
+                  </button>
+                </div>
+              </CardHeader>
+              <CardContent class="pt-0">
+                <PhotoUpload v-model="photos" :max="9" />
+              </CardContent>
+            </Card>
+
+            <Card class="shadow-sm border-border">
+              <CardHeader class="pb-3">
+                <CardTitle class="text-base font-semibold flex items-center gap-2">
+                  <span class="w-4 h-4 flex items-center justify-center text-primary font-bold">¥</span>
+                  <span>费用预估</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent class="pt-0">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4">
+                  <div class="space-y-1.5">
+                    <Label for="labour-fee">人工费</Label>
+                    <Input
+                      id="labour-fee"
+                      v-model.number="form.labour_fee"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0"
+                      class="h-11 rounded-xl"
+                    />
+                  </div>
+                  <div class="space-y-1.5">
+                    <Label for="material-fee">物料费</Label>
+                    <Input
+                      id="material-fee"
+                      v-model.number="form.material_fee"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0"
+                      class="h-11 rounded-xl"
+                    />
+                  </div>
+                  <div class="space-y-1.5">
+                    <Label for="travel-fee">差旅费</Label>
+                    <Input
+                      id="travel-fee"
+                      v-model.number="form.travel_fee"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0"
+                      class="h-11 rounded-xl"
+                    />
+                  </div>
+                  <div class="space-y-1.5">
+                    <Label for="other-fee">其他费用</Label>
+                    <Input
+                      id="other-fee"
+                      v-model.number="form.other_fee"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0"
+                      class="h-11 rounded-xl"
+                    />
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between p-4 rounded-xl bg-muted/50">
+                  <span class="text-sm text-muted-foreground">预估总费用</span>
+                  <span class="text-xl md:text-2xl font-bold text-foreground">¥{{ totalFee.toFixed(2) }}</span>
+                </div>
+              </CardContent>
+            </Card>
           </div>
+
+          <div class="h-24 md:hidden"></div>
         </div>
 
-        <div class="space-y-1.5">
-          <Label for="address">施工地址</Label>
-          <div class="relative">
-            <Input
-              id="address"
-              v-model="form.address"
-              placeholder="请输入施工地址"
-              class="h-11 rounded-xl pl-9"
-            />
-            <MapPin class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <div v-else-if="step === 3" class="flex flex-col items-center justify-center px-6 py-10 md:py-16 md:max-w-md md:mx-auto">
+          <div class="w-20 h-20 md:w-24 md:h-24 rounded-full bg-emerald-500/10 flex items-center justify-center mb-6 animate-fade-in">
+            <CheckCircle2 class="w-12 h-12 md:w-14 md:h-14 text-emerald-500" />
+          </div>
+          <h2 class="text-xl md:text-2xl font-bold text-foreground mb-2">工单创建成功</h2>
+          <p class="text-muted-foreground text-sm text-center mb-8">
+            工单已成功创建，您可以查看详情或继续创建
+          </p>
+
+          <div class="w-full space-y-3">
+            <Button
+              class="w-full h-12 rounded-xl text-base font-semibold"
+              @click="goToDetail"
+            >
+              查看工单详情
+            </Button>
+            <Button
+              variant="outline"
+              class="w-full h-12 rounded-xl text-base font-medium"
+              @click="goToList"
+            >
+              返回工单列表
+            </Button>
+            <Button
+              variant="ghost"
+              class="w-full h-12 rounded-xl text-base font-medium"
+              @click="resetForm"
+            >
+              继续创建新工单
+            </Button>
           </div>
         </div>
-      </div>
-
-      <div class="h-px bg-border -mx-4" />
-
-      <div class="space-y-4">
-        <div class="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <Calendar class="w-4 h-4 text-primary" />
-          <span>预约安排</span>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div class="space-y-1.5">
-            <Label for="appointment-date">预约时间</Label>
-            <div class="relative">
-              <Input
-                id="appointment-date"
-                v-model="form.appointment_date"
-                type="datetime-local"
-                class="h-11 rounded-xl pl-9"
-              />
-              <Clock class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            </div>
-          </div>
-          <div class="space-y-1.5">
-            <Label for="staff">负责人</Label>
-            <div class="relative">
-              <Input
-                id="staff"
-                v-model="form.staff_name"
-                placeholder="负责人姓名"
-                class="h-11 rounded-xl pl-9"
-              />
-              <Users class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="h-px bg-border -mx-4" />
-
-      <div class="space-y-4">
-        <div class="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <FileText class="w-4 h-4 text-primary" />
-          <span>问题描述</span>
-        </div>
-
-        <div class="space-y-3">
-          <div class="space-y-1.5">
-            <Label for="phenomenon">故障现象</Label>
-            <Textarea
-              id="phenomenon"
-              v-model="form.fault_phenomenon"
-              placeholder="请描述故障现象..."
-              class="min-h-[80px] rounded-xl resize-none"
-            />
-          </div>
-
-          <div class="space-y-1.5">
-            <Label for="judgment">初步判断</Label>
-            <Textarea
-              id="judgment"
-              v-model="form.fault_judgment"
-              placeholder="请描述故障原因初步判断（可选）..."
-              class="min-h-[80px] rounded-xl resize-none"
-            />
-          </div>
-
-          <div class="space-y-1.5">
-            <Label for="remark">备注</Label>
-            <Textarea
-              id="remark"
-              v-model="form.remark"
-              placeholder="其他备注信息（可选）..."
-              class="min-h-[60px] rounded-xl resize-none"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div class="h-px bg-border -mx-4" />
-
-      <div class="space-y-4">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <ImageIcon class="w-4 h-4 text-primary" />
-            <span>现场照片</span>
-          </div>
-          <button
-            class="flex items-center gap-1 text-xs text-primary font-medium"
-            @click="saveTemplate"
-          >
-            <Save class="w-3.5 h-3.5" />
-            存为模板
-          </button>
-        </div>
-
-        <PhotoUpload v-model="photos" :max="9" />
-      </div>
-
-      <div class="h-px bg-border -mx-4" />
-
-      <div class="space-y-4">
-        <div class="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <span class="w-4 h-4 flex items-center justify-center text-primary font-bold">¥</span>
-          <span>费用预估</span>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div class="space-y-1.5">
-            <Label for="labour-fee">人工费</Label>
-            <Input
-              id="labour-fee"
-              v-model.number="form.labour_fee"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="0"
-              class="h-11 rounded-xl"
-            />
-          </div>
-          <div class="space-y-1.5">
-            <Label for="material-fee">物料费</Label>
-            <Input
-              id="material-fee"
-              v-model.number="form.material_fee"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="0"
-              class="h-11 rounded-xl"
-            />
-          </div>
-          <div class="space-y-1.5">
-            <Label for="travel-fee">差旅费</Label>
-            <Input
-              id="travel-fee"
-              v-model.number="form.travel_fee"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="0"
-              class="h-11 rounded-xl"
-            />
-          </div>
-          <div class="space-y-1.5">
-            <Label for="other-fee">其他费用</Label>
-            <Input
-              id="other-fee"
-              v-model.number="form.other_fee"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="0"
-              class="h-11 rounded-xl"
-            />
-          </div>
-        </div>
-
-        <div class="flex items-center justify-between p-3 rounded-xl bg-muted/50">
-          <span class="text-sm text-muted-foreground">预估总费用</span>
-          <span class="text-lg font-bold text-foreground">¥{{ totalFee.toFixed(2) }}</span>
-        </div>
-      </div>
-    </div>
-
-    <div v-else-if="step === 3" class="flex-1 flex flex-col items-center justify-center px-6 py-10">
-      <div class="w-20 h-20 rounded-full bg-emerald-500/10 flex items-center justify-center mb-6">
-        <CheckCircle2 class="w-12 h-12 text-emerald-500" />
-      </div>
-      <h2 class="text-xl font-bold text-foreground mb-2">工单创建成功</h2>
-      <p class="text-muted-foreground text-sm text-center mb-8">
-        工单已成功创建，您可以查看详情或继续创建
-      </p>
-
-      <div class="w-full space-y-3">
-        <Button
-          class="w-full h-12 rounded-xl text-base font-semibold"
-          @click="goToDetail"
-        >
-          查看工单详情
-        </Button>
-        <Button
-          variant="outline"
-          class="w-full h-12 rounded-xl text-base font-medium"
-          @click="goToList"
-        >
-          返回工单列表
-        </Button>
-        <Button
-          variant="ghost"
-          class="w-full h-12 rounded-xl text-base font-medium"
-          @click="resetForm"
-        >
-          继续创建新工单
-        </Button>
       </div>
     </div>
 
@@ -658,7 +676,7 @@ const stepTitles = ['选择类型', '填写信息', '创建完成']
       v-if="step < 3"
       class="sticky bottom-0 bg-background/80 backdrop-blur-xl border-t border-border p-4 safe-area-bottom"
     >
-      <div class="flex gap-3">
+      <div class="flex gap-3 md:max-w-3xl md:mx-auto">
         <Button
           variant="outline"
           class="flex-1 h-12 rounded-xl text-base font-medium"
@@ -709,19 +727,19 @@ const stepTitles = ['选择类型', '填写信息', '创建完成']
               <button
                 v-for="tpl in templates"
                 :key="tpl.id"
-                class="w-full p-3 rounded-xl border border-border hover:border-primary hover:bg-primary/5 transition-all text-left"
+                class="w-full p-3 md:p-4 rounded-xl border border-border hover:border-primary hover:bg-primary/5 transition-all text-left group"
                 @click="applyTemplate(tpl)"
               >
                 <div class="flex items-center justify-between">
-                  <span class="font-medium text-foreground">{{ tpl.name }}</span>
+                  <span class="font-medium text-foreground group-hover:text-primary transition-colors">{{ tpl.name }}</span>
                   <span class="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
                     {{ types.find(t => t.key === tpl.record_type)?.label || tpl.record_type }}
                   </span>
                 </div>
-                <p class="text-xs text-muted-foreground mt-1 line-clamp-2">
+                <p class="text-xs text-muted-foreground mt-1.5 line-clamp-2">
                   {{ tpl.fault_judgment || tpl.fault_phenomenon || '无描述' }}
                 </p>
-                <p class="text-xs text-primary mt-1">
+                <p class="text-xs text-primary mt-2 font-medium">
                   ¥{{ (tpl.labour_fee + tpl.material_fee + tpl.travel_fee + tpl.other_fee).toFixed(2) }} 起
                 </p>
               </button>

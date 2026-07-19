@@ -50,10 +50,10 @@ const typeLabels: Record<string, string> = {
 }
 
 const typeColorCls: Record<string, string> = {
-  construction: 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
-  maintenance: 'bg-purple-50 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400',
-  repair: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
-  inspection: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-400',
+  construction: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20',
+  maintenance: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20',
+  repair: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20',
+  inspection: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20',
 }
 
 const statusLabels: Record<string, string> = {
@@ -64,10 +64,10 @@ const statusLabels: Record<string, string> = {
 }
 
 const statusColorCls: Record<string, string> = {
-  pending: 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400',
-  in_progress: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
-  completed: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
-  cancelled: 'bg-slate-100 text-slate-600 dark:bg-slate-500/10 dark:text-slate-400',
+  pending: 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20',
+  in_progress: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20',
+  completed: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20',
+  cancelled: 'bg-slate-500/10 text-slate-500 border border-slate-500/20',
 }
 
 const formatDate = (dateStr?: string) => {
@@ -126,79 +126,83 @@ const handleScroll = (e: Event) => {
 </script>
 
 <template>
-  <div class="flex flex-col h-full">
-    <div class="px-4 py-3 md:px-6 lg:px-8 md:py-4 bg-card/80 backdrop-blur-lg border-b border-border sticky top-0 z-10">
-      <div class="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
-        <div class="flex items-center gap-2 flex-1">
-          <div class="relative flex-1">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              v-model="searchQuery"
-              placeholder="搜索工单编号/客户/内容"
-              class="pl-9 h-10 text-sm rounded-xl bg-muted/50 border-input"
-              @keyup.enter="handleSearch"
-            />
-          </div>
-          <button
-            class="p-2.5 rounded-xl bg-muted/50 border border-input text-foreground hover:bg-muted/80 transition-colors active:scale-95"
-            @click="refresh"
-          >
-            <RefreshCw :class="['w-4 h-4', (refreshing || loading) && 'animate-spin']" />
-          </button>
-          <button
-            class="md:hidden p-2.5 rounded-xl bg-muted/50 border border-input text-foreground active:scale-95 transition-transform"
-            @click="showFilters = !showFilters"
-          >
-            <Filter :class="['w-4 h-4', showFilters && 'text-primary']" />
-          </button>
-        </div>
-
-        <div class="hidden md:flex items-center gap-3">
-          <div class="flex gap-1.5 bg-muted/50 p-1 rounded-xl">
+  <div class="flex flex-col h-full relative">
+    <div class="sticky top-0 z-20">
+      <div class="px-4 py-3 md:px-6 lg:px-8 md:py-4 border-b border-border backdrop-blur-xl bg-background/80">
+        <div class="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
+          <div class="flex items-center gap-2 flex-1">
+            <div class="relative flex-1 group">
+              <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+              <Input
+                v-model="searchQuery"
+                placeholder="搜索工单编号/客户/内容"
+                class="pl-9 h-10 text-sm rounded-xl bg-muted/30 border-border focus:border-primary/50 focus:ring-primary/20 transition-all"
+                @keyup.enter="handleSearch"
+              />
+            </div>
             <button
-              :class="[
-                'p-2 rounded-lg transition-all',
-                viewMode === 'list' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'
-              ]"
-              @click="viewMode = 'list'"
+              class="p-2.5 rounded-xl bg-muted/30 border border-border text-foreground hover:bg-muted/60 transition-all duration-300 active:scale-95 hover:border-primary/30"
+              @click="refresh"
             >
-              <List class="w-4 h-4" />
+              <RefreshCw :class="['w-4 h-4', (refreshing || loading) && 'animate-spin']" />
             </button>
             <button
-              :class="[
-                'p-2 rounded-lg transition-all',
-                viewMode === 'grid' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'
-              ]"
-              @click="viewMode = 'grid'"
+              class="md:hidden p-2.5 rounded-xl bg-muted/30 border border-border text-foreground active:scale-95 transition-all duration-300 hover:border-primary/30"
+              :class="showFilters && 'border-primary/50 text-primary'"
+              @click="showFilters = !showFilters"
             >
-              <LayoutGrid class="w-4 h-4" />
+              <Filter :class="['w-4 h-4', showFilters && 'text-primary']" />
+            </button>
+          </div>
+
+          <div class="hidden md:flex items-center gap-3">
+            <div class="flex gap-1.5 bg-muted/30 p-1 rounded-xl border border-border">
+              <button
+                :class="[
+                  'p-2 rounded-lg transition-all duration-200',
+                  viewMode === 'list' ? 'bg-background shadow-sm text-primary border border-primary/20' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                ]"
+                @click="viewMode = 'list'"
+              >
+                <List class="w-4 h-4" />
+              </button>
+              <button
+                :class="[
+                  'p-2 rounded-lg transition-all duration-200',
+                  viewMode === 'grid' ? 'bg-background shadow-sm text-primary border border-primary/20' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                ]"
+                @click="viewMode = 'grid'"
+              >
+                <LayoutGrid class="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div
+          :class="[
+            'overflow-hidden transition-all duration-300 md:overflow-visible',
+            showFilters ? 'max-h-96 mt-3 md:mt-0' : 'max-h-0 md:max-h-none md:mt-3'
+          ]"
+        >
+          <div class="flex flex-wrap gap-2 md:gap-2">
+            <button
+              v-for="tab in tabs"
+              :key="tab.key"
+              :class="[
+                'px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-300',
+                activeTab === tab.key
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-primary-foreground shadow-lg shadow-blue-500/25'
+                  : 'bg-muted/30 text-muted-foreground hover:bg-muted/60 border border-border hover:border-primary/30'
+              ]"
+              @click="handleTabChange(tab.key)"
+            >
+              {{ tab.label }}
             </button>
           </div>
         </div>
       </div>
-
-      <div
-        :class="[
-          'overflow-hidden transition-all duration-300 md:overflow-visible',
-          showFilters ? 'max-h-96 mt-3 md:mt-0' : 'max-h-0 md:max-h-none md:mt-3'
-        ]"
-      >
-        <div class="flex flex-wrap gap-2 md:gap-2">
-          <button
-            v-for="tab in tabs"
-            :key="tab.key"
-            :class="[
-              'px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all',
-              activeTab === tab.key
-                ? 'bg-primary text-primary-foreground shadow-md'
-                : 'bg-muted text-muted-foreground hover:bg-muted/80'
-            ]"
-            @click="handleTabChange(tab.key)"
-          >
-            {{ tab.label }}
-          </button>
-        </div>
-      </div>
+      <div class="h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent opacity-50" />
     </div>
 
     <PullRefresh @refresh="refresh">
@@ -218,10 +222,11 @@ const handleScroll = (e: Event) => {
             <Card
               v-for="record in records"
               :key="record.id"
-              class="shadow-sm border-border cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-primary/20 group"
+              class="overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-primary/30 group"
               @click="goToDetail(record.id)"
             >
-              <CardContent class="p-4">
+              <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <CardContent class="p-4 relative">
                 <div class="flex items-start justify-between gap-3 mb-3">
                   <span :class="['px-2 py-0.5 rounded-full text-xs font-medium', typeColorCls[record.record_type] || typeColorCls.construction]">
                     {{ typeLabels[record.record_type] || record.record_type }}
@@ -231,7 +236,7 @@ const handleScroll = (e: Event) => {
                   </span>
                 </div>
                 <h3 class="font-semibold text-foreground text-base mb-1 truncate">{{ record.customer_name }}</h3>
-                <p class="text-xs text-muted-foreground mb-2">{{ record.order_no }}</p>
+                <p class="text-xs text-muted-foreground mb-2 font-mono">{{ record.order_no }}</p>
                 <p v-if="record.address" class="text-sm text-muted-foreground mb-3 line-clamp-2 h-10">{{ record.address }}</p>
                 <div class="flex items-center justify-between text-xs text-muted-foreground pt-3 border-t border-border/50">
                   <span>{{ record.staff_name || '未分配' }}</span>
@@ -244,11 +249,11 @@ const handleScroll = (e: Event) => {
           </div>
 
           <div v-else class="hidden md:block">
-            <div class="bg-card rounded-2xl border border-border overflow-hidden shadow-sm">
+            <div class="rounded-2xl border border-border overflow-hidden shadow-sm">
               <div class="overflow-x-auto">
                 <table class="w-full">
                   <thead>
-                    <tr class="border-b border-border bg-muted/30">
+                    <tr class="border-b border-border bg-muted/20">
                       <th class="text-left text-xs font-medium text-muted-foreground px-4 py-3">工单编号</th>
                       <th class="text-left text-xs font-medium text-muted-foreground px-4 py-3">客户名称</th>
                       <th class="text-left text-xs font-medium text-muted-foreground px-4 py-3">类型</th>
@@ -262,12 +267,12 @@ const handleScroll = (e: Event) => {
                     <tr
                       v-for="record in records"
                       :key="record.id"
-                      class="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors cursor-pointer group"
+                      class="border-b border-border/50 last:border-0 hover:bg-muted/20 transition-colors cursor-pointer group"
                       @click="goToDetail(record.id)"
                     >
                       <td class="px-4 py-3 text-sm text-muted-foreground font-mono">{{ record.order_no }}</td>
                       <td class="px-4 py-3">
-                        <p class="text-sm font-medium text-foreground truncate max-w-[200px]">{{ record.customer_name }}</p>
+                        <p class="text-sm font-medium text-foreground truncate max-w-[200px] group-hover:text-primary transition-colors">{{ record.customer_name }}</p>
                         <p v-if="record.address" class="text-xs text-muted-foreground truncate max-w-[200px] mt-0.5">{{ record.address }}</p>
                       </td>
                       <td class="px-4 py-3">

@@ -41,7 +41,7 @@ def _serve_file(web_dir: Path, filename: str):
 
 
 def setup_static_routes(app):
-    web_dir = Path(os.environ.get("FRONTEND_WEB_DIR", "frontend-web/dist")).resolve()
+    web_dir = Path(os.environ.get("FRONTEND_DIR", "frontend-vue/dist")).resolve()
 
     @app.route("/")
     def index():
@@ -49,7 +49,7 @@ def setup_static_routes(app):
 
     @app.route("/<path:filename>")
     def static_files(filename):
-        if filename.startswith("api/"):
+        if filename.startswith("api/") or filename.startswith("uploads/"):
             abort(404)
 
         web_file = web_dir / filename

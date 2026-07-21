@@ -3,8 +3,7 @@ import mimetypes
 import os
 from pathlib import Path
 
-from flask import Response, abort, request, send_from_directory, render_template_string
-from jinja2 import FileSystemLoader
+from flask import Response, abort, request, send_from_directory
 
 
 COMPRESSIBLE_EXTS = {".css", ".js", ".html", ".json", ".svg", ".txt", ".xml", ".webmanifest"}
@@ -19,9 +18,9 @@ def _cache_header(path: Path) -> str:
     return "public, max-age=3600"
 
 
-def _serve_file(frontend_dir: Path, filename: str):
-    target = (frontend_dir / filename).resolve()
-    if not str(target).startswith(str(frontend_dir.resolve())) or not target.is_file():
+def _serve_file(web_dir: Path, filename: str):
+    target = (web_dir / filename).resolve()
+    if not str(target).startswith(str(web_dir.resolve())) or not target.is_file():
         abort(404)
 
     suffix = target.suffix.lower()
@@ -35,54 +34,43 @@ def _serve_file(frontend_dir: Path, filename: str):
         resp.headers["Content-Encoding"] = "gzip"
         resp.headers["Vary"] = "Accept-Encoding"
     else:
-        resp = send_from_directory(str(frontend_dir), filename)
+        resp = send_from_directory(str(web_dir), filename)
 
     resp.headers["Cache-Control"] = _cache_header(target)
     return resp
 
 
 def setup_static_routes(app):
-    frontend_dir = Path(os.environ.get("FRONTEND_DIR", "")).resolve()
-    vue_dir = frontend_dir.parent / "frontend-vue"
+    web_dir = Path(os.environ.get("FRONTEND_DIR", "frontend-vue/dist")).resolve()
 
     @app.route("/")
     def index():
-        # 默认加载 Vue 前端
-        if vue_dir.exists() and (vue_dir / "index.html").exists():
-            return _serve_file(vue_dir, "index.html")
-        # 回退到旧前端
-        jinja_loader = FileSystemLoader(str(frontend_dir))
-        env = app.jinja_env
-        env.loader = jinja_loader
-        template = env.get_template("index.html")
-        return template.render()
-
-    @app.route("/old/")
-    @app.route("/old/<path:filename>")
-    def old_frontend(filename="index.html"):
-        # 旧前端入口
-        if filename == "index.html" or not filename:
-            jinja_loader = FileSystemLoader(str(frontend_dir))
-            env = app.jinja_env
-            env.loader = jinja_loader
-            template = env.get_template("index.html")
-            return template.render()
-        return _serve_file(frontend_dir, filename)
+        return _serve_file(web_dir, "index.html")
 
     @app.route("/<path:filename>")
     def static_files(filename):
-        if filename.startswith("api/"):
+        if filename.startswith("api/") or filename.startswith("uploads/"):
             abort(404)
 
-        # Vue 前端资源优先
-        vue_file = vue_dir / filename
-        if vue_file.exists() and vue_file.is_file():
-            return _serve_file(vue_dir, filename)
+        web_file = web_dir / filename
+        if web_file.exists() and web_file.is_file():
+            return _serve_file(web_dir, filename)
 
-        # 旧前端资源
-        old_file = frontend_dir / filename
-        if old_file.exists() and old_file.is_file():
-            return _serve_file(frontend_dir, filename)
+        return _serve_file(web_dir, "index.html")
 
-        # SPA 回退到 Vue 前端
-        return _serve_file(vue_dir, "index.html")
+
+def setup_mobile_static_routes(app):
+    mobile_dir = Path(os.environ.get("FRONTEND_MOBILE_DIR", "frontend-vue/dist")).resolve()
+
+    @app.route("/m/")
+    def mobile_index():
+        return _serve_file(mobile_dir, "index.html")
+
+    @app.route("/m/<path:filename>")
+    def mobile_static_files(filename):
+        mobile_file = mobile_dir / filename
+        if mobile_file.exists() and mobile_file.is_file():
+            return _serve_file(mobile_dir, filename)
+
+        return _serve_file(mobile_dir, "index.html")
+

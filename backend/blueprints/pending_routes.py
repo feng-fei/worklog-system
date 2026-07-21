@@ -38,6 +38,20 @@ def get_pending_works():
         return jsonify({'error': str(e)}), 500
 
 
+@pending_bp.route('/pending/<int:pending_id>', methods=['GET'])
+@login_required
+def get_pending_work(pending_id):
+    try:
+        pending = PendingWork.query.get_or_404(pending_id)
+        if g.current_user.get('role') != 'admin' and g.current_user.get('staff_name'):
+            user_staff = g.current_user.get('staff_name', '')
+            if not pending.staff_name or user_staff not in pending.staff_name:
+                return jsonify({'error': '无权查看该待办'}), 403
+        return jsonify(pending.to_dict())
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @pending_bp.route('/pending', methods=['POST'])
 @login_required
 def create_pending_work():
@@ -45,7 +59,10 @@ def create_pending_work():
         data = request.get_json()
         if not data or not data.get('customer_name'):
             return jsonify({'error': '客户名称不能为空'}), 400
-        reminder_date = datetime.strptime(data.get('reminder_date'), '%Y-%m-%d')
+        reminder_date_str = data.get('reminder_date') or data.get('due_date')
+        reminder_date = None
+        if reminder_date_str:
+            reminder_date = datetime.strptime(reminder_date_str, '%Y-%m-%d').date()
         pending = PendingWork(
             title=data.get('title', ''),
             customer_name=data.get('customer_name'),
@@ -66,13 +83,15 @@ def create_pending_work():
             for staff in staff_list:
                 staff_user = WorkerUser.query.filter_by(staff_name=staff, enabled=True).first()
                 if staff_user:
+                    date_str = pending.reminder_date.strftime('%m-%d') if pending.reminder_date else '未设置'
                     _create_notification(staff_user.username,
                         f'新待办: {pending.title or pending.customer_name}',
-                        f'{pending.customer_name}有新的{pending.todo_type}待办，日期{pending.reminder_date.strftime("%m-%d")}',
+                        f'{pending.customer_name}有新的{pending.todo_type}待办，日期{date_str}',
                         'info', 'pending_work', pending.id)
         else:
+            date_str = pending.reminder_date.strftime('%m-%d') if pending.reminder_date else '未设置'
             _notify_admins(f'新待办: {pending.title or pending.customer_name}',
-                f'{pending.customer_name}创建了新的{pending.todo_type}待办，请及时指派',
+                f'{pending.customer_name}创建了新的{pending.todo_type}待办，请及时指派，日期{date_str}',
                 'info', 'pending_work', pending.id)
         db.session.commit()
         return jsonify(pending.to_dict()), 201
@@ -187,7 +206,6 @@ def delete_pending(pending_id):
 
 @pending_bp.route('/pending/batch', methods=['POST'])
 @login_required
-@admin_required
 def batch_operation_pending():
     try:
         data = request.get_json() or {}
@@ -196,10 +214,26 @@ def batch_operation_pending():
         if not ids or not action:
             return jsonify({'error': '请选择待办和操作类型'}), 400
 
-        pendings = PendingWork.query.filter(PendingWork.id.in_(ids)).all()
+        user_role = g.current_user.get('role')
+        user_name = g.current_user.get('staff_name', '')
+        is_admin = user_role == 'admin'
+
+        query = PendingWork.query.filter(PendingWork.id.in_(ids))
+        if not is_admin and user_name:
+            query = query.filter(PendingWork.staff_name.like(f'%{user_name}%'))
+        pendings = query.all()
+        
+        if len(pendings) != len(ids) and not is_admin:
+            allowed_ids = [p.id for p in pendings]
+            forbidden_ids = [i for i in ids if i not in allowed_ids]
+            if forbidden_ids:
+                return jsonify({'error': f'无权操作部分待办事项'}), 403
+
         count = 0
 
         if action == 'delete':
+            if not is_admin:
+                return jsonify({'error': '仅管理员可删除待办'}), 403
             for p in pendings:
                 snapshot_before = p.to_dict()
                 title = p.customer_name + ' - ' + (p.title or '')
@@ -216,8 +250,25 @@ def batch_operation_pending():
                 snapshot_after = p.to_dict()
                 title = p.customer_name + ' - ' + (p.title or '')
                 _log_operation('pending_work', p.id, 'update', snapshot_before, snapshot_after, title)
+                if new_status == 'completed' and snapshot_before.get('status') != 'completed':
+                    _notify_admins(f'待办已完成: {p.title or p.customer_name}',
+                        f'{get_login_user_name() or "有人"}完成了{p.customer_name}的待办',
+                        'success', 'pending_work', p.id)
+                    if p.todo_type == '巡检维护' and p.related_record_type == 'maintenance' and p.related_record_id:
+                        try:
+                            plan = MaintenancePlan.query.get(p.related_record_id)
+                            if plan and plan.equipment_id:
+                                equip = CustomerEquipment.query.get(plan.equipment_id)
+                                if equip:
+                                    equip.last_maintenance = date.today()
+                                    if equip.maintenance_cycle and equip.maintenance_cycle > 0:
+                                        equip.next_maintenance = date.today() + timedelta(days=int(equip.maintenance_cycle))
+                        except Exception as e:
+                            print(f'回写设备维护时间失败: {e}')
                 count += 1
         elif action == 'update_priority':
+            if not is_admin:
+                return jsonify({'error': '仅管理员可修改优先级'}), 403
             new_priority = data.get('priority', '')
             if not new_priority:
                 return jsonify({'error': '请指定优先级'}), 400

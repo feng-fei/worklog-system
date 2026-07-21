@@ -14,6 +14,35 @@ import json
 import os
 import uuid
 
+__all__ = [
+    'ALLOWED_EXTENSIONS', 'ALLOWED_MIMETYPES', 'MAX_FILE_SIZE',
+    'escape_like_keyword', 'parse_date', 'parse_work_date', 'paginate_query',
+    'allowed_file', 'safe_filename',
+    'parse_list_field', 'serialize_list_field',
+    'get_login_user_name',
+    '_get_worker_name', '_is_admin',
+    '_apply_record_permission', '_can_access_record', '_can_access_payment',
+    '_record_type_label', '_record_prefix',
+    '_generate_record_no', '_generate_salary_no',
+    '_sync_staff_name_from_staff_names',
+    '_validate_status_transition',
+    '_recalculate_fee_from_fee_items',
+    '_sync_equipment_details', '_adjust_material_stock',
+    '_sync_to_customer_equipment',
+    '_record_payload_from_pending',
+    '_ensure_indexes',
+    '_log_operation', '_get_field_labels',
+    '_auto_cleanup_oplogs', '_init_default_expense_categories',
+    '_recalculate_project_totals', '_auto_generate_inspection_todos',
+    '_create_notification', '_notify_admins',
+    '_sync_salary_records_for_work',
+    '_apply_pending_permission', '_apply_salary_permission', '_apply_project_permission',
+    '_generate_project_no', '_generate_project_work_record_no', '_generate_project_salary_no',
+    '_generate_material_no',
+    '_calculate_next_date',
+    '_generate_pdf',
+]
+
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 ALLOWED_MIMETYPES = {'image/png', 'image/jpeg', 'image/gif', 'image/webp'}
@@ -43,17 +72,37 @@ def parse_date(date_str):
         return None
 
 
+def parse_work_date(s):
+    """解析工单日期，兼容多种格式：YYYY-MM-DD、YYYY-MM-DDTHH:MM、YYYY-MM-DD HH:MM 等"""
+    if not s:
+        return datetime.now()
+    if isinstance(s, datetime):
+        return s
+    if isinstance(s, date):
+        return datetime.combine(s, datetime.min.time())
+    s = str(s).strip().replace('T', ' ')
+    for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%d'):
+        try:
+            return datetime.strptime(s[:19] if len(s) > 10 else s, fmt)
+        except ValueError:
+            continue
+    try:
+        return datetime.strptime(s[:10], '%Y-%m-%d')
+    except ValueError:
+        return datetime.now()
+
+
 def paginate_query(query, page, per_page, to_dict_method='to_dict'):
     """通用分页工具函数"""
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-    items = []
+    records = []
     for item in pagination.items:
         if hasattr(item, to_dict_method):
-            items.append(getattr(item, to_dict_method)())
+            records.append(getattr(item, to_dict_method)())
         else:
-            items.append(item)
+            records.append(item)
     return {
-        'items': items,
+        'records': records,
         'total': pagination.total,
         'page': page,
         'per_page': per_page,
@@ -125,7 +174,7 @@ def _can_access_record(record):
         return True
     if record.staff_name == user_name:
         return True
-    if record.staff_names and user_name in record.staff_names.split(','):
+    if record.staff_names and user_name in parse_list_field(record.staff_names):
         return True
     if record.project_id:
         project = Project.query.get(record.project_id)
@@ -186,13 +235,42 @@ def _generate_salary_no(work_date):
     return f'{prefix}{num:03d}'
 
 
+def parse_list_field(value):
+    if not value:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        value = value.strip()
+        if not value:
+            return []
+        if value.startswith('[') and value.endswith(']'):
+            try:
+                parsed = json.loads(value)
+                if isinstance(parsed, list):
+                    return parsed
+            except (json.JSONDecodeError, ValueError):
+                pass
+        return [item.strip() for item in value.split(',') if item.strip()]
+    return []
+
+
+def serialize_list_field(lst):
+    if not lst:
+        return ''
+    if isinstance(lst, str):
+        if lst.startswith('[') and lst.endswith(']'):
+            return lst
+        return json.dumps([x.strip() for x in lst.split(',') if x.strip()], ensure_ascii=False)
+    return json.dumps(lst, ensure_ascii=False)
+
+
 def _sync_staff_name_from_staff_names(record):
-    staff_names_str = record.staff_names or ''
-    if not staff_names_str.strip():
+    names = parse_list_field(record.staff_names or '')
+    if not names:
         if not record.staff_name:
             record.staff_name = ''
         return
-    names = [n.strip() for n in staff_names_str.split(',') if n.strip()]
     if names:
         record.staff_name = names[0]
 
@@ -403,8 +481,9 @@ def _adjust_material_stock(eq, old_qty, new_qty, record):
                 material_name=material.name,
                 log_type=log_type,
                 quantity=change_qty,
-                unit_price=material.unit_price or 0,
+                stock_before=current_stock,
                 stock_after=material.stock,
+                unit_price=material.unit_price or 0,
                 related_type='work_record',
                 related_id=record.id,
                 remark=f'工单{record.order_no or ""} {_record_type_label(record.record_type)}设备明细变更',
@@ -531,17 +610,37 @@ def _ensure_indexes():
 
 def _log_operation(target_type, target_id, action, snapshot_before=None, snapshot_after=None, target_title=''):
     try:
+        changes = []
+        if action == 'update' and snapshot_before and snapshot_after:
+            field_labels = _get_field_labels(target_type)
+            important_fields = list(field_labels.keys()) if field_labels else []
+            if not important_fields:
+                important_fields = list(snapshot_before.keys()) if isinstance(snapshot_before, dict) else []
+            for key in important_fields:
+                old_val = snapshot_before.get(key) if isinstance(snapshot_before, dict) else None
+                new_val = snapshot_after.get(key) if isinstance(snapshot_after, dict) else None
+                if old_val != new_val:
+                    label = field_labels.get(key, key)
+                    changes.append({
+                        'field': key,
+                        'label': label,
+                        'old': old_val,
+                        'new': new_val
+                    })
         log = OperationLog(
             target_type=target_type,
             target_id=target_id,
             action=action,
-            operator=get_login_user_name(),
+            user=get_login_user_name(),
             target_title=target_title or '',
-            snapshot_before=json.dumps(snapshot_before, ensure_ascii=False) if snapshot_before else '',
-            snapshot_after=json.dumps(snapshot_after, ensure_ascii=False) if snapshot_after else '',
+            snapshot_before=json.dumps(snapshot_before, ensure_ascii=False, default=str) if snapshot_before else '',
+            snapshot_after=json.dumps(snapshot_after, ensure_ascii=False, default=str) if snapshot_after else '',
+            changes_summary=json.dumps(changes, ensure_ascii=False) if changes else '',
         )
         db.session.add(log)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print(f'记录操作日志失败: {e}')
 
 
@@ -650,7 +749,7 @@ def _recalculate_project_totals(project_id):
             return
         salary_total = db.session.query(func.coalesce(func.sum(ProjectSalary.payable_amount), 0)).filter(
             ProjectSalary.project_id == project_id,
-            ProjectSalary.settlement_status == 'settled'
+            ProjectSalary.status == 'settled'
         ).scalar() or 0
         expense_total = db.session.query(func.coalesce(func.sum(ProjectExpense.amount), 0)).filter(
             ProjectExpense.project_id == project_id
@@ -736,10 +835,7 @@ def _notify_admins(title, content, notify_type='warning', related_type='', relat
 
 def _sync_salary_records_for_work(record):
     try:
-        staff_names_str = record.staff_names or ''
-        if not staff_names_str.strip():
-            return
-        names = [n.strip() for n in staff_names_str.split(',') if n.strip()]
+        names = parse_list_field(record.staff_names or '')
         if not names:
             return
         work_date = record.work_date
@@ -864,8 +960,18 @@ def _generate_pdf(records):
     from fpdf import FPDF
     import os
 
-    font_path = os.path.join('/app/fonts', 'SourceHanSansSC-Regular.otf')
-    font_ok = os.path.exists(font_path)
+    font_candidates = [
+        ('/app/fonts/SourceHanSansSC-Regular.otf', None),
+        ('/usr/share/fonts/wqy-zenhei/wqy-zenhei.ttc', 0),
+    ]
+    font_path = None
+    font_index = None
+    for fp, fi in font_candidates:
+        if os.path.exists(fp):
+            font_path = fp
+            font_index = fi
+            break
+    font_ok = font_path is not None
     upload_dir = '/app/uploads'
     company_name = os.environ.get('COMPANY_NAME', '珠海市瑞翼智能科技有限公司')
 
@@ -891,7 +997,20 @@ def _generate_pdf(records):
             pdf.set_font('Helvetica', style, size)
 
     if font_ok:
-        pdf.add_font('CJK', '', font_path, uni=True)
+        try:
+            if font_path.endswith('.ttc'):
+                from fontTools.ttLib import TTFont
+                ttf = TTFont(font_path, fontNumber=font_index or 0)
+                import tempfile
+                tmp_font = tempfile.NamedTemporaryFile(suffix='.ttf', delete=False)
+                ttf.save(tmp_font.name)
+                tmp_font.close()
+                pdf.add_font('CJK', '', tmp_font.name)
+            else:
+                pdf.add_font('CJK', '', font_path)
+        except Exception as e:
+            print(f'PDF字体加载失败: {e}')
+            font_ok = False
 
     for idx, r in enumerate(records):
         if idx > 0:
@@ -987,7 +1106,8 @@ def _generate_pdf(records):
             current_y = pdf.get_y() + 1
 
         if r.work_photos:
-            photo_files = [os.path.basename(p.strip().strip("/")) for p in r.work_photos.split(',') if p.strip()]
+            photo_list = parse_list_field(r.work_photos)
+            photo_files = [os.path.basename(p.strip().strip("/")) for p in photo_list if p.strip()]
             valid_photos = []
             for pf in photo_files:
                 fpath = os.path.join(upload_dir, pf)

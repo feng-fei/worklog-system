@@ -15,6 +15,8 @@ from sqlalchemy import func, or_, and_
 def get_customers():
     try:
         q = request.args.get('q', '')
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', request.args.get('page_size', 100)))
         query = Customer.query
         if q:
             like = f'%{q}%'
@@ -25,8 +27,15 @@ def get_customers():
                 Customer.contact_name.like(like),
                 Customer.credit_code.like(like)
             ))
-        customers = query.order_by(Customer.name).all()
-        return jsonify([c.to_dict() for c in customers])
+        pagination = query.order_by(Customer.name).paginate(page=page, per_page=per_page, error_out=False)
+        return jsonify({
+            'records': [c.to_dict() for c in pagination.items],
+            'customers': [c.to_dict() for c in pagination.items],
+            'total': pagination.total,
+            'page': page,
+            'per_page': per_page,
+            'pages': pagination.pages
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -52,7 +61,13 @@ def create_customer():
             contact_name=(data.get('contact_name') or '').strip(),
             phone=data.get('phone', ''),
             address=data.get('address', ''),
-            remark=data.get('remark', '')
+            remark=data.get('remark', ''),
+            invoice_title=data.get('invoice_title', ''),
+            tax_number=data.get('tax_number', ''),
+            bank_name=data.get('bank_name', ''),
+            bank_account=data.get('bank_account', ''),
+            invoice_address=data.get('invoice_address', ''),
+            invoice_phone=data.get('invoice_phone', '')
         )
         db.session.add(customer)
         db.session.commit()
@@ -73,6 +88,71 @@ def get_customer(customer_id):
             'records': [r.to_dict() for r in records]
         })
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@customers_bp.route('/customers/<int:customer_id>/overview', methods=['GET'])
+@login_required
+def get_customer_overview(customer_id):
+    try:
+        customer = Customer.query.get_or_404(customer_id)
+        name = customer.name
+        
+        record_q = _apply_record_permission(WorkRecord.query.filter_by(customer_name=name))
+        total_records = record_q.count()
+        total_fee = record_q.with_entities(func.sum(WorkRecord.total_fee)).scalar() or 0
+        total_paid = record_q.with_entities(func.sum(WorkRecord.paid_amount)).scalar() or 0
+        unpaid = float(total_fee) - float(total_paid)
+        
+        completed = record_q.filter(WorkRecord.status == 'completed').count()
+        construction_records = record_q.filter(WorkRecord.record_type == 'construction').count()
+        repair_records = record_q.filter(WorkRecord.record_type == 'repair').count()
+        
+        recent_records = record_q.order_by(WorkRecord.work_date.desc()).limit(10).all()
+        
+        payment_q = PaymentRecord.query.filter_by(customer_name=name)
+        total_payments = payment_q.count()
+        total_payment_amount = payment_q.with_entities(func.sum(PaymentRecord.amount)).scalar() or 0
+        
+        proj_q = _apply_project_permission(Project.query.filter_by(customer_name=name))
+        total_projects = proj_q.count()
+        proj_receipt = proj_q.with_entities(func.sum(Project.receipt_amount)).scalar() or 0
+        proj_amount = proj_q.with_entities(func.sum(Project.contract_amount)).scalar() or 0
+        
+        equip_count = CustomerEquipment.query.filter_by(customer_name=name).count()
+        
+        pending_count = PendingWork.query.filter_by(customer_name=name).filter(
+            PendingWork.status == 'pending'
+        ).count()
+        
+        recent_payments = PaymentRecord.query.filter_by(customer_name=name).order_by(
+            PaymentRecord.payment_date.desc()
+        ).limit(5).all()
+        
+        return jsonify({
+            'customer': customer.to_dict(),
+            'stats': {
+                'total_records': total_records,
+                'total_fee': float(total_fee),
+                'total_paid': float(total_paid),
+                'unpaid_amount': round(unpaid, 2),
+                'completed_count': completed,
+                'construction_count': construction_records,
+                'repair_count': repair_records,
+                'total_payments': total_payments,
+                'total_payment_amount': float(total_payment_amount),
+                'total_projects': total_projects,
+                'project_contract_amount': float(proj_amount),
+                'project_receipt_amount': float(proj_receipt),
+                'equipment_count': equip_count,
+                'pending_count': pending_count
+            },
+            'recent_records': [r.to_dict() for r in recent_records],
+            'recent_payments': [p.to_dict() for p in recent_payments]
+        })
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise
         return jsonify({'error': str(e)}), 500
 
 
@@ -98,6 +178,10 @@ def update_customer(customer_id):
             customer.address = data['address']
         if 'remark' in data:
             customer.remark = data['remark']
+        invoice_fields = ['invoice_title', 'tax_number', 'bank_name', 'bank_account', 'invoice_address', 'invoice_phone']
+        for field in invoice_fields:
+            if field in data:
+                setattr(customer, field, data[field])
         db.session.commit()
         return jsonify(customer.to_dict())
     except Exception as e:

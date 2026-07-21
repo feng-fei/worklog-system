@@ -1,7 +1,7 @@
 from flask import request, jsonify, g, send_from_directory, current_app
 from ..models import *
 from .. import db
-from ..auth import login_required, admin_required
+from ..auth import login_required, admin_required, create_token, get_login_user_name
 from ..utils import *
 from . import auth_bp
 import os
@@ -82,7 +82,12 @@ def list_users():
     """管理员: 列出所有用户"""
     try:
         users = WorkerUser.query.order_by(WorkerUser.created_at.desc()).all()
-        return jsonify([u.to_dict() for u in users])
+        user_list = [u.to_dict() for u in users]
+        return jsonify({
+            'records': user_list,
+            'users': user_list,
+            'total': len(user_list)
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

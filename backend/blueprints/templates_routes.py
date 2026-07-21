@@ -17,6 +17,8 @@ def get_templates():
         template_type = request.args.get('template_type')
         category = request.args.get('category')
         keyword = request.args.get('keyword', '')
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 100, type=int)
         query = WorkTemplate.query
         if template_type:
             query = query.filter(WorkTemplate.template_type == template_type)
@@ -24,8 +26,15 @@ def get_templates():
             query = query.filter(WorkTemplate.category == category)
         if keyword:
             query = query.filter(WorkTemplate.name.like(f'%{keyword}%'))
-        templates = query.order_by(WorkTemplate.updated_at.desc()).all()
-        return jsonify([t.to_dict() for t in templates])
+        pagination = query.order_by(WorkTemplate.updated_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+        return jsonify({
+            'records': [t.to_dict() for t in pagination.items],
+            'templates': [t.to_dict() for t in pagination.items],
+            'total': pagination.total,
+            'page': page,
+            'per_page': per_page,
+            'pages': pagination.pages
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -56,6 +65,21 @@ def create_template():
         if isinstance(staff_names, list):
             staff_names = ','.join(staff_names)
 
+        fee_items = data.get('fee_items') or []
+        if isinstance(fee_items, list):
+            fee_items = json.dumps(fee_items, ensure_ascii=False)
+        else:
+            fee_items = ''
+
+        tax_type = data.get('tax_type', 'no')
+        if tax_type in ('exclusive', 'inclusive'):
+            tax_type = 'no' if tax_type == 'exclusive' else 'tax'
+        tax_rate_raw = data.get('tax_rate')
+        if tax_rate_raw is not None:
+            tax_rate = float(tax_rate_raw) / 100
+        else:
+            tax_rate = 0.03
+
         template = WorkTemplate(
             name=name,
             template_type=data.get('template_type', 'construction'),
@@ -63,14 +87,18 @@ def create_template():
             work_subtype=data.get('work_subtype', ''),
             work_content=data.get('work_content', ''),
             fault_description=data.get('fault_description', ''),
+            fault_diagnosis=data.get('fault_diagnosis', ''),
+            repair_process=data.get('repair_process', ''),
+            repair_result=data.get('repair_result', 'completed'),
             labor_fee=float(data.get('labor_fee') or 0),
             material_fee=float(data.get('material_fee') or 0),
             transport_fee=float(data.get('transport_fee') or 0),
             other_fee=float(data.get('other_fee') or 0),
-            tax_type=data.get('tax_type', 'no'),
-            tax_rate=float(data.get('tax_rate') or 3) / 100,
+            tax_type=tax_type,
+            tax_rate=tax_rate,
             priority=data.get('priority', 'normal'),
             staff_names=staff_names,
+            fee_items=fee_items,
             remark=data.get('remark', ''),
             is_public=bool(data.get('is_public', True)),
             created_by=get_login_user_name()
@@ -97,17 +125,37 @@ def update_template(template_id):
         if 'work_subtype' in data: template.work_subtype = data['work_subtype']
         if 'work_content' in data: template.work_content = data['work_content']
         if 'fault_description' in data: template.fault_description = data['fault_description']
+        if 'fault_diagnosis' in data: template.fault_diagnosis = data['fault_diagnosis']
+        if 'repair_process' in data: template.repair_process = data['repair_process']
+        if 'repair_result' in data: template.repair_result = data['repair_result']
         if 'labor_fee' in data: template.labor_fee = float(data['labor_fee'] or 0)
         if 'material_fee' in data: template.material_fee = float(data['material_fee'] or 0)
         if 'transport_fee' in data: template.transport_fee = float(data['transport_fee'] or 0)
         if 'other_fee' in data: template.other_fee = float(data['other_fee'] or 0)
-        if 'tax_type' in data: template.tax_type = data['tax_type']
-        if 'tax_rate' in data: template.tax_rate = float(data['tax_rate'] or 0) / 100
+        if 'tax_type' in data:
+            tax_type = data['tax_type']
+            if tax_type in ('exclusive', 'inclusive'):
+                template.tax_type = 'no' if tax_type == 'exclusive' else 'tax'
+            else:
+                template.tax_type = tax_type
+        if 'tax_rate' in data:
+            tax_rate_update = data['tax_rate']
+            if tax_rate_update is not None:
+                try:
+                    template.tax_rate = float(tax_rate_update) / 100
+                except:
+                    pass
         if 'priority' in data: template.priority = data['priority']
         if 'staff_names' in data:
             staff_names = data['staff_names'] or []
             if isinstance(staff_names, list):
                 template.staff_names = ','.join(staff_names)
+        if 'fee_items' in data:
+            fee_items = data['fee_items'] or []
+            if isinstance(fee_items, list):
+                template.fee_items = json.dumps(fee_items, ensure_ascii=False)
+            else:
+                template.fee_items = ''
         if 'remark' in data: template.remark = data['remark']
         if 'is_public' in data: template.is_public = bool(data['is_public'])
         db.session.commit()

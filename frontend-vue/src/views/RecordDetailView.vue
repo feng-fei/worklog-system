@@ -1,0 +1,461 @@
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { ArrowLeft, MoreVertical, User, Calendar, FileText, Loader2, AlertCircle, DollarSign, Wrench, Image as ImageIcon, Edit, X, ZoomIn, ChevronRight } from 'lucide-vue-next'
+import { Button } from '@/components/ui/button'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { recordsApi } from '@/api'
+import type { WorkRecord } from '@/types'
+
+const route = useRoute()
+const router = useRouter()
+const recordId = Number(route.params.id)
+
+const loading = ref(true)
+const error = ref('')
+const record = ref<WorkRecord | null>(null)
+
+const photoViewerOpen = ref(false)
+const currentPhotoIndex = ref(0)
+
+const openPhotoViewer = (index: number) => {
+  currentPhotoIndex.value = index
+  photoViewerOpen.value = true
+}
+
+const closePhotoViewer = () => {
+  photoViewerOpen.value = false
+}
+
+const prevPhoto = () => {
+  if (!record.value) return
+  const photos = record.value.work_photos || []
+  currentPhotoIndex.value = (currentPhotoIndex.value - 1 + photos.length) % photos.length
+}
+
+const nextPhoto = () => {
+  if (!record.value) return
+  const photos = record.value.work_photos || []
+  currentPhotoIndex.value = (currentPhotoIndex.value + 1) % photos.length
+}
+
+const typeLabels: Record<string, string> = {
+  construction: '施工单',
+  maintenance: '维保单',
+  repair: '维修单',
+  inspection: '巡检单',
+}
+
+const typeColorCls: Record<string, string> = {
+  construction: 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
+  maintenance: 'bg-purple-50 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400',
+  repair: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
+  inspection: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-400',
+}
+
+const statusLabels: Record<string, string> = {
+  pending: '待接单',
+  in_progress: '进行中',
+  completed: '已完成',
+  cancelled: '已取消',
+}
+
+const statusColorCls: Record<string, string> = {
+  pending: 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400',
+  in_progress: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
+  completed: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
+  cancelled: 'bg-slate-100 text-slate-600 dark:bg-slate-500/10 dark:text-slate-400',
+}
+
+const paymentLabels: Record<string, string> = {
+  unpaid: '未付款',
+  partial: '部分付款',
+  paid: '已付款',
+  monthly: '月结',
+}
+
+const paymentColorCls: Record<string, string> = {
+  unpaid: 'text-red-500',
+  partial: 'text-amber-500',
+  paid: 'text-emerald-500',
+  monthly: 'text-blue-500',
+}
+
+const formatDate = (dateStr?: string) => {
+  if (!dateStr) return '待定'
+  try {
+    const d = new Date(dateStr)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  } catch {
+    return dateStr
+  }
+}
+
+const fetchDetail = async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    record.value = await recordsApi.get(recordId)
+  } catch (e: any) {
+    error.value = e.response?.data?.error || '获取工单详情失败'
+    console.error('获取工单详情失败', e)
+  } finally {
+    loading.value = false
+  }
+}
+
+const goBack = () => {
+  if (window.history.length > 1) {
+    router.back()
+  } else {
+    router.push('/records')
+  }
+}
+
+const primaryButton = computed(() => {
+  if (!record.value) return null
+  switch (record.value.status) {
+    case 'pending':
+      return { label: '开始施工', action: 'start' }
+    case 'in_progress':
+      return { label: '完成工单', action: 'complete' }
+    default:
+      return null
+  }
+})
+
+const handleAction = async (action: string) => {
+  if (!record.value) return
+  try {
+    if (action === 'start') {
+      await recordsApi.updateStatus(recordId, 'in_progress')
+      record.value.status = 'in_progress'
+    } else if (action === 'complete') {
+      await recordsApi.updateStatus(recordId, 'completed')
+      record.value.status = 'completed'
+    }
+  } catch (e: any) {
+    alert(e.response?.data?.error || '操作失败')
+  }
+}
+
+onMounted(fetchDetail)
+</script>
+
+<template>
+  <div class="min-h-screen-safe bg-muted/30 flex flex-col">
+    <div class="sticky top-0 z-20 bg-background/80 backdrop-blur-lg border-b border-border safe-area-top">
+      <div class="flex items-center h-12 px-2 md:h-14 md:px-6 lg:px-8">
+        <button
+          class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-muted/80 transition-colors tap-highlight-transparent shrink-0"
+          @click="goBack"
+        >
+          <ArrowLeft class="w-5 h-5 text-foreground" />
+        </button>
+        <h1 class="flex-1 text-center font-semibold text-foreground text-base md:text-lg -ml-10 md:-ml-0 truncate px-2">
+          工单详情
+        </h1>
+        <div class="hidden lg:flex items-center gap-2 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            class="h-9"
+            @click="router.push(`/record/${recordId}/edit`)"
+          >
+            <Edit class="w-4 h-4 mr-2" />
+            编辑工单
+          </Button>
+          <Button
+            v-if="primaryButton && record"
+            size="sm"
+            class="h-9"
+            @click="handleAction(primaryButton.action)"
+          >
+            {{ primaryButton.label }}
+          </Button>
+        </div>
+        <button v-if="!record" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-muted/80 transition-colors tap-highlight-transparent lg:hidden shrink-0">
+          <MoreVertical class="w-5 h-5 text-foreground" />
+        </button>
+        <div v-else class="lg:hidden shrink-0 w-10 h-10" />
+      </div>
+    </div>
+
+    <div v-if="loading" class="flex-1 flex items-center justify-center">
+      <Loader2 class="w-8 h-8 animate-spin text-primary" />
+    </div>
+
+    <div v-else-if="error" class="flex-1 flex flex-col items-center justify-center text-center px-4">
+      <AlertCircle class="w-12 h-12 text-red-400 mb-3" />
+      <p class="text-sm text-muted-foreground mb-4">{{ error }}</p>
+      <button class="text-sm text-primary font-medium" @click="fetchDetail">重试</button>
+    </div>
+
+    <div v-else-if="record" class="flex-1 overflow-y-auto pb-24 lg:pb-8">
+      <div class="px-4 py-4 md:px-6 lg:px-8 md:py-6">
+        <Card class="shadow-sm border-border overflow-hidden mb-4 md:mb-6">
+          <CardContent class="p-5 md:p-6">
+            <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+              <div class="flex-1 min-w-0">
+                <div class="flex flex-wrap items-center gap-2 mb-3">
+                  <span :class="['px-2.5 py-1 rounded-full text-xs font-medium', typeColorCls[record.record_type] || typeColorCls.construction]">
+                    {{ typeLabels[record.record_type] || record.record_type }}
+                  </span>
+                  <span :class="['px-2.5 py-1 rounded-full text-xs font-medium', statusColorCls[record.status] || statusColorCls.pending]">
+                    {{ statusLabels[record.status] || record.status }}
+                  </span>
+                  <span class="text-xs text-muted-foreground">{{ record.order_no }}</span>
+                </div>
+                <h2 class="text-xl md:text-2xl font-bold text-foreground">{{ record.customer_name }}</h2>
+              </div>
+              <div class="flex gap-6 md:gap-8 md:text-right">
+                <div>
+                  <span class="text-xs md:text-sm text-muted-foreground">费用总额</span>
+                  <p class="text-xl md:text-2xl font-bold text-foreground mt-0.5">¥{{ (record.total_fee || 0).toFixed(2) }}</p>
+                </div>
+                <div v-if="record.payment_status">
+                  <span class="text-xs md:text-sm text-muted-foreground">付款状态</span>
+                  <p :class="['text-sm md:text-base font-semibold mt-0.5', paymentColorCls[record.payment_status] || '']">
+                    {{ paymentLabels[record.payment_status] || record.payment_status }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+          <div class="space-y-4 md:space-y-6">
+            <Card class="shadow-sm border-border">
+              <CardHeader class="pb-3">
+                <CardTitle class="text-base font-semibold flex items-center gap-2">
+                  <User class="w-4 h-4 text-primary" /> 客户信息
+                </CardTitle>
+              </CardHeader>
+              <CardContent class="pt-0 space-y-4">
+                <div class="space-y-1">
+                  <span class="text-xs text-muted-foreground">客户名称</span>
+                  <p class="text-sm font-medium text-foreground">{{ record.customer_name }}</p>
+                </div>
+                <div v-if="record.contact_person" class="space-y-1">
+                  <span class="text-xs text-muted-foreground">联系人</span>
+                  <p class="text-sm font-medium text-foreground">
+                    {{ record.contact_person }}
+                    <span v-if="record.contact_phone" class="text-muted-foreground font-normal"> · {{ record.contact_phone }}</span>
+                  </p>
+                </div>
+                <div v-if="record.work_address || record.address" class="space-y-1">
+                  <span class="text-xs text-muted-foreground">施工地址</span>
+                  <p class="text-sm font-medium text-foreground leading-relaxed">{{ record.work_address || record.address }}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card class="shadow-sm border-border">
+              <CardHeader class="pb-3">
+                <CardTitle class="text-base font-semibold flex items-center gap-2">
+                  <Calendar class="w-4 h-4 text-primary" /> 时间信息
+                </CardTitle>
+              </CardHeader>
+              <CardContent class="pt-0 space-y-3.5">
+                <div class="flex items-center justify-between gap-3">
+                  <span class="text-xs text-muted-foreground shrink-0">创建时间</span>
+                  <span class="text-sm font-medium text-foreground text-right">{{ formatDate(record.created_at) }}</span>
+                </div>
+                <div v-if="record.appointment_date" class="flex items-center justify-between gap-3">
+                  <span class="text-xs text-muted-foreground shrink-0">预约时间</span>
+                  <span class="text-sm font-medium text-foreground text-right">{{ formatDate(record.appointment_date) }}</span>
+                </div>
+                <div v-if="record.completed_at" class="flex items-center justify-between gap-3">
+                  <span class="text-xs text-muted-foreground shrink-0">完成时间</span>
+                  <span class="text-sm font-medium text-foreground text-right">{{ formatDate(record.completed_at) }}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card class="shadow-sm border-border">
+              <CardHeader class="pb-3">
+                <CardTitle class="text-base font-semibold flex items-center gap-2">
+                  <Wrench class="w-4 h-4 text-primary" /> 施工人员
+                </CardTitle>
+              </CardHeader>
+              <CardContent class="pt-0">
+                <p class="text-sm font-medium text-foreground">{{ record.staff_name || '未分配' }}</p>
+              </CardContent>
+            </Card>
+
+            <Card v-if="record.labour_fee || record.material_fee || record.travel_fee || record.other_fee || record.total_fee" class="shadow-sm border-border">
+              <CardHeader class="pb-3">
+                <CardTitle class="text-base font-semibold flex items-center gap-2">
+                  <DollarSign class="w-4 h-4 text-primary" /> 费用明细
+                </CardTitle>
+              </CardHeader>
+              <CardContent class="pt-0 space-y-2.5">
+                <div v-if="record.labour_fee" class="flex items-center justify-between py-1">
+                  <span class="text-sm text-muted-foreground">人工费</span>
+                  <span class="text-sm font-medium text-foreground">¥{{ record.labour_fee.toFixed(2) }}</span>
+                </div>
+                <div v-if="record.material_fee" class="flex items-center justify-between py-1">
+                  <span class="text-sm text-muted-foreground">物料费</span>
+                  <span class="text-sm font-medium text-foreground">¥{{ record.material_fee.toFixed(2) }}</span>
+                </div>
+                <div v-if="record.travel_fee" class="flex items-center justify-between py-1">
+                  <span class="text-sm text-muted-foreground">差旅费</span>
+                  <span class="text-sm font-medium text-foreground">¥{{ record.travel_fee.toFixed(2) }}</span>
+                </div>
+                <div v-if="record.other_fee" class="flex items-center justify-between py-1">
+                  <span class="text-sm text-muted-foreground">其他费用</span>
+                  <span class="text-sm font-medium text-foreground">¥{{ record.other_fee.toFixed(2) }}</span>
+                </div>
+                <div class="flex items-center justify-between pt-3 mt-2 border-t border-border/50">
+                  <span class="text-sm font-semibold text-foreground">合计</span>
+                  <span class="text-lg font-bold text-foreground">¥{{ (record.total_fee || 0).toFixed(2) }}</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div class="lg:col-span-2 space-y-4 md:space-y-6">
+            <div v-if="record.fault_phenomenon || record.fault_judgment || record.process_result || record.remark" class="space-y-4 md:space-y-6">
+              <Card v-if="record.fault_phenomenon" class="shadow-sm border-border">
+                <CardHeader class="pb-3">
+                  <CardTitle class="text-base font-semibold flex items-center gap-2">
+                    <FileText class="w-4 h-4 text-primary" /> 故障现象
+                  </CardTitle>
+                </CardHeader>
+                <CardContent class="pt-0">
+                  <p class="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{{ record.fault_phenomenon }}</p>
+                </CardContent>
+              </Card>
+
+              <Card v-if="record.fault_judgment" class="shadow-sm border-border">
+                <CardHeader class="pb-3">
+                  <CardTitle class="text-base font-semibold flex items-center gap-2">
+                    <FileText class="w-4 h-4 text-primary" /> 故障判断
+                  </CardTitle>
+                </CardHeader>
+                <CardContent class="pt-0">
+                  <p class="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{{ record.fault_judgment }}</p>
+                </CardContent>
+              </Card>
+
+              <Card v-if="record.process_result" class="shadow-sm border-border">
+                <CardHeader class="pb-3">
+                  <CardTitle class="text-base font-semibold flex items-center gap-2">
+                    <FileText class="w-4 h-4 text-primary" /> 处理结果
+                  </CardTitle>
+                </CardHeader>
+                <CardContent class="pt-0">
+                  <p class="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{{ record.process_result }}</p>
+                </CardContent>
+              </Card>
+
+              <Card v-if="record.remark" class="shadow-sm border-border">
+                <CardHeader class="pb-3">
+                  <CardTitle class="text-base font-semibold flex items-center gap-2">
+                    <FileText class="w-4 h-4 text-primary" /> 备注信息
+                  </CardTitle>
+                </CardHeader>
+                <CardContent class="pt-0">
+                  <p class="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{{ record.remark }}</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card class="shadow-sm border-border">
+              <CardHeader class="pb-3">
+                <CardTitle class="text-base font-semibold flex items-center gap-2">
+                  <ImageIcon class="w-4 h-4 text-primary" /> 现场照片
+                </CardTitle>
+              </CardHeader>
+              <CardContent class="pt-0">
+                <div v-if="record.work_photos && record.work_photos.length > 0" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 md:gap-3">
+                  <div
+                    v-for="(photo, idx) in record.work_photos"
+                    :key="idx"
+                    class="relative aspect-[4/3] rounded-lg overflow-hidden bg-muted group cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
+                    @click="openPhotoViewer(idx)"
+                  >
+                    <img :src="photo" alt="" class="w-full h-full object-cover" />
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <ZoomIn class="w-6 h-6 text-white drop-shadow-lg" />
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="text-center py-8 text-muted-foreground text-sm">
+                  <ImageIcon class="w-12 h-12 mx-auto mb-2 opacity-30" />
+                  <p>暂无照片</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="record" class="lg:hidden sticky bottom-0 bg-background/80 backdrop-blur-lg border-t border-border p-3 safe-area-bottom">
+      <div class="flex gap-3">
+        <Button
+          variant="outline"
+          class="flex-1 h-11 rounded-xl text-sm font-medium"
+          @click="router.push(`/record/${recordId}/edit`)"
+        >
+          <Edit class="w-4 h-4 mr-1.5" />
+          编辑
+        </Button>
+        <Button
+          v-if="primaryButton"
+          class="flex-1 h-11 rounded-xl text-sm font-semibold shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
+          @click="handleAction(primaryButton.action)"
+        >
+          {{ primaryButton.label }}
+        </Button>
+      </div>
+    </div>
+  </div>
+
+  <Dialog :open="photoViewerOpen" @update:open="photoViewerOpen = $event">
+    <DialogContent class="!p-0 !max-w-5xl w-[95vw] !bg-transparent !border-none !shadow-none">
+      <DialogTitle class="sr-only">照片查看</DialogTitle>
+      <div class="relative w-full flex items-center justify-center">
+        <button
+          class="absolute top-2 right-2 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors"
+          @click="closePhotoViewer"
+        >
+          <X class="w-5 h-5" />
+        </button>
+        <button
+          v-if="record.work_photos && record.work_photos.length > 1"
+          class="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors"
+          @click.stop="prevPhoto"
+        >
+          <ArrowLeft class="w-5 h-5" />
+        </button>
+        <button
+          v-if="record.work_photos && record.work_photos.length > 1"
+          class="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors"
+          @click.stop="nextPhoto"
+        >
+          <ChevronRight class="w-5 h-5" />
+        </button>
+        <img
+          v-if="record.work_photos && record.work_photos[currentPhotoIndex]"
+          :src="record.work_photos[currentPhotoIndex]"
+          alt=""
+          class="max-h-[85vh] max-w-full object-contain rounded-lg"
+        />
+        <div
+          v-if="record.work_photos && record.work_photos.length > 1"
+          class="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-black/60 text-white text-xs"
+        >
+          {{ currentPhotoIndex + 1 }} / {{ record.work_photos.length }}
+        </div>
+      </div>
+    </DialogContent>
+  </Dialog>
+</template>

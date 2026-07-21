@@ -2,8 +2,20 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 import os
-from datetime import datetime
+import time
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
+
+os.environ.setdefault('TZ', 'Asia/Shanghai')
+try:
+    time.tzset()
+except AttributeError:
+    pass
+
+CN_TZ = timezone(timedelta(hours=8))
+
+def cn_now():
+    return datetime.now(CN_TZ).replace(tzinfo=None)
 
 # 加载环境变量
 load_dotenv()
@@ -32,32 +44,24 @@ def create_app():
     # 配置 CORS - 允许所有来源
     CORS(app, resources={r"/api/*": {"origins": "*"}})
     
-    # 注册蓝图
-    # 方式一：传统单体路由（默认启用，保证兼容性）
-    from .routes import api_bp
-    app.register_blueprint(api_bp, url_prefix='/api')
-
-    # 方式二：模块化蓝图（架构已搭建，逐步迁移中）
-    # 如需启用模块化蓝图，设置环境变量 USE_MODULAR_BLUEPRINTS=true
-    # 注意：启用后会与单体路由路径冲突，需同时移除单体路由注册
-    if os.environ.get('USE_MODULAR_BLUEPRINTS', 'false').lower() == 'true':
-        from .blueprints import (
-            auth_bp, records_bp, pending_bp, customers_bp, staffs_bp,
-            finance_bp, projects_bp, materials_bp, templates_bp,
-            statistics_bp, system_bp
-        )
-        # 所有蓝图统一注册在 /api 前缀下，路由路径自身带模块前缀
-        app.register_blueprint(auth_bp, url_prefix='/api')
-        app.register_blueprint(records_bp, url_prefix='/api')
-        app.register_blueprint(pending_bp, url_prefix='/api')
-        app.register_blueprint(customers_bp, url_prefix='/api')
-        app.register_blueprint(staffs_bp, url_prefix='/api')
-        app.register_blueprint(finance_bp, url_prefix='/api')
-        app.register_blueprint(projects_bp, url_prefix='/api')
-        app.register_blueprint(materials_bp, url_prefix='/api')
-        app.register_blueprint(templates_bp, url_prefix='/api')
-        app.register_blueprint(statistics_bp, url_prefix='/api')
-        app.register_blueprint(system_bp, url_prefix='/api')
+    # 注册蓝图（模块化蓝图）
+    from .blueprints import (
+        auth_bp, records_bp, pending_bp, customers_bp, staffs_bp,
+        finance_bp, projects_bp, materials_bp, templates_bp,
+        statistics_bp, system_bp
+    )
+    app.register_blueprint(auth_bp, url_prefix='/api')
+    app.register_blueprint(records_bp, url_prefix='/api')
+    app.register_blueprint(pending_bp, url_prefix='/api')
+    app.register_blueprint(customers_bp, url_prefix='/api')
+    app.register_blueprint(staffs_bp, url_prefix='/api')
+    app.register_blueprint(finance_bp, url_prefix='/api')
+    app.register_blueprint(projects_bp, url_prefix='/api')
+    app.register_blueprint(materials_bp, url_prefix='/api')
+    app.register_blueprint(templates_bp, url_prefix='/api')
+    app.register_blueprint(statistics_bp, url_prefix='/api')
+    app.register_blueprint(system_bp, url_prefix='/api')
+    print("✅ 已启用模块化 Blueprints")
 
     # API请求日志中间件
     import time
@@ -258,6 +262,301 @@ def create_app():
             db.session.rollback()
             print(f'⚠️ v3.3索引优化跳过: {e}')
         
+        # v3.4 维修设备表字段补充 + 待办表日期可空
+        try:
+            from sqlalchemy import inspect
+            insp = inspect(db.engine)
+            def add_col(table, col, ddl):
+                if col not in [c['name'] for c in insp.get_columns(table)]:
+                    db.session.execute(db.text(f'ALTER TABLE {table} ADD COLUMN {ddl}'))
+            
+            add_col('repair_equipments', 'material_id', 'material_id INTEGER')
+            
+            # 待办表 reminder_date 改为可空（SQLite 需要重建表）
+            cols = insp.get_columns('pending_works')
+            reminder_col = next((c for c in cols if c['name'] == 'reminder_date'), None)
+            if reminder_col and not reminder_col.get('nullable', True):
+                col_names = [c['name'] for c in cols]
+                db.session.execute(db.text(f'''
+                    CREATE TABLE pending_works_new (
+                        id INTEGER PRIMARY KEY,
+                        title VARCHAR(200) DEFAULT '',
+                        customer_name VARCHAR(100) NOT NULL,
+                        contact_name VARCHAR(100) DEFAULT '',
+                        work_address VARCHAR(200) NOT NULL,
+                        staff_name VARCHAR(100) NOT NULL,
+                        work_content TEXT NOT NULL,
+                        reminder_date DATETIME,
+                        created_at DATETIME,
+                        status VARCHAR(20) DEFAULT 'pending',
+                        todo_type VARCHAR(30) DEFAULT '客户报修',
+                        contact_phone VARCHAR(20) DEFAULT '',
+                        priority VARCHAR(20) DEFAULT 'normal',
+                        related_record_type VARCHAR(20) DEFAULT '',
+                        related_record_id INTEGER
+                    )
+                '''))
+                col_str = ', '.join(col_names)
+                db.session.execute(db.text(f'''
+                    INSERT INTO pending_works_new ({col_str})
+                    SELECT {col_str} FROM pending_works
+                '''))
+                db.session.execute(db.text('DROP TABLE pending_works'))
+                db.session.execute(db.text('ALTER TABLE pending_works_new RENAME TO pending_works'))
+            
+            db.session.commit()
+            db.create_all()
+            print('✅ v3.4维修设备表字段已检查')
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ v3.4维修设备字段迁移跳过: {e}')
+        
+        # v3.5 财务模块字段扩展
+        try:
+            from sqlalchemy import inspect
+            insp = inspect(db.engine)
+            def add_col(table, col, ddl):
+                if col not in [c['name'] for c in insp.get_columns(table)]:
+                    db.session.execute(db.text(f'ALTER TABLE {table} ADD COLUMN {ddl}'))
+            
+            # Expense 表扩展字段
+            add_col('expenses', 'category_id', 'category_id INTEGER')
+            add_col('expenses', 'record_id', 'record_id INTEGER')
+            add_col('expenses', 'project_id', 'project_id INTEGER')
+            add_col('expenses', 'project_name', 'project_name VARCHAR(200) DEFAULT ""')
+            add_col('expenses', 'customer_id', 'customer_id INTEGER')
+            add_col('expenses', 'customer_name', 'customer_name VARCHAR(100) DEFAULT ""')
+            add_col('expenses', 'handler', 'handler VARCHAR(100) DEFAULT ""')
+            add_col('expenses', 'is_invoiced', 'is_invoiced BOOLEAN DEFAULT 0')
+            
+            # PaymentRecord 表扩展字段
+            add_col('payment_records', 'project_id', 'project_id INTEGER')
+            add_col('payment_records', 'project_name', 'project_name VARCHAR(200) DEFAULT ""')
+            add_col('payment_records', 'customer_id', 'customer_id INTEGER')
+            add_col('payment_records', 'received_by', 'received_by VARCHAR(100) DEFAULT ""')
+            add_col('payment_records', 'is_invoiced', 'is_invoiced BOOLEAN DEFAULT 0')
+            
+            # SalaryRecord 表扩展字段
+            add_col('salary_records', 'staff_id', 'staff_id INTEGER')
+            
+            # 创建索引
+            def add_index(table, idx_name, columns):
+                try:
+                    indexes = insp.get_indexes(table)
+                    if not any(i.get('name') == idx_name for i in indexes):
+                        db.session.execute(db.text(f'CREATE INDEX IF NOT EXISTS {idx_name} ON {table} ({columns})'))
+                except: pass
+            
+            add_index('expenses', 'ix_expenses_category_id', 'category_id')
+            add_index('expenses', 'ix_expenses_record_id', 'record_id')
+            add_index('expenses', 'ix_expenses_project_id', 'project_id')
+            add_index('expenses', 'ix_expenses_customer_id', 'customer_id')
+            add_index('payment_records', 'ix_payment_records_project_id', 'project_id')
+            add_index('payment_records', 'ix_payment_records_customer_id', 'customer_id')
+            add_index('salary_records', 'ix_salary_records_staff_id', 'staff_id')
+            
+            db.session.commit()
+            db.create_all()
+            print('✅ v3.5财务模块字段已检查')
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ v3.5财务字段迁移跳过: {e}')
+        
+        # v3.6 客户开票信息字段
+        try:
+            from sqlalchemy import inspect
+            insp = inspect(db.engine)
+            def add_col(table, col, ddl):
+                if col not in [c['name'] for c in insp.get_columns(table)]:
+                    db.session.execute(db.text(f'ALTER TABLE {table} ADD COLUMN {ddl}'))
+            
+            add_col('customers', 'invoice_title', 'invoice_title VARCHAR(200) DEFAULT ""')
+            add_col('customers', 'tax_number', 'tax_number VARCHAR(50) DEFAULT ""')
+            add_col('customers', 'bank_name', 'bank_name VARCHAR(100) DEFAULT ""')
+            add_col('customers', 'bank_account', 'bank_account VARCHAR(50) DEFAULT ""')
+            add_col('customers', 'invoice_address', 'invoice_address VARCHAR(200) DEFAULT ""')
+            add_col('customers', 'invoice_phone', 'invoice_phone VARCHAR(20) DEFAULT ""')
+            
+            db.session.commit()
+            db.create_all()
+            print('✅ v3.6客户开票信息字段已检查')
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ v3.6客户开票字段迁移跳过: {e}')
+        
+        # v3.7 员工证件照片 + 客户设备保修/维保字段
+        try:
+            from sqlalchemy import inspect
+            insp = inspect(db.engine)
+            def add_col(table, col, ddl):
+                if col not in [c['name'] for c in insp.get_columns(table)]:
+                    db.session.execute(db.text(f'ALTER TABLE {table} ADD COLUMN {ddl}'))
+            
+            add_col('staffs', 'id_card_front_photo', "id_card_front_photo VARCHAR(200) DEFAULT ''")
+            add_col('staffs', 'id_card_back_photo', "id_card_back_photo VARCHAR(200) DEFAULT ''")
+            add_col('staffs', 'certificate_photos', 'certificate_photos TEXT DEFAULT ""')
+            
+            add_col('customer_equipments', 'warranty_start', 'warranty_start DATE')
+            add_col('customer_equipments', 'warranty_end', 'warranty_end DATE')
+            add_col('customer_equipments', 'next_maintenance', 'next_maintenance DATE')
+            add_col('customer_equipments', 'maintenance_cycle', 'maintenance_cycle INTEGER DEFAULT 90')
+            
+            db.session.commit()
+            db.create_all()
+            print('✅ v3.7员工证件照片和客户设备字段已检查')
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ v3.7字段迁移跳过: {e}')
+        
+        # v3.8 模板字段修复 + is_invoiced字段三状态支持
+        try:
+            from sqlalchemy import inspect
+            insp = inspect(db.engine)
+            
+            def add_col(table, col, ddl):
+                if col not in [c['name'] for c in insp.get_columns(table)]:
+                    db.session.execute(db.text(f'ALTER TABLE {table} ADD COLUMN {ddl}'))
+            
+            add_col('work_templates', 'fee_items', 'fee_items TEXT DEFAULT ""')
+            
+            # 修改expenses表的is_invoiced字段从BOOLEAN改为VARCHAR(20)（SQLite需要重建表）
+            try:
+                exp_cols = insp.get_columns('expenses')
+                exp_invoiced_col = next((c for c in exp_cols if c['name'] == 'is_invoiced'), None)
+                if exp_invoiced_col:
+                    col_type = str(exp_invoiced_col.get('type', '')).upper()
+                    if 'BOOLEAN' in col_type or 'BOOL' in col_type or 'INTEGER' in col_type:
+                        print('✅ 检测到expenses.is_invoiced为旧的BOOLEAN类型，正在转换...')
+                        col_names = [c['name'] for c in exp_cols]
+                        db.session.execute(db.text('''
+                            CREATE TABLE expenses_new (
+                                id INTEGER PRIMARY KEY,
+                                expense_type VARCHAR(20) DEFAULT 'other',
+                                category_id INTEGER,
+                                category VARCHAR(50) DEFAULT '',
+                                title VARCHAR(200) DEFAULT '',
+                                amount FLOAT DEFAULT 0.0,
+                                expense_date DATE,
+                                related_type VARCHAR(30) DEFAULT '',
+                                related_id INTEGER,
+                                related_no VARCHAR(100) DEFAULT '',
+                                record_id INTEGER,
+                                project_id INTEGER,
+                                project_name VARCHAR(200) DEFAULT '',
+                                customer_id INTEGER,
+                                customer_name VARCHAR(100) DEFAULT '',
+                                supplier VARCHAR(100) DEFAULT '',
+                                handler VARCHAR(100) DEFAULT '',
+                                payment_method VARCHAR(20) DEFAULT 'cash',
+                                is_invoiced VARCHAR(20) DEFAULT 'uninvoiced',
+                                remark TEXT DEFAULT '',
+                                created_by VARCHAR(100) DEFAULT '',
+                                created_at DATETIME,
+                                updated_at DATETIME
+                            )
+                        '''))
+                        col_str = ', '.join(col_names)
+                        db.session.execute(db.text(f'''
+                            INSERT INTO expenses_new ({col_str})
+                            SELECT {col_str} FROM expenses
+                        '''))
+                        db.session.execute(db.text("UPDATE expenses_new SET is_invoiced = 'invoiced' WHERE is_invoiced = '1' OR is_invoiced = 'True' OR is_invoiced = 1"))
+                        db.session.execute(db.text("UPDATE expenses_new SET is_invoiced = 'uninvoiced' WHERE is_invoiced = '0' OR is_invoiced = 'False' OR is_invoiced = 0 OR is_invoiced IS NULL OR is_invoiced = ''"))
+                        db.session.execute(db.text('DROP TABLE expenses'))
+                        db.session.execute(db.text('ALTER TABLE expenses_new RENAME TO expenses'))
+                        db.session.execute(db.text('CREATE INDEX IF NOT EXISTS ix_expenses_category_id ON expenses (category_id)'))
+                        db.session.execute(db.text('CREATE INDEX IF NOT EXISTS ix_expenses_record_id ON expenses (record_id)'))
+                        db.session.execute(db.text('CREATE INDEX IF NOT EXISTS ix_expenses_project_id ON expenses (project_id)'))
+                        db.session.execute(db.text('CREATE INDEX IF NOT EXISTS ix_expenses_customer_id ON expenses (customer_id)'))
+            except Exception as e:
+                print(f'⚠️ expenses.is_invoiced字段转换跳过: {e}')
+            
+            # 修改payment_records表的is_invoiced字段
+            try:
+                pay_cols = insp.get_columns('payment_records')
+                pay_invoiced_col = next((c for c in pay_cols if c['name'] == 'is_invoiced'), None)
+                if pay_invoiced_col:
+                    col_type = str(pay_invoiced_col.get('type', '')).upper()
+                    if 'BOOLEAN' in col_type or 'BOOL' in col_type or 'INTEGER' in col_type:
+                        print('✅ 检测到payment_records.is_invoiced为旧的BOOLEAN类型，正在转换...')
+                        col_names = [c['name'] for c in pay_cols]
+                        db.session.execute(db.text('''
+                            CREATE TABLE payment_records_new (
+                                id INTEGER PRIMARY KEY,
+                                record_id INTEGER,
+                                project_id INTEGER,
+                                project_name VARCHAR(200) DEFAULT '',
+                                customer_id INTEGER,
+                                customer_name VARCHAR(100) DEFAULT '',
+                                amount FLOAT DEFAULT 0.0,
+                                payment_date DATE,
+                                payment_method VARCHAR(20) DEFAULT 'cash',
+                                received_by VARCHAR(100) DEFAULT '',
+                                is_invoiced VARCHAR(20) DEFAULT 'uninvoiced',
+                                remark VARCHAR(500) DEFAULT '',
+                                created_by VARCHAR(100) DEFAULT '',
+                                created_at DATETIME
+                            )
+                        '''))
+                        col_str = ', '.join(col_names)
+                        db.session.execute(db.text(f'''
+                            INSERT INTO payment_records_new ({col_str})
+                            SELECT {col_str} FROM payment_records
+                        '''))
+                        db.session.execute(db.text("UPDATE payment_records_new SET is_invoiced = 'invoiced' WHERE is_invoiced = '1' OR is_invoiced = 'True' OR is_invoiced = 1"))
+                        db.session.execute(db.text("UPDATE payment_records_new SET is_invoiced = 'uninvoiced' WHERE is_invoiced = '0' OR is_invoiced = 'False' OR is_invoiced = 0 OR is_invoiced IS NULL OR is_invoiced = ''"))
+                        db.session.execute(db.text('DROP TABLE payment_records'))
+                        db.session.execute(db.text('ALTER TABLE payment_records_new RENAME TO payment_records'))
+                        db.session.execute(db.text('CREATE INDEX IF NOT EXISTS ix_payment_records_record_id ON payment_records (record_id)'))
+                        db.session.execute(db.text('CREATE INDEX IF NOT EXISTS ix_payment_records_project_id ON payment_records (project_id)'))
+                        db.session.execute(db.text('CREATE INDEX IF NOT EXISTS ix_payment_records_customer_id ON payment_records (customer_id)'))
+                        db.session.execute(db.text('CREATE INDEX IF NOT EXISTS ix_payment_records_payment_date ON payment_records (payment_date)'))
+            except Exception as e:
+                print(f'⚠️ payment_records.is_invoiced字段转换跳过: {e}')
+            
+            db.session.commit()
+            db.create_all()
+            print('✅ v3.8模板字段和is_invoiced字段已检查')
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ v3.8字段迁移跳过: {e}')
+        
+        # v3.9 材料库存日志表字段补充
+        try:
+            from sqlalchemy import inspect
+            insp = inspect(db.engine)
+            def add_col(table, col, ddl):
+                if col not in [c['name'] for c in insp.get_columns(table)]:
+                    db.session.execute(db.text(f'ALTER TABLE {table} ADD COLUMN {ddl}'))
+            
+            add_col('material_stock_logs', 'material_name', "material_name VARCHAR(100) DEFAULT ''")
+            add_col('material_stock_logs', 'stock_before', 'stock_before FLOAT DEFAULT 0.0')
+            
+            db.session.commit()
+            db.create_all()
+            print('✅ v3.9材料库存日志字段已检查')
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ v3.9字段迁移跳过: {e}')
+        
+        # v3.10 Expense 表 staff_name 和 receipt_photos 字段补充
+        try:
+            from sqlalchemy import inspect
+            insp = inspect(db.engine)
+            def add_col(table, col, ddl):
+                if col not in [c['name'] for c in insp.get_columns(table)]:
+                    db.session.execute(db.text(f'ALTER TABLE {table} ADD COLUMN {ddl}'))
+            
+            add_col('expenses', 'staff_name', "staff_name VARCHAR(100) DEFAULT ''")
+            add_col('expenses', 'receipt_photos', 'receipt_photos TEXT DEFAULT ""')
+            
+            db.session.commit()
+            db.create_all()
+            print('✅ v3.10支出人员和票据字段已检查')
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ v3.10字段迁移跳过: {e}')
+        
         # 创建默认管理员账号
         from .models import WorkerUser
         admin = WorkerUser.query.filter_by(username='admin').first()
@@ -300,10 +599,16 @@ def create_app():
             if rule.endpoint != 'static':
                 print(f"   {rule.endpoint}: {rule}")
     
-    # ===== 如果是有前端文件的环境，注册静态路由 =====
-    frontend_dir = os.environ.get("FRONTEND_DIR", "")
-    if frontend_dir and os.path.isdir(frontend_dir):
+    # ===== 注册前端静态路由（统一响应式）=====
+    web_dir = os.environ.get("FRONTEND_DIR", "")
+    if web_dir and os.path.isdir(web_dir):
         from .static_handler import setup_static_routes
         setup_static_routes(app)
+
+    # ===== 兼容旧的移动端路径 /m/（指向同一前端）=====
+    mobile_dir = os.environ.get("FRONTEND_MOBILE_DIR", "")
+    if mobile_dir and os.path.isdir(mobile_dir):
+        from .static_handler import setup_mobile_static_routes
+        setup_mobile_static_routes(app)
     
     return app

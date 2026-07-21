@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onUnmounted, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Search, Filter, RefreshCw, Loader2, AlertCircle, ChevronDown, LayoutGrid, List } from 'lucide-vue-next'
+import { Search, Filter, RefreshCw, AlertCircle, ChevronDown, LayoutGrid, List, X, FileText } from 'lucide-vue-next'
+import Skeleton from '@/components/Skeleton.vue'
+import EmptyState from '@/components/EmptyState.vue'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -13,8 +15,40 @@ import type { WorkRecord } from '@/types'
 const router = useRouter()
 const searchQuery = ref('')
 const activeTab = ref('all')
-const showFilters = ref(false)
+const showFilters = ref(true)
 const viewMode = ref<'grid' | 'list'>('grid')
+
+onMounted(() => {
+  if (window.innerWidth >= 768) {
+    viewMode.value = 'list'
+  }
+})
+
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+
+const debouncedSearch = () => {
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+  }
+  searchTimer = setTimeout(() => {
+    handleSearch()
+  }, 300)
+}
+
+const clearSearch = () => {
+  searchQuery.value = ''
+  handleSearch()
+}
+
+watch(searchQuery, () => {
+  debouncedSearch()
+})
+
+onUnmounted(() => {
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+  }
+})
 
 const tabs = [
   { key: 'all', label: '全部', status: '' },
@@ -136,9 +170,24 @@ const handleScroll = (e: Event) => {
               <Input
                 v-model="searchQuery"
                 placeholder="搜索工单编号/客户/内容"
-                class="pl-9 h-10 text-sm rounded-xl bg-muted/30 border-border focus:border-primary/50 focus:ring-primary/20 transition-all"
+                class="pl-9 pr-20 h-10 text-sm rounded-xl bg-muted/30 border-border focus:border-primary/50 focus:ring-primary/20 transition-all"
                 @keyup.enter="handleSearch"
               />
+              <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                <button
+                  v-if="searchQuery"
+                  class="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                  @click="clearSearch"
+                >
+                  <X class="w-3.5 h-3.5" />
+                </button>
+                <button
+                  class="p-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors active:scale-95"
+                  @click="handleSearch"
+                >
+                  <Search class="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
             <button
               class="p-2.5 rounded-xl bg-muted/30 border border-border text-foreground hover:bg-muted/60 transition-all duration-300 active:scale-95 hover:border-primary/30"
@@ -185,12 +234,12 @@ const handleScroll = (e: Event) => {
             showFilters ? 'max-h-96 mt-3 md:mt-0' : 'max-h-0 md:max-h-none md:mt-3'
           ]"
         >
-          <div class="flex flex-wrap gap-2 md:gap-2">
+          <div class="flex gap-2 md:gap-2 overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 md:flex-wrap md:pb-0 scrollbar-hide">
             <button
               v-for="tab in tabs"
               :key="tab.key"
               :class="[
-                'px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-300',
+                'px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-300 shrink-0',
                 activeTab === tab.key
                   ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-primary-foreground shadow-lg shadow-orange-500/25'
                   : 'bg-muted/30 text-muted-foreground hover:bg-muted/60 border border-border hover:border-primary/30'
@@ -206,9 +255,9 @@ const handleScroll = (e: Event) => {
     </div>
 
     <PullRefresh @refresh="refresh">
-      <div class="h-full overflow-y-auto px-4 py-3 md:px-6 lg:px-8 md:py-4 scroll-container" @scroll="handleScroll">
-        <div v-if="loading && records.length === 0" class="flex items-center justify-center py-20">
-          <Loader2 class="w-8 h-8 animate-spin text-primary" />
+      <div class="h-full overflow-y-auto px-4 py-3 pb-28 md:px-6 lg:px-8 md:py-4 md:pb-6 scroll-container" @scroll="handleScroll">
+        <div v-if="loading && records.length === 0" class="py-3">
+          <Skeleton :mode="viewMode === 'grid' ? 'card' : 'table'" :rows="5" />
         </div>
 
         <div v-else-if="error && records.length === 0" class="flex flex-col items-center justify-center py-16 text-center">
@@ -236,7 +285,7 @@ const handleScroll = (e: Event) => {
                 </div>
                 <h3 class="font-semibold text-foreground text-sm md:text-base mb-1 truncate">{{ record.customer_name }}</h3>
                 <p class="text-[11px] text-muted-foreground mb-2 font-mono">{{ record.order_no }}</p>
-                <p v-if="record.address" class="text-xs text-muted-foreground mb-3 line-clamp-2 h-8">{{ record.address }}</p>
+                <p v-if="record.work_address || record.address" class="text-xs text-muted-foreground mb-3 line-clamp-2 h-8">{{ record.work_address || record.address }}</p>
                 <div class="flex items-center justify-between text-xs text-muted-foreground pt-3 border-t border-border/60">
                   <div class="flex items-center gap-1 truncate">
                     <span class="truncate">{{ record.staff_name || '未分配' }}</span>
@@ -249,7 +298,7 @@ const handleScroll = (e: Event) => {
             </Card>
           </div>
 
-          <div v-else class="hidden md:block">
+          <div v-else>
             <div class="rounded-2xl border border-border overflow-hidden shadow-sm">
               <div class="overflow-x-auto">
                 <table class="w-full">
@@ -257,11 +306,11 @@ const handleScroll = (e: Event) => {
                     <tr class="border-b border-border bg-muted/20">
                       <th class="text-left text-xs font-medium text-muted-foreground px-4 py-3">工单编号</th>
                       <th class="text-left text-xs font-medium text-muted-foreground px-4 py-3">客户名称</th>
-                      <th class="text-left text-xs font-medium text-muted-foreground px-4 py-3">类型</th>
+                      <th class="hidden md:table-cell text-left text-xs font-medium text-muted-foreground px-4 py-3">类型</th>
                       <th class="text-left text-xs font-medium text-muted-foreground px-4 py-3">状态</th>
-                      <th class="text-left text-xs font-medium text-muted-foreground px-4 py-3">负责人</th>
-                      <th class="text-left text-xs font-medium text-muted-foreground px-4 py-3">创建时间</th>
-                      <th class="text-right text-xs font-medium text-muted-foreground px-4 py-3">费用</th>
+                      <th class="hidden lg:table-cell text-left text-xs font-medium text-muted-foreground px-4 py-3">负责人</th>
+                      <th class="hidden lg:table-cell text-left text-xs font-medium text-muted-foreground px-4 py-3">创建时间</th>
+                      <th class="hidden md:table-cell text-right text-xs font-medium text-muted-foreground px-4 py-3">费用</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -274,9 +323,9 @@ const handleScroll = (e: Event) => {
                       <td class="px-4 py-3 text-sm text-muted-foreground font-mono">{{ record.order_no }}</td>
                       <td class="px-4 py-3">
                         <p class="text-sm font-medium text-foreground truncate max-w-[200px] group-hover:text-primary transition-colors">{{ record.customer_name }}</p>
-                        <p v-if="record.address" class="text-xs text-muted-foreground truncate max-w-[200px] mt-0.5">{{ record.address }}</p>
+                        <p v-if="record.work_address || record.address" class="text-xs text-muted-foreground truncate max-w-[200px] mt-0.5">{{ record.work_address || record.address }}</p>
                       </td>
-                      <td class="px-4 py-3">
+                      <td class="hidden md:table-cell px-4 py-3">
                         <span :class="['px-2 py-0.5 rounded-full text-xs font-medium', typeColorCls[record.record_type] || typeColorCls.construction]">
                           {{ typeLabels[record.record_type] || record.record_type }}
                         </span>
@@ -286,9 +335,9 @@ const handleScroll = (e: Event) => {
                           {{ statusLabels[record.status] || record.status }}
                         </span>
                       </td>
-                      <td class="px-4 py-3 text-sm text-muted-foreground">{{ record.staff_name || '未分配' }}</td>
-                      <td class="px-4 py-3 text-sm text-muted-foreground">{{ formatDate(record.created_at) }}</td>
-                      <td class="px-4 py-3 text-sm font-medium text-foreground text-right">
+                      <td class="hidden lg:table-cell px-4 py-3 text-sm text-muted-foreground">{{ record.staff_name || '未分配' }}</td>
+                      <td class="hidden lg:table-cell px-4 py-3 text-sm text-muted-foreground">{{ formatDate(record.created_at) }}</td>
+                      <td class="hidden md:table-cell px-4 py-3 text-sm font-medium text-foreground text-right">
                         {{ record.total_fee > 0 ? '¥' + record.total_fee.toFixed(0) : '-' }}
                       </td>
                     </tr>
@@ -306,10 +355,14 @@ const handleScroll = (e: Event) => {
             — 没有更多了 —
           </div>
 
-          <div v-if="!loading && records.length === 0" class="py-16 text-center">
-            <div class="text-5xl mb-3">📋</div>
-            <p class="text-muted-foreground text-sm">暂无工单</p>
-          </div>
+          <EmptyState
+            v-if="!loading && records.length === 0"
+            :icon="FileText"
+            title="暂无工单"
+            description="还没有任何工单记录，点击下方按钮创建第一个工单"
+            action-text="新建工单"
+            @action="router.push('/create-record')"
+          />
         </template>
       </div>
     </PullRefresh>
@@ -322,5 +375,12 @@ const handleScroll = (e: Event) => {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 </style>

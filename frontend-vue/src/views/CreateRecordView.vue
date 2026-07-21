@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import {
   ArrowLeft,
   Building2,
@@ -38,6 +38,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import {
   Dialog,
   DialogContent,
@@ -47,14 +48,15 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import PhotoUpload from '@/components/PhotoUpload.vue'
-import { recordsApi, customersApi, projectsApi } from '@/api'
+import { recordsApi, customersApi, projectsApi, staffsApi } from '@/api'
 import { useUserStore } from '@/stores/user'
 import { toast } from '@/components/ui/toast/useToast'
-import type { ExpenseItem, Customer, Project } from '@/types'
+import type { Customer, Project, Staff } from '@/types'
 import ExpenseRecorder from '@/components/ExpenseRecorder.vue'
 import type { ExpenseItem as ExpenseRecorderItem } from '@/components/ExpenseRecorder.vue'
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
 
 const step = ref(1)
@@ -62,6 +64,9 @@ const submitting = ref(false)
 const errorMsg = ref('')
 const createdId = ref<number | null>(null)
 const showTemplatePicker = ref(false)
+const showSaveTemplateDialog = ref(false)
+const templateName = ref('')
+const templateNameInputRef = ref<HTMLInputElement | null>(null)
 
 const customerSearch = ref('')
 const showCustomerDropdown = ref(false)
@@ -90,20 +95,21 @@ const recordType = ref<RecordType>('short')
 
 interface FormData {
   customer_name: string
-  contact_person: string
-  contact_phone: string
-  address: string
-  appointment_date: string
+  contact_name: string
+  customer_phone: string
+  work_address: string
+  work_date: string
   staff_name: string
+  staff_names: string[]
   project_id: string
   project_name: string
-  fault_phenomenon: string
-  fault_judgment: string
+  fault_description: string
+  fault_diagnosis: string
   work_content: string
   remark: string
-  labour_fee: number
+  labor_fee: number
   material_fee: number
-  travel_fee: number
+  transport_fee: number
   other_fee: number
   payment_status: 'unpaid' | 'partial' | 'paid' | 'monthly'
   priority: 'low' | 'normal' | 'high' | 'urgent'
@@ -111,27 +117,28 @@ interface FormData {
 
 const form = ref<FormData>({
   customer_name: '',
-  contact_person: '',
-  contact_phone: '',
-  address: '',
-  appointment_date: '',
+  contact_name: '',
+  customer_phone: '',
+  work_address: '',
+  work_date: '',
   staff_name: '',
+  staff_names: [],
   project_id: '',
   project_name: '',
-  fault_phenomenon: '',
-  fault_judgment: '',
+  fault_description: '',
+  fault_diagnosis: '',
   work_content: '',
   remark: '',
-  labour_fee: 0,
+  labor_fee: 0,
   material_fee: 0,
-  travel_fee: 0,
+  transport_fee: 0,
   other_fee: 0,
   payment_status: 'unpaid',
   priority: 'normal',
 })
 
 const workPhotos = ref<string[]>([])
-const expenseItems = ref<ExpenseItem[]>([])
+const expenseItems = ref<ExpenseRecorderItem[]>([])
 
 const expenseCategories = [
   { value: 'material', label: '材料采购', icon: Package },
@@ -154,15 +161,15 @@ interface RecordTemplate {
   id: string
   name: string
   record_type: RecordType
-  fault_phenomenon: string
-  fault_judgment: string
+  fault_description: string
+  fault_diagnosis: string
   work_content: string
-  labour_fee: number
+  labor_fee: number
   material_fee: number
-  travel_fee: number
+  transport_fee: number
   other_fee: number
   remark: string
-  expense_items: ExpenseItem[]
+  expense_items: ExpenseRecorderItem[]
 }
 
 const defaultTemplates: RecordTemplate[] = [
@@ -170,12 +177,12 @@ const defaultTemplates: RecordTemplate[] = [
     id: 'tpl-ac-repair',
     name: '空调维修',
     record_type: 'short',
-    fault_phenomenon: '空调不制冷/制热效果差',
-    fault_judgment: '需现场检查冷媒压力、压缩机运行状态',
+    fault_description: '空调不制冷/制热效果差',
+    fault_diagnosis: '需现场检查冷媒压力、压缩机运行状态',
     work_content: '空调故障排查与维修',
-    labour_fee: 200,
+    labor_fee: 200,
     material_fee: 0,
-    travel_fee: 0,
+    transport_fee: 0,
     other_fee: 0,
     remark: '',
     expense_items: [],
@@ -184,12 +191,12 @@ const defaultTemplates: RecordTemplate[] = [
     id: 'tpl-ac-maintain',
     name: '空调保养',
     record_type: 'short',
-    fault_phenomenon: '',
-    fault_judgment: '季度常规保养：清洗滤网、检查电气、测试运行',
+    fault_description: '',
+    fault_diagnosis: '季度常规保养：清洗滤网、检查电气、测试运行',
     work_content: '空调季度保养服务',
-    labour_fee: 150,
+    labor_fee: 150,
     material_fee: 0,
-    travel_fee: 0,
+    transport_fee: 0,
     other_fee: 0,
     remark: '含滤网清洗、电气检查、冷媒检测',
     expense_items: [],
@@ -198,12 +205,12 @@ const defaultTemplates: RecordTemplate[] = [
     id: 'tpl-fire-inspect',
     name: '消防年检',
     record_type: 'project',
-    fault_phenomenon: '',
-    fault_judgment: '消防系统年度检测：报警、喷淋、消火栓、防排烟',
+    fault_description: '',
+    fault_diagnosis: '消防系统年度检测：报警、喷淋、消火栓、防排烟',
     work_content: '消防系统年度检测',
-    labour_fee: 800,
+    labor_fee: 800,
     material_fee: 0,
-    travel_fee: 0,
+    transport_fee: 0,
     other_fee: 0,
     remark: '年度消防检测，出具检测报告',
     expense_items: [],
@@ -223,18 +230,30 @@ const loadTemplates = () => {
 }
 
 const saveTemplate = () => {
-  const name = prompt('请输入模板名称')
-  if (!name) return
+  templateName.value = ''
+  showSaveTemplateDialog.value = true
+  setTimeout(() => {
+    templateNameInputRef.value?.focus()
+  }, 100)
+}
+
+const confirmSaveTemplate = () => {
+  const name = templateName.value.trim()
+  if (!name) {
+    toast('请输入模板名称', { type: 'error' })
+    templateNameInputRef.value?.focus()
+    return
+  }
   const newTpl: RecordTemplate = {
     id: 'tpl-custom-' + Date.now(),
     name,
     record_type: recordType.value,
-    fault_phenomenon: form.value.fault_phenomenon,
-    fault_judgment: form.value.fault_judgment,
+    fault_description: form.value.fault_description,
+    fault_diagnosis: form.value.fault_diagnosis,
     work_content: form.value.work_content,
-    labour_fee: form.value.labour_fee,
+    labor_fee: form.value.labor_fee,
     material_fee: form.value.material_fee,
-    travel_fee: form.value.travel_fee,
+    transport_fee: form.value.transport_fee,
     other_fee: form.value.other_fee,
     remark: form.value.remark,
     expense_items: JSON.parse(JSON.stringify(expenseItems.value)),
@@ -243,17 +262,25 @@ const saveTemplate = () => {
   customTpls.push(newTpl)
   localStorage.setItem('record_templates_v2', JSON.stringify(customTpls))
   templates.value = [...defaultTemplates, ...customTpls]
+  showSaveTemplateDialog.value = false
   toast('模板已保存', { type: 'success' })
+}
+
+const handleSaveTemplateKeydown = (e: KeyboardEvent) => {
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    confirmSaveTemplate()
+  }
 }
 
 const applyTemplate = (tpl: RecordTemplate) => {
   recordType.value = tpl.record_type
-  form.value.fault_phenomenon = tpl.fault_phenomenon
-  form.value.fault_judgment = tpl.fault_judgment
+  form.value.fault_description = tpl.fault_description
+  form.value.fault_diagnosis = tpl.fault_diagnosis
   form.value.work_content = tpl.work_content
-  form.value.labour_fee = tpl.labour_fee
+  form.value.labor_fee = tpl.labor_fee
   form.value.material_fee = tpl.material_fee
-  form.value.travel_fee = tpl.travel_fee
+  form.value.transport_fee = tpl.transport_fee
   form.value.other_fee = tpl.other_fee
   form.value.remark = tpl.remark
   expenseItems.value = JSON.parse(JSON.stringify(tpl.expense_items || []))
@@ -283,9 +310,9 @@ const searchCustomers = (keyword: string) => {
 
 const selectCustomer = (customer: Customer) => {
   form.value.customer_name = customer.name
-  form.value.contact_person = customer.contact_name || ''
-  form.value.contact_phone = customer.phone || ''
-  form.value.address = customer.address || ''
+  form.value.contact_name = customer.contact_name || ''
+  form.value.customer_phone = customer.phone || ''
+  form.value.work_address = customer.address || ''
   customerSearch.value = customer.name
   showCustomerDropdown.value = false
 }
@@ -313,9 +340,9 @@ const selectProject = (project: Project) => {
   form.value.project_id = String(project.id)
   form.value.project_name = project.name
   form.value.customer_name = project.customer_name
-  form.value.address = project.address || form.value.address
-  form.value.contact_person = project.contact_name || form.value.contact_person
-  form.value.contact_phone = project.contact_phone || form.value.contact_phone
+  form.value.work_address = project.address || form.value.work_address
+  form.value.contact_name = project.contact_name || form.value.contact_name
+  form.value.customer_phone = project.contact_phone || form.value.customer_phone
   projectSearch.value = project.name
   showProjectDropdown.value = false
 }
@@ -359,9 +386,9 @@ const submitQuickCustomer = async () => {
       address: quickCustomerForm.value.address,
     })
     form.value.customer_name = customer.name
-    form.value.contact_person = customer.contact_name || ''
-    form.value.contact_phone = customer.phone || ''
-    form.value.address = customer.address || ''
+    form.value.contact_name = customer.contact_name || ''
+    form.value.customer_phone = customer.phone || ''
+    form.value.work_address = customer.address || ''
     customerSearch.value = customer.name
     showQuickCustomerDialog.value = false
     toast('客户创建成功', { type: 'success' })
@@ -372,10 +399,32 @@ const submitQuickCustomer = async () => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   loadTemplates()
   if (userStore.user?.staff_name) {
     form.value.staff_name = userStore.user.staff_name
+    form.value.staff_names = [userStore.user.staff_name]
+  }
+  try {
+    const res = await staffsApi.list({ page: 1, per_page: 100 })
+    staffList.value = res.records || []
+  } catch (e) {
+    console.error('Load staffs failed:', e)
+  }
+
+  const queryProjectId = route.query.project_id as string
+  const queryProjectName = route.query.project_name as string
+  const queryRecordType = route.query.record_type as string
+  if (queryRecordType && ['project', 'short', 'repair'].includes(queryRecordType)) {
+    recordType.value = queryRecordType as RecordType
+  }
+  if (queryProjectId && queryProjectName) {
+    form.value.project_id = queryProjectId
+    form.value.project_name = queryProjectName
+    projectSearch.value = queryProjectName
+    if (!queryRecordType) {
+      recordType.value = 'project'
+    }
   }
 })
 
@@ -432,45 +481,64 @@ const totalExpense = computed(() => {
   return expenseItems.value.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
 })
 
-const staffList = computed<string[]>(() => {
-  return []
+const staffList = ref<Staff[]>([])
+const showStaffDialog = ref(false)
+const staffSearch = ref('')
+const tempSelectedStaffs = ref<string[]>([])
+
+const filteredStaffList = computed(() => {
+  if (!staffSearch.value) return staffList.value
+  const keyword = staffSearch.value.toLowerCase()
+  return staffList.value.filter(s => s.name.toLowerCase().includes(keyword))
 })
 
-const convertToNewFormat = (items: ExpenseItem[]): ExpenseRecorderItem[] => {
-  return items.map(item => ({
-    expense_type: item.category,
-    category: item.category,
-    amount: item.amount,
-    description: item.remark || '',
-    staff_name: '',
-    receipt_photos: [],
-    expense_date: new Date().toISOString().split('T')[0],
-  }))
+const openStaffDialog = () => {
+  tempSelectedStaffs.value = [...form.value.staff_names]
+  staffSearch.value = ''
+  showStaffDialog.value = true
 }
 
-const convertToOldFormat = (items: ExpenseRecorderItem[]): ExpenseItem[] => {
-  return items.map(item => ({
-    category: item.expense_type || item.category || 'other',
-    amount: item.amount,
-    remark: item.description || '',
-  }))
+const toggleStaff = (name: string) => {
+  const idx = tempSelectedStaffs.value.indexOf(name)
+  if (idx > -1) {
+    tempSelectedStaffs.value.splice(idx, 1)
+  } else {
+    tempSelectedStaffs.value.push(name)
+  }
 }
 
-const recorderItems = computed({
-  get: () => convertToNewFormat(expenseItems.value),
-  set: (items: ExpenseRecorderItem[]) => {
-    expenseItems.value = convertToOldFormat(items)
-  },
-})
+const confirmStaffSelection = () => {
+  form.value.staff_names = [...tempSelectedStaffs.value]
+  if (form.value.staff_names.length > 0) {
+    form.value.staff_name = form.value.staff_names[0]
+  } else {
+    form.value.staff_name = ''
+  }
+  showStaffDialog.value = false
+}
+
+const removeStaff = (name: string) => {
+  const idx = form.value.staff_names.indexOf(name)
+  if (idx > -1) {
+    form.value.staff_names.splice(idx, 1)
+    if (idx === 0) {
+      form.value.staff_name = form.value.staff_names[0] || ''
+    }
+  }
+}
 
 const totalFee = computed(() => {
   const f = form.value
   return (
-    (Number(f.labour_fee) || 0) +
+    (Number(f.labor_fee) || 0) +
     (Number(f.material_fee) || 0) +
-    (Number(f.travel_fee) || 0) +
+    (Number(f.transport_fee) || 0) +
     (Number(f.other_fee) || 0)
   )
+})
+
+const expectedProfit = computed(() => {
+  return totalFee.value - totalExpense.value
 })
 
 const goBack = () => {
@@ -504,16 +572,16 @@ const removeExpenseItem = (index: number) => {
   expenseItems.value.splice(index, 1)
 }
 
-const mapRecordTypeToApi = (type: RecordType): 'construction' | 'maintenance' | 'repair' | 'inspection' => {
+const mapRecordTypeToApi = (type: RecordType): 'construction' | 'repair' => {
   switch (type) {
     case 'project':
       return 'construction'
     case 'short':
-      return 'maintenance'
+      return 'construction'
     case 'repair':
       return 'repair'
     default:
-      return 'maintenance'
+      return 'construction'
   }
 }
 
@@ -523,25 +591,32 @@ const handleSubmit = async () => {
     errorMsg.value = '请填写客户名称'
     return
   }
+  if (recordType.value === 'project' && !form.value.project_id) {
+    errorMsg.value = '请选择关联项目'
+    return
+  }
 
   submitting.value = true
   try {
     const submitData = new FormData()
     submitData.append('record_type', mapRecordTypeToApi(recordType.value))
     submitData.append('customer_name', form.value.customer_name)
-    if (form.value.contact_person) submitData.append('contact_name', form.value.contact_person)
-    if (form.value.contact_phone) submitData.append('customer_phone', form.value.contact_phone)
-    if (form.value.address) submitData.append('work_address', form.value.address)
-    if (form.value.appointment_date) submitData.append('work_date', form.value.appointment_date)
+    if (form.value.contact_name) submitData.append('contact_name', form.value.contact_name)
+    if (form.value.customer_phone) submitData.append('customer_phone', form.value.customer_phone)
+    if (form.value.work_address) submitData.append('work_address', form.value.work_address)
+    if (form.value.work_date) submitData.append('work_date', form.value.work_date)
     if (form.value.staff_name) submitData.append('staff_name', form.value.staff_name)
+    if (form.value.staff_names && form.value.staff_names.length > 0) {
+      submitData.append('staff_names', JSON.stringify(form.value.staff_names))
+    }
     if (form.value.project_id) submitData.append('project_id', form.value.project_id)
-    if (form.value.fault_phenomenon) submitData.append('fault_description', form.value.fault_phenomenon)
-    if (form.value.fault_judgment) submitData.append('fault_diagnosis', form.value.fault_judgment)
+    if (form.value.fault_description) submitData.append('fault_description', form.value.fault_description)
+    if (form.value.fault_diagnosis) submitData.append('fault_diagnosis', form.value.fault_diagnosis)
     if (form.value.work_content) submitData.append('work_content', form.value.work_content)
     if (form.value.remark) submitData.append('remark', form.value.remark)
-    submitData.append('labor_fee', String(form.value.labour_fee || 0))
+    submitData.append('labor_fee', String(form.value.labor_fee || 0))
     submitData.append('material_fee', String(form.value.material_fee || 0))
-    submitData.append('transport_fee', String(form.value.travel_fee || 0))
+    submitData.append('transport_fee', String(form.value.transport_fee || 0))
     submitData.append('other_fee', String(form.value.other_fee || 0))
     submitData.append('total_fee', String(totalFee.value))
     submitData.append('payment_status', form.value.payment_status)
@@ -581,20 +656,21 @@ const goToList = () => {
 const resetForm = () => {
   form.value = {
     customer_name: '',
-    contact_person: '',
-    contact_phone: '',
-    address: '',
-    appointment_date: '',
+    contact_name: '',
+    customer_phone: '',
+    work_address: '',
+    work_date: '',
     staff_name: userStore.user?.staff_name || '',
+    staff_names: userStore.user?.staff_name ? [userStore.user.staff_name] : [],
     project_id: '',
     project_name: '',
-    fault_phenomenon: '',
-    fault_judgment: '',
+    fault_description: '',
+    fault_diagnosis: '',
     work_content: '',
     remark: '',
-    labour_fee: 0,
+    labor_fee: 0,
     material_fee: 0,
-    travel_fee: 0,
+    transport_fee: 0,
     other_fee: 0,
     payment_status: 'unpaid',
     priority: 'normal',
@@ -812,8 +888,8 @@ const currentTypeConfig = computed(() => typeConfig.find(t => t.key === recordTy
                       </div>
                     </CardHeader>
                     <CardContent class="pt-0">
-                      <div class="space-y-4">
-                        <div class="space-y-1.5">
+                      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                        <div class="space-y-1.5 md:col-span-2">
                           <Label for="customer">客户名称 <span class="text-destructive">*</span></Label>
                           <div class="relative">
                             <div class="flex gap-2">
@@ -868,40 +944,38 @@ const currentTypeConfig = computed(() => typeConfig.find(t => t.key === recordTy
                           </div>
                         </div>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div class="space-y-1.5">
-                            <Label for="contact">联系人</Label>
-                            <div class="relative">
-                              <Input
-                                id="contact"
-                                v-model="form.contact_person"
-                                placeholder="联系人姓名"
-                                class="h-11 rounded-xl pl-9"
-                              />
-                              <User class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            </div>
+                        <div class="space-y-1.5">
+                          <Label for="contact">联系人</Label>
+                          <div class="relative">
+                            <Input
+                              id="contact"
+                              v-model="form.contact_name"
+                              placeholder="联系人姓名"
+                              class="h-11 rounded-xl pl-9"
+                            />
+                            <User class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                           </div>
-                          <div class="space-y-1.5">
-                            <Label for="phone">联系电话</Label>
-                            <div class="relative">
-                              <Input
-                                id="phone"
-                                v-model="form.contact_phone"
-                                placeholder="联系电话"
-                                class="h-11 rounded-xl pl-9"
-                                type="tel"
-                              />
-                              <Phone class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            </div>
+                        </div>
+                        <div class="space-y-1.5">
+                          <Label for="phone">联系电话</Label>
+                          <div class="relative">
+                            <Input
+                              id="phone"
+                              v-model="form.customer_phone"
+                              placeholder="联系电话"
+                              class="h-11 rounded-xl pl-9"
+                              type="tel"
+                            />
+                            <Phone class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                           </div>
                         </div>
 
-                        <div class="space-y-1.5">
+                        <div class="space-y-1.5 md:col-span-2">
                           <Label for="address">施工地址</Label>
                           <div class="relative">
                             <Input
                               id="address"
-                              v-model="form.address"
+                              v-model="form.work_address"
                               placeholder="请输入施工地址"
                               class="h-11 rounded-xl pl-9"
                             />
@@ -974,13 +1048,13 @@ const currentTypeConfig = computed(() => typeConfig.find(t => t.key === recordTy
                       </CardTitle>
                     </CardHeader>
                     <CardContent class="pt-0">
-                      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                         <div class="space-y-1.5">
                           <Label for="appointment-date">预约时间</Label>
                           <div class="relative">
                             <Input
                               id="appointment-date"
-                              v-model="form.appointment_date"
+                              v-model="form.work_date"
                               type="datetime-local"
                               class="h-11 rounded-xl pl-9"
                             />
@@ -1003,15 +1077,30 @@ const currentTypeConfig = computed(() => typeConfig.find(t => t.key === recordTy
 
                       <div v-if="recordType === 'project'" class="mt-4 space-y-1.5">
                         <Label>参与人员</Label>
-                        <div class="flex flex-wrap gap-2 p-3 rounded-xl border border-dashed border-border bg-muted/30 min-h-[44px] items-center">
-                          <span v-if="form.staff_name" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs">
+                        <div
+                          class="flex flex-wrap gap-2 p-3 rounded-xl border border-dashed border-border bg-muted/30 min-h-[44px] items-center cursor-pointer hover:border-primary/50 transition-colors"
+                          @click="openStaffDialog"
+                        >
+                          <span
+                            v-for="name in form.staff_names"
+                            :key="name"
+                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs"
+                            @click.stop
+                          >
                             <User class="w-3 h-3" />
-                            {{ form.staff_name }}
-                            <button class="hover:text-primary/80">
+                            {{ name }}
+                            <button
+                              class="hover:text-primary/80"
+                              @click.stop="removeStaff(name)"
+                            >
                               <X class="w-3 h-3" />
                             </button>
                           </span>
-                          <button class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-dashed border-border text-muted-foreground text-xs hover:border-primary hover:text-primary transition-colors">
+                          <button
+                            v-if="form.staff_names.length === 0"
+                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-dashed border-border text-muted-foreground text-xs hover:border-primary hover:text-primary transition-colors"
+                            @click.stop="openStaffDialog"
+                          >
                             <Plus class="w-3 h-3" />
                             添加人员
                           </button>
@@ -1035,28 +1124,28 @@ const currentTypeConfig = computed(() => typeConfig.find(t => t.key === recordTy
                       </CardTitle>
                     </CardHeader>
                     <CardContent class="pt-0">
-                      <div class="space-y-4">
-                        <div v-if="recordType !== 'project'" class="space-y-1.5">
+                      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                        <div v-if="recordType !== 'project'" class="space-y-1.5 md:col-span-2">
                           <Label for="phenomenon">故障现象</Label>
                           <Textarea
                             id="phenomenon"
-                            v-model="form.fault_phenomenon"
+                            v-model="form.fault_description"
                             placeholder="请描述故障现象..."
                             class="min-h-[80px] rounded-xl resize-none"
                           />
                         </div>
 
-                        <div class="space-y-1.5">
+                        <div class="space-y-1.5 md:col-span-2">
                           <Label for="judgment">{{ recordType === 'project' ? '项目说明' : '初步判断' }}</Label>
                           <Textarea
                             id="judgment"
-                            v-model="form.fault_judgment"
+                            v-model="form.fault_diagnosis"
                             :placeholder="recordType === 'project' ? '请描述项目概况...' : '请描述故障原因初步判断（可选）...'"
                             class="min-h-[80px] rounded-xl resize-none"
                           />
                         </div>
 
-                        <div class="space-y-1.5">
+                        <div class="space-y-1.5 md:col-span-2">
                           <Label for="work-content">工作内容</Label>
                           <Textarea
                             id="work-content"
@@ -1066,7 +1155,7 @@ const currentTypeConfig = computed(() => typeConfig.find(t => t.key === recordTy
                           />
                         </div>
 
-                        <div class="space-y-1.5">
+                        <div class="space-y-1.5 md:col-span-2">
                           <Label for="remark">备注</Label>
                           <Textarea
                             id="remark"
@@ -1111,83 +1200,118 @@ const currentTypeConfig = computed(() => typeConfig.find(t => t.key === recordTy
                     <CardHeader class="pb-3">
                       <CardTitle class="text-base font-semibold flex items-center gap-2">
                         <span class="w-4 h-4 flex items-center justify-center text-primary font-bold">¥</span>
-                        <span>费用明细</span>
+                        <span>费用结算</span>
                       </CardTitle>
                     </CardHeader>
-                    <CardContent class="pt-0">
-                      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        <div class="space-y-1.5">
-                          <Label for="labour-fee">人工费</Label>
-                          <div class="relative">
-                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">¥</span>
-                            <Input
-                              id="labour-fee"
-                              v-model.number="form.labour_fee"
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              placeholder="0"
-                              class="h-11 rounded-xl pl-7"
-                            />
-                          </div>
+                    <CardContent class="pt-0 space-y-6">
+                      <div>
+                        <div class="flex items-center gap-2 mb-3">
+                          <div class="w-1 h-4 rounded-full bg-primary"></div>
+                          <span class="text-sm font-medium text-foreground">向客户收费</span>
                         </div>
-                        <div class="space-y-1.5">
-                          <Label for="material-fee">材料费</Label>
-                          <div class="relative">
-                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">¥</span>
-                            <Input
-                              id="material-fee"
-                              v-model.number="form.material_fee"
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              placeholder="0"
-                              class="h-11 rounded-xl pl-7"
-                            />
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                          <div class="space-y-1.5">
+                            <Label for="labour-fee">人工费</Label>
+                            <div class="relative">
+                              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">¥</span>
+                              <Input
+                                id="labour-fee"
+                                v-model.number="form.labor_fee"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0"
+                                class="h-11 rounded-xl pl-7"
+                              />
+                            </div>
                           </div>
-                        </div>
-                        <div class="space-y-1.5">
-                          <Label for="travel-fee">差旅费</Label>
-                          <div class="relative">
-                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">¥</span>
-                            <Input
-                              id="travel-fee"
-                              v-model.number="form.travel_fee"
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              placeholder="0"
-                              class="h-11 rounded-xl pl-7"
-                            />
+                          <div class="space-y-1.5">
+                            <Label for="material-fee">材料费</Label>
+                            <div class="relative">
+                              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">¥</span>
+                              <Input
+                                id="material-fee"
+                                v-model.number="form.material_fee"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0"
+                                class="h-11 rounded-xl pl-7"
+                              />
+                            </div>
                           </div>
-                        </div>
-                        <div class="space-y-1.5">
-                          <Label for="other-fee">其他费用</Label>
-                          <div class="relative">
-                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">¥</span>
-                            <Input
-                              id="other-fee"
-                              v-model.number="form.other_fee"
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              placeholder="0"
-                              class="h-11 rounded-xl pl-7"
-                            />
+                          <div class="space-y-1.5">
+                            <Label for="travel-fee">差旅费</Label>
+                            <div class="relative">
+                              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">¥</span>
+                              <Input
+                                id="travel-fee"
+                                v-model.number="form.transport_fee"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0"
+                                class="h-11 rounded-xl pl-7"
+                              />
+                            </div>
+                          </div>
+                          <div class="space-y-1.5">
+                            <Label for="other-fee">其他费用</Label>
+                            <div class="relative">
+                              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">¥</span>
+                              <Input
+                                id="other-fee"
+                                v-model.number="form.other_fee"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0"
+                                class="h-11 rounded-xl pl-7"
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>
 
-                      <div class="mt-4 flex items-center justify-between p-4 rounded-xl bg-muted/50">
-                        <span class="text-sm text-muted-foreground">总费用</span>
-                        <span class="text-2xl font-bold text-foreground">¥{{ totalFee.toFixed(2) }}</span>
+                      <div class="relative">
+                        <div class="absolute inset-0 flex items-center" aria-hidden="true">
+                          <div class="w-full border-t border-dashed border-border"></div>
+                        </div>
                       </div>
-                    </CardContent>
-                  </Card>
 
-                  <Card class="shadow-sm border-border">
-                    <CardContent class="pt-6">
-                      <ExpenseRecorder v-model="recorderItems" :staff-options="staffList" />
+                      <div>
+                        <div class="flex items-center gap-2 mb-3">
+                          <div class="w-1 h-4 rounded-full bg-orange-500"></div>
+                          <span class="text-sm font-medium text-foreground">费用支出/报销</span>
+                        </div>
+                        <ExpenseRecorder v-model="expenseItems" :staff-options="staffList.map(s => s.name)" />
+                      </div>
+
+                      <div class="relative">
+                        <div class="absolute inset-0 flex items-center" aria-hidden="true">
+                          <div class="w-full border-t border-dashed border-border"></div>
+                        </div>
+                      </div>
+
+                      <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                          <span class="text-sm text-muted-foreground">应收费用</span>
+                          <span class="text-base font-semibold text-foreground">¥{{ totalFee.toFixed(2) }}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                          <span class="text-sm text-muted-foreground">支出合计</span>
+                          <span class="text-base font-semibold text-orange-500">-¥{{ totalExpense.toFixed(2) }}</span>
+                        </div>
+                        <div class="flex items-center justify-between pt-3 border-t border-border">
+                          <span class="text-sm font-medium text-foreground">预计利润</span>
+                          <span
+                            class="text-xl font-bold"
+                            :class="expectedProfit >= 0 ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'"
+                          >
+                            {{ expectedProfit >= 0 ? '+' : '' }}¥{{ expectedProfit.toFixed(2) }}
+                          </span>
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
 
@@ -1199,32 +1323,34 @@ const currentTypeConfig = computed(() => typeConfig.find(t => t.key === recordTy
                       </CardTitle>
                     </CardHeader>
                     <CardContent class="pt-0">
-                      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                         <div class="space-y-1.5">
                           <Label for="payment-status">收款状态</Label>
-                          <select
-                            id="payment-status"
-                            v-model="form.payment_status"
-                            class="w-full h-11 px-3 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                          >
-                            <option value="unpaid">未付款</option>
-                            <option value="partial">部分付款</option>
-                            <option value="paid">已付款</option>
-                            <option value="monthly">月结</option>
-                          </select>
+                          <Select v-model="form.payment_status">
+                            <SelectTrigger id="payment-status">
+                              <SelectValue placeholder="选择收款状态" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="unpaid">未付款</SelectItem>
+                              <SelectItem value="partial">部分付款</SelectItem>
+                              <SelectItem value="paid">已付款</SelectItem>
+                              <SelectItem value="monthly">月结</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div class="space-y-1.5">
                           <Label for="priority">优先级</Label>
-                          <select
-                            id="priority"
-                            v-model="form.priority"
-                            class="w-full h-11 px-3 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                          >
-                            <option value="low">低</option>
-                            <option value="normal">普通</option>
-                            <option value="high">高</option>
-                            <option value="urgent">紧急</option>
-                          </select>
+                          <Select v-model="form.priority">
+                            <SelectTrigger id="priority">
+                              <SelectValue placeholder="选择优先级" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="low">低</SelectItem>
+                              <SelectItem value="normal">普通</SelectItem>
+                              <SelectItem value="high">高</SelectItem>
+                              <SelectItem value="urgent">紧急</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
                     </CardContent>
@@ -1341,10 +1467,10 @@ const currentTypeConfig = computed(() => typeConfig.find(t => t.key === recordTy
                   </span>
                 </div>
                 <p class="text-xs text-muted-foreground mt-1.5 line-clamp-2">
-                  {{ tpl.fault_judgment || tpl.work_content || tpl.fault_phenomenon || '无描述' }}
+                  {{ tpl.fault_diagnosis || tpl.work_content || tpl.fault_description || '无描述' }}
                 </p>
                 <p class="text-xs text-primary mt-2 font-medium">
-                  ¥{{ (tpl.labour_fee + tpl.material_fee + tpl.travel_fee + tpl.other_fee).toFixed(2) }} 起
+                  ¥{{ (tpl.labor_fee + tpl.material_fee + tpl.transport_fee + tpl.other_fee).toFixed(2) }} 起
                 </p>
               </button>
               <div v-if="templates.length === 0" class="py-8 text-center text-muted-foreground text-sm">
@@ -1355,6 +1481,34 @@ const currentTypeConfig = computed(() => typeConfig.find(t => t.key === recordTy
         </div>
       </Transition>
     </Teleport>
+
+    <Dialog :open="showSaveTemplateDialog" @update:open="showSaveTemplateDialog = $event">
+      <DialogContent class="max-w-md mx-4">
+        <DialogHeader>
+          <DialogTitle>保存为模板</DialogTitle>
+          <DialogDescription>将当前工单内容保存为模板，方便以后快速使用</DialogDescription>
+        </DialogHeader>
+        <div class="space-y-4 py-2">
+          <div class="space-y-1.5">
+            <Label for="template-name">模板名称 <span class="text-destructive">*</span></Label>
+            <Input
+              id="template-name"
+              ref="templateNameInputRef"
+              v-model="templateName"
+              placeholder="请输入模板名称"
+              class="h-10 rounded-xl"
+              @keydown="handleSaveTemplateKeydown"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" @click="showSaveTemplateDialog = false">取消</Button>
+          <Button @click="confirmSaveTemplate">
+            保存
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
     <Dialog :open="showQuickCustomerDialog" @update:open="showQuickCustomerDialog = $event">
       <DialogContent class="max-w-md mx-4">
@@ -1420,6 +1574,55 @@ const currentTypeConfig = computed(() => typeConfig.find(t => t.key === recordTy
           <Button @click="submitQuickCustomer" :disabled="quickCustomerSubmitting">
             <Loader2 v-if="quickCustomerSubmitting" class="w-4 h-4 mr-2 animate-spin" />
             创建客户
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog :open="showStaffDialog" @update:open="showStaffDialog = $event">
+      <DialogContent class="max-w-md mx-4 md:max-w-md max-h-[80vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle>选择参与人员</DialogTitle>
+          <DialogDescription>从人员列表中选择参与本项目的人员</DialogDescription>
+        </DialogHeader>
+        <div class="space-y-3 py-2">
+          <div class="relative">
+            <Input
+              v-model="staffSearch"
+              placeholder="搜索人员..."
+              class="h-10 rounded-xl pl-9"
+            />
+            <User class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          </div>
+          <div class="overflow-y-auto max-h-[40vh] space-y-1 pr-1">
+            <div
+              v-for="staff in filteredStaffList"
+              :key="staff.id"
+              class="flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+              @click="toggleStaff(staff.name)"
+            >
+              <div
+                class="w-5 h-5 rounded border flex items-center justify-center transition-colors"
+                :class="tempSelectedStaffs.includes(staff.name) ? 'bg-primary border-primary' : 'border-input'"
+              >
+                <CheckCircle2 v-if="tempSelectedStaffs.includes(staff.name)" class="w-4 h-4 text-primary-foreground" />
+              </div>
+              <div class="flex items-center gap-2 flex-1">
+                <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <User class="w-4 h-4 text-primary" />
+                </div>
+                <span class="text-sm font-medium">{{ staff.name }}</span>
+              </div>
+            </div>
+            <div v-if="filteredStaffList.length === 0" class="text-center py-8 text-muted-foreground text-sm">
+              没有找到匹配的人员
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" @click="showStaffDialog = false">取消</Button>
+          <Button @click="confirmStaffSelection">
+            确定 ({{ tempSelectedStaffs.length }})
           </Button>
         </DialogFooter>
       </DialogContent>

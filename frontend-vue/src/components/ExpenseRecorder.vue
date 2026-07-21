@@ -4,6 +4,7 @@ import { Plus, Trash2, Receipt, User, DollarSign, FileText, ChevronDown, Chevron
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import PhotoUpload from '@/components/PhotoUpload.vue'
 
 export interface ExpenseItem {
@@ -155,17 +156,23 @@ const toggleExpand = (_index: number) => {
             <div class="space-y-1.5">
               <Label class="text-xs">费用类型</Label>
               <div class="relative">
-                <component :is="getCategoryIcon(expense.expense_type || expense.category || 'other')" class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <select
-                  :value="expense.expense_type || expense.category || 'material'"
-                  class="w-full h-9 pl-9 pr-8 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 appearance-none cursor-pointer"
-                  @change="(e: Event) => updateField(index, 'expense_type', (e.target as HTMLSelectElement).value)"
+                <component :is="getCategoryIcon(expense.expense_type || expense.category || 'other')" class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
+                <Select
+                  :model-value="expense.expense_type || expense.category || 'material'"
+                  @update:model-value="(val: string) => updateField(index, 'expense_type', val)"
                 >
-                  <option v-for="cat in expenseCategories" :key="cat.value" :value="cat.value">
-                    {{ cat.label }}
-                  </option>
-                </select>
-                <ChevronDown class="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <SelectTrigger class="h-9 pl-9 rounded-lg">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem v-for="cat in expenseCategories" :key="cat.value" :value="cat.value">
+                      <div class="flex items-center gap-2">
+                        <component :is="cat.icon" class="w-4 h-4" :class="cat.color" />
+                        <span>{{ cat.label }}</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

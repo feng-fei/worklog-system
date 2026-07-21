@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import MobileHeader from '@/components/layout/MobileHeader.vue'
 import BottomNav from '@/components/layout/BottomNav.vue'
@@ -8,6 +8,7 @@ import AppHeader from '@/components/layout/AppHeader.vue'
 
 const route = useRoute()
 const transitionName = ref('slide-left')
+const isKeyboardOpen = ref(false)
 
 let routeDepth = 0
 const routeHistory: string[] = []
@@ -36,28 +37,90 @@ watch(
   }
 )
 
+const routeMeta = computed(() => route.meta)
+
 const showHeader = computed(() => {
-  return route.meta?.showHeader !== false
+  return routeMeta.value.showHeader !== false
 })
 
 const showNav = computed(() => {
-  return route.meta?.showNav !== false
+  return routeMeta.value.showNav !== false
+})
+
+const showSidebar = computed(() => {
+  return routeMeta.value.showSidebar !== false
+})
+
+const layout = computed(() => {
+  return routeMeta.value.layout || 'default'
 })
 
 const headerTitle = computed(() => {
-  return (route.meta?.title as string) || ''
+  return routeMeta.value.title || ''
+})
+
+const isFullLayout = computed(() => layout.value === 'full')
+const isEmptyLayout = computed(() => layout.value === 'empty')
+
+const isMobile = () => {
+  return window.innerWidth < 768
+}
+
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+const checkKeyboard = () => {
+  if (!isMobile()) {
+    isKeyboardOpen.value = false
+    return
+  }
+
+  const vv = window.visualViewport
+  if (!vv) return
+
+  const heightDiff = window.innerHeight - vv.height
+  isKeyboardOpen.value = heightDiff > 100
+}
+
+const handleResize = () => {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+  }
+  debounceTimer = setTimeout(checkKeyboard, 100)
+}
+
+onMounted(() => {
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', handleResize)
+    window.addEventListener('resize', handleResize)
+    checkKeyboard()
+  }
+})
+
+onBeforeUnmount(() => {
+  if (window.visualViewport) {
+    window.visualViewport.removeEventListener('resize', handleResize)
+    window.removeEventListener('resize', handleResize)
+  }
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+  }
 })
 </script>
 
 <template>
   <div class="h-screen-safe flex flex-col bg-background">
-    <Sidebar />
+    <Sidebar v-if="showSidebar && !isEmptyLayout" />
 
-    <div class="flex-1 md:pl-16 flex flex-col min-h-0">
-      <AppHeader />
+    <div
+      class="flex-1 flex flex-col min-h-0"
+      :class="{
+        'md:pl-16 lg:pl-56': showSidebar && !isEmptyLayout,
+      }"
+    >
+      <AppHeader v-if="!isEmptyLayout" />
 
       <MobileHeader
-        v-if="showHeader"
+        v-if="showHeader && !isEmptyLayout"
         class="md:hidden shrink-0"
         :title="headerTitle"
         :show-notification="route.name === 'dashboard'"
@@ -68,7 +131,7 @@ const headerTitle = computed(() => {
       <main
         class="flex-1 min-h-0 overflow-hidden"
         :class="{
-          'pb-20 safe-area-bottom md:pb-0': showNav,
+          'pb-20 safe-area-bottom md:pb-0': showNav && !isKeyboardOpen && !isEmptyLayout,
         }"
       >
         <RouterView v-slot="{ Component, route: currentRoute }">
@@ -78,7 +141,7 @@ const headerTitle = computed(() => {
         </RouterView>
       </main>
 
-      <BottomNav v-if="showNav" class="md:hidden shrink-0" />
+      <BottomNav v-if="showNav && !isEmptyLayout" :keyboard-open="isKeyboardOpen" class="md:hidden shrink-0" />
     </div>
   </div>
 </template>

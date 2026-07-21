@@ -150,10 +150,8 @@ def restore_from_log(log_id):
                 existing.incomplete_reason = data.get('incomplete_reason', '')
                 photos_data = data.get('work_photos') or data.get('photos', [])
                 if photos_data is not None:
-                    if isinstance(photos_data, list):
-                        existing.work_photos = ','.join(photos_data) if photos_data else None
-                    else:
-                        existing.work_photos = photos_data if photos_data else None
+                    from ..utils import parse_list_field, serialize_list_field
+                    existing.work_photos = serialize_list_field(parse_list_field(photos_data)) or None
                 if data.get('work_date'):
                     try:
                         existing.work_date = datetime.fromisoformat(data['work_date'].replace('Z', '+00:00'))
@@ -203,17 +201,12 @@ def restore_from_log(log_id):
                 msg = '工单已恢复'
             else:
                 staff_names_data = data.get('staff_names', [])
-                if isinstance(staff_names_data, list):
-                    staff_names_str = ','.join(staff_names_data)
-                else:
-                    staff_names_str = str(staff_names_data) if staff_names_data else ''
+                from ..utils import parse_list_field, serialize_list_field
+                staff_names_str = serialize_list_field(parse_list_field(staff_names_data))
                 temp_staff_data = data.get('temp_staff_details', [])
                 temp_staff_str = json.dumps(temp_staff_data, ensure_ascii=False) if temp_staff_data else ''
                 photos_data = data.get('work_photos') or data.get('photos', [])
-                if isinstance(photos_data, list):
-                    photos_str = ','.join(photos_data) if photos_data else None
-                else:
-                    photos_str = photos_data if photos_data else None
+                photos_str = serialize_list_field(parse_list_field(photos_data)) or None
                 fee_items_data = data.get('fee_items', [])
                 fee_items_str = json.dumps(fee_items_data, ensure_ascii=False) if fee_items_data else ''
                 tax_rate_val = data.get('tax_rate', 0.03) or 0.03

@@ -146,7 +146,12 @@ class WorkRecord(db.Model):
 
     def to_dict(self):
         import json
+        from .utils import parse_list_field
         expense_items = [e.to_dict() for e in Expense.query.filter_by(record_id=self.id).all()]
+        staff_names_list = parse_list_field(self.staff_names)
+        if not staff_names_list and self.staff_name:
+            staff_names_list = [self.staff_name]
+        work_photos_list = parse_list_field(self.work_photos)
         return {
             'id': self.id,
             'order_no': self.order_no,
@@ -157,7 +162,7 @@ class WorkRecord(db.Model):
             'contact_phone': self.customer_phone,
             'work_address': self.work_address,
             'address': self.work_address,
-            'staff_names': self.staff_names.split(',') if self.staff_names else ([''] if self.staff_name else []),
+            'staff_names': staff_names_list,
             'staff_name': self.staff_name,
             'temp_staff_details': json.loads(self.temp_staff_details) if self.temp_staff_details else [],
             'record_type': self.record_type,
@@ -171,8 +176,8 @@ class WorkRecord(db.Model):
             'repair_result': self.repair_result,
             'incomplete_reason_type': self.incomplete_reason_type or '',
             'incomplete_reason': self.incomplete_reason or '',
-            'photos': self.work_photos.split(',') if self.work_photos else [],
-            'work_photos': self.work_photos.split(',') if self.work_photos else [],
+            'photos': work_photos_list,
+            'work_photos': work_photos_list,
             'work_date': format_date_local(self.work_date),
             'appointment_date': format_date_local(self.work_date),
             'start_time': self.start_time,

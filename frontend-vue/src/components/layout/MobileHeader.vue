@@ -11,6 +11,7 @@ interface Props {
   showNotification?: boolean
   showMenu?: boolean
   showTheme?: boolean
+  unreadCount?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -20,6 +21,7 @@ const props = withDefaults(defineProps<Props>(), {
   showNotification: false,
   showMenu: false,
   showTheme: false,
+  unreadCount: 0,
 })
 
 const route = useRoute()
@@ -45,7 +47,7 @@ const goBack = () => {
       <div class="flex items-center gap-2 min-w-0">
         <button
           v-if="showBack"
-          class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-muted/80 transition-colors tap-highlight-transparent"
+          class="w-11 h-11 flex items-center justify-center rounded-full hover:bg-muted/80 transition-colors tap-highlight-transparent"
           @click="goBack"
         >
           <ArrowLeft class="w-5 h-5 text-foreground" />
@@ -56,21 +58,28 @@ const goBack = () => {
       <div class="flex items-center gap-0.5">
         <button
           v-if="showSearch"
-          class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-muted/80 transition-colors tap-highlight-transparent"
+          class="w-11 h-11 flex items-center justify-center rounded-full hover:bg-muted/80 transition-colors tap-highlight-transparent"
+          @click="router.push('/records')"
         >
           <Search class="w-5 h-5 text-foreground" />
         </button>
         <button
           v-if="showNotification"
-          class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-muted/80 transition-colors tap-highlight-transparent relative"
+          class="w-11 h-11 flex items-center justify-center rounded-full hover:bg-muted/80 transition-colors tap-highlight-transparent relative"
+          @click="router.push('/notifications')"
         >
           <Bell class="w-5 h-5 text-foreground" />
-          <span class="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full" />
+          <span
+            v-if="unreadCount > 0"
+            class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 bg-destructive text-destructive-foreground text-[10px] font-medium rounded-full"
+          >
+            {{ unreadCount > 99 ? '99+' : unreadCount }}
+          </span>
         </button>
         <ThemeSwitcher v-if="showTheme" />
         <button
           v-if="showMenu"
-          class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-muted/80 transition-colors tap-highlight-transparent"
+          class="w-11 h-11 flex items-center justify-center rounded-full hover:bg-muted/80 transition-colors tap-highlight-transparent"
         >
           <Menu class="w-5 h-5 text-foreground" />
         </button>

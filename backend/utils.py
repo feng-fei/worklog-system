@@ -18,6 +18,7 @@ __all__ = [
     'ALLOWED_EXTENSIONS', 'ALLOWED_MIMETYPES', 'MAX_FILE_SIZE',
     'escape_like_keyword', 'parse_date', 'paginate_query',
     'allowed_file', 'safe_filename',
+    'parse_list_field', 'serialize_list_field',
     'get_login_user_name',
     '_get_worker_name', '_is_admin',
     '_apply_record_permission', '_can_access_record', '_can_access_payment',
@@ -153,7 +154,7 @@ def _can_access_record(record):
         return True
     if record.staff_name == user_name:
         return True
-    if record.staff_names and user_name in record.staff_names.split(','):
+    if record.staff_names and user_name in parse_list_field(record.staff_names):
         return True
     if record.project_id:
         project = Project.query.get(record.project_id)
@@ -214,13 +215,42 @@ def _generate_salary_no(work_date):
     return f'{prefix}{num:03d}'
 
 
+def parse_list_field(value):
+    if not value:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        value = value.strip()
+        if not value:
+            return []
+        if value.startswith('[') and value.endswith(']'):
+            try:
+                parsed = json.loads(value)
+                if isinstance(parsed, list):
+                    return parsed
+            except (json.JSONDecodeError, ValueError):
+                pass
+        return [item.strip() for item in value.split(',') if item.strip()]
+    return []
+
+
+def serialize_list_field(lst):
+    if not lst:
+        return ''
+    if isinstance(lst, str):
+        if lst.startswith('[') and lst.endswith(']'):
+            return lst
+        return json.dumps([x.strip() for x in lst.split(',') if x.strip()], ensure_ascii=False)
+    return json.dumps(lst, ensure_ascii=False)
+
+
 def _sync_staff_name_from_staff_names(record):
-    staff_names_str = record.staff_names or ''
-    if not staff_names_str.strip():
+    names = parse_list_field(record.staff_names or '')
+    if not names:
         if not record.staff_name:
             record.staff_name = ''
         return
-    names = [n.strip() for n in staff_names_str.split(',') if n.strip()]
     if names:
         record.staff_name = names[0]
 
@@ -785,10 +815,7 @@ def _notify_admins(title, content, notify_type='warning', related_type='', relat
 
 def _sync_salary_records_for_work(record):
     try:
-        staff_names_str = record.staff_names or ''
-        if not staff_names_str.strip():
-            return
-        names = [n.strip() for n in staff_names_str.split(',') if n.strip()]
+        names = parse_list_field(record.staff_names or '')
         if not names:
             return
         work_date = record.work_date
@@ -1059,7 +1086,8 @@ def _generate_pdf(records):
             current_y = pdf.get_y() + 1
 
         if r.work_photos:
-            photo_files = [os.path.basename(p.strip().strip("/")) for p in r.work_photos.split(',') if p.strip()]
+            photo_list = parse_list_field(r.work_photos)
+            photo_files = [os.path.basename(p.strip().strip("/")) for p in photo_list if p.strip()]
             valid_photos = []
             for pf in photo_files:
                 fpath = os.path.join(upload_dir, pf)

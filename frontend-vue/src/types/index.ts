@@ -88,6 +88,7 @@ export interface WorkRecord {
   fee_items?: FeeItem[]
   expense_items?: ExpenseItem[]
   photos?: PhotoItem[]
+  work_photos?: string[]
   temp_staff_details?: TempStaffDetail[]
   created_at: string
   updated_at?: string

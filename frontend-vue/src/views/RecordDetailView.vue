@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, MoreVertical, MapPin, User, Calendar, Clock, Phone, FileText, Loader2, AlertCircle, Package, DollarSign, CheckCircle, Wrench, Image as ImageIcon, Edit, Trash2 } from 'lucide-vue-next'
+import { ArrowLeft, MoreVertical, User, Calendar, FileText, Loader2, AlertCircle, DollarSign, Wrench, Image as ImageIcon, Edit, X, ZoomIn, ChevronRight } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { recordsApi } from '@/api'
 import type { WorkRecord } from '@/types'
 
@@ -14,6 +19,30 @@ const recordId = Number(route.params.id)
 const loading = ref(true)
 const error = ref('')
 const record = ref<WorkRecord | null>(null)
+
+const photoViewerOpen = ref(false)
+const currentPhotoIndex = ref(0)
+
+const openPhotoViewer = (index: number) => {
+  currentPhotoIndex.value = index
+  photoViewerOpen.value = true
+}
+
+const closePhotoViewer = () => {
+  photoViewerOpen.value = false
+}
+
+const prevPhoto = () => {
+  if (!record.value) return
+  const photos = record.value.work_photos || []
+  currentPhotoIndex.value = (currentPhotoIndex.value - 1 + photos.length) % photos.length
+}
+
+const nextPhoto = () => {
+  if (!record.value) return
+  const photos = record.value.work_photos || []
+  currentPhotoIndex.value = (currentPhotoIndex.value + 1) % photos.length
+}
 
 const typeLabels: Record<string, string> = {
   construction: '施工单',
@@ -115,15 +144,6 @@ const handleAction = async (action: string) => {
   }
 }
 
-const mockPhotos = [
-  'https://picsum.photos/400/300?random=1',
-  'https://picsum.photos/400/300?random=2',
-  'https://picsum.photos/400/300?random=3',
-  'https://picsum.photos/400/300?random=4',
-  'https://picsum.photos/400/300?random=5',
-  'https://picsum.photos/400/300?random=6',
-]
-
 onMounted(fetchDetail)
 </script>
 
@@ -132,17 +152,37 @@ onMounted(fetchDetail)
     <div class="sticky top-0 z-20 bg-background/80 backdrop-blur-lg border-b border-border safe-area-top">
       <div class="flex items-center h-12 px-2 md:h-14 md:px-6 lg:px-8">
         <button
-          class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-muted/80 transition-colors tap-highlight-transparent"
+          class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-muted/80 transition-colors tap-highlight-transparent shrink-0"
           @click="goBack"
         >
           <ArrowLeft class="w-5 h-5 text-foreground" />
         </button>
-        <h1 class="flex-1 text-center font-semibold text-foreground text-base md:text-lg -ml-10 md:-ml-0">
+        <h1 class="flex-1 text-center font-semibold text-foreground text-base md:text-lg -ml-10 md:-ml-0 truncate px-2">
           工单详情
         </h1>
-        <button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-muted/80 transition-colors tap-highlight-transparent">
+        <div class="hidden lg:flex items-center gap-2 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            class="h-9"
+            @click="router.push(`/record/${recordId}/edit`)"
+          >
+            <Edit class="w-4 h-4 mr-2" />
+            编辑工单
+          </Button>
+          <Button
+            v-if="primaryButton && record"
+            size="sm"
+            class="h-9"
+            @click="handleAction(primaryButton.action)"
+          >
+            {{ primaryButton.label }}
+          </Button>
+        </div>
+        <button v-if="!record" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-muted/80 transition-colors tap-highlight-transparent lg:hidden shrink-0">
           <MoreVertical class="w-5 h-5 text-foreground" />
         </button>
+        <div v-else class="lg:hidden shrink-0 w-10 h-10" />
       </div>
     </div>
 
@@ -156,39 +196,41 @@ onMounted(fetchDetail)
       <button class="text-sm text-primary font-medium" @click="fetchDetail">重试</button>
     </div>
 
-    <div v-else-if="record" class="flex-1 overflow-y-auto pb-24 lg:pb-0">
+    <div v-else-if="record" class="flex-1 overflow-y-auto pb-24 lg:pb-8">
       <div class="px-4 py-4 md:px-6 lg:px-8 md:py-6">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-          <div class="lg:col-span-2 space-y-4 md:space-y-6">
-            <Card class="shadow-sm border-border overflow-hidden">
-              <CardContent class="p-5 md:p-6">
-                <div class="flex items-start justify-between mb-4">
-                  <div class="flex items-center gap-2">
-                    <span :class="['px-2.5 py-1 rounded-full text-xs font-medium', typeColorCls[record.record_type] || typeColorCls.construction]">
-                      {{ typeLabels[record.record_type] || record.record_type }}
-                    </span>
-                    <span class="text-xs text-muted-foreground">{{ record.order_no }}</span>
-                  </div>
+        <Card class="shadow-sm border-border overflow-hidden mb-4 md:mb-6">
+          <CardContent class="p-5 md:p-6">
+            <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+              <div class="flex-1 min-w-0">
+                <div class="flex flex-wrap items-center gap-2 mb-3">
+                  <span :class="['px-2.5 py-1 rounded-full text-xs font-medium', typeColorCls[record.record_type] || typeColorCls.construction]">
+                    {{ typeLabels[record.record_type] || record.record_type }}
+                  </span>
                   <span :class="['px-2.5 py-1 rounded-full text-xs font-medium', statusColorCls[record.status] || statusColorCls.pending]">
                     {{ statusLabels[record.status] || record.status }}
                   </span>
+                  <span class="text-xs text-muted-foreground">{{ record.order_no }}</span>
                 </div>
-                <h2 class="text-xl md:text-2xl font-bold text-foreground mb-4">{{ record.customer_name }}</h2>
-                <div class="grid grid-cols-2 gap-4 pt-4 border-t border-border/50">
-                  <div>
-                    <span class="text-sm text-muted-foreground">费用总额</span>
-                    <p class="text-xl md:text-2xl font-bold text-foreground mt-1">¥{{ (record.total_fee || 0).toFixed(2) }}</p>
-                  </div>
-                  <div v-if="record.payment_status">
-                    <span class="text-sm text-muted-foreground">付款状态</span>
-                    <p :class="['text-base font-semibold mt-1', paymentColorCls[record.payment_status] || '']">
-                      {{ paymentLabels[record.payment_status] || record.payment_status }}
-                    </p>
-                  </div>
+                <h2 class="text-xl md:text-2xl font-bold text-foreground">{{ record.customer_name }}</h2>
+              </div>
+              <div class="flex gap-6 md:gap-8 md:text-right">
+                <div>
+                  <span class="text-xs md:text-sm text-muted-foreground">费用总额</span>
+                  <p class="text-xl md:text-2xl font-bold text-foreground mt-0.5">¥{{ (record.total_fee || 0).toFixed(2) }}</p>
                 </div>
-              </CardContent>
-            </Card>
+                <div v-if="record.payment_status">
+                  <span class="text-xs md:text-sm text-muted-foreground">付款状态</span>
+                  <p :class="['text-sm md:text-base font-semibold mt-0.5', paymentColorCls[record.payment_status] || '']">
+                    {{ paymentLabels[record.payment_status] || record.payment_status }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+          <div class="space-y-4 md:space-y-6">
             <Card class="shadow-sm border-border">
               <CardHeader class="pb-3">
                 <CardTitle class="text-base font-semibold flex items-center gap-2">
@@ -196,34 +238,20 @@ onMounted(fetchDetail)
                 </CardTitle>
               </CardHeader>
               <CardContent class="pt-0 space-y-4">
-                <div class="flex items-center gap-3">
-                  <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950 flex items-center justify-center shrink-0">
-                    <User class="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <p class="text-xs text-muted-foreground">客户名称</p>
-                    <p class="text-sm font-medium text-foreground truncate">{{ record.customer_name }}</p>
-                  </div>
+                <div class="space-y-1">
+                  <span class="text-xs text-muted-foreground">客户名称</span>
+                  <p class="text-sm font-medium text-foreground">{{ record.customer_name }}</p>
                 </div>
-                <div v-if="record.contact_person" class="flex items-center gap-3">
-                  <div class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950 flex items-center justify-center shrink-0">
-                    <Phone class="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <p class="text-xs text-muted-foreground">联系人</p>
-                    <p class="text-sm font-medium text-foreground truncate">
-                      {{ record.contact_person }}<span v-if="record.contact_phone"> · {{ record.contact_phone }}</span>
-                    </p>
-                  </div>
+                <div v-if="record.contact_person" class="space-y-1">
+                  <span class="text-xs text-muted-foreground">联系人</span>
+                  <p class="text-sm font-medium text-foreground">
+                    {{ record.contact_person }}
+                    <span v-if="record.contact_phone" class="text-muted-foreground font-normal"> · {{ record.contact_phone }}</span>
+                  </p>
                 </div>
-                <div v-if="record.address" class="flex items-center gap-3">
-                  <div class="w-10 h-10 rounded-xl bg-violet-50 dark:bg-violet-950 flex items-center justify-center shrink-0">
-                    <MapPin class="w-5 h-5 text-violet-600 dark:text-violet-400" />
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <p class="text-xs text-muted-foreground">施工地址</p>
-                    <p class="text-sm font-medium text-foreground">{{ record.address }}</p>
-                  </div>
+                <div v-if="record.work_address || record.address" class="space-y-1">
+                  <span class="text-xs text-muted-foreground">施工地址</span>
+                  <p class="text-sm font-medium text-foreground leading-relaxed">{{ record.work_address || record.address }}</p>
                 </div>
               </CardContent>
             </Card>
@@ -231,36 +259,21 @@ onMounted(fetchDetail)
             <Card class="shadow-sm border-border">
               <CardHeader class="pb-3">
                 <CardTitle class="text-base font-semibold flex items-center gap-2">
-                  <Calendar class="w-4 h-4 text-primary" /> 时间安排
+                  <Calendar class="w-4 h-4 text-primary" /> 时间信息
                 </CardTitle>
               </CardHeader>
-              <CardContent class="pt-0 space-y-4">
-                <div class="flex items-center gap-3">
-                  <div class="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950 flex items-center justify-center shrink-0">
-                    <Calendar class="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                  </div>
-                  <div class="flex-1 flex justify-between items-center">
-                    <p class="text-sm text-muted-foreground">创建时间</p>
-                    <p class="text-sm font-medium text-foreground">{{ formatDate(record.created_at) }}</p>
-                  </div>
+              <CardContent class="pt-0 space-y-3.5">
+                <div class="flex items-center justify-between gap-3">
+                  <span class="text-xs text-muted-foreground shrink-0">创建时间</span>
+                  <span class="text-sm font-medium text-foreground text-right">{{ formatDate(record.created_at) }}</span>
                 </div>
-                <div v-if="record.appointment_date" class="flex items-center gap-3">
-                  <div class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950 flex items-center justify-center shrink-0">
-                    <Clock class="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <div class="flex-1 flex justify-between items-center">
-                    <p class="text-sm text-muted-foreground">预约时间</p>
-                    <p class="text-sm font-medium text-foreground">{{ formatDate(record.appointment_date) }}</p>
-                  </div>
+                <div v-if="record.appointment_date" class="flex items-center justify-between gap-3">
+                  <span class="text-xs text-muted-foreground shrink-0">预约时间</span>
+                  <span class="text-sm font-medium text-foreground text-right">{{ formatDate(record.appointment_date) }}</span>
                 </div>
-                <div v-if="record.completed_at" class="flex items-center gap-3">
-                  <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950 flex items-center justify-center shrink-0">
-                    <CheckCircle class="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div class="flex-1 flex justify-between items-center">
-                    <p class="text-sm text-muted-foreground">完成时间</p>
-                    <p class="text-sm font-medium text-foreground">{{ formatDate(record.completed_at) }}</p>
-                  </div>
+                <div v-if="record.completed_at" class="flex items-center justify-between gap-3">
+                  <span class="text-xs text-muted-foreground shrink-0">完成时间</span>
+                  <span class="text-sm font-medium text-foreground text-right">{{ formatDate(record.completed_at) }}</span>
                 </div>
               </CardContent>
             </Card>
@@ -272,10 +285,42 @@ onMounted(fetchDetail)
                 </CardTitle>
               </CardHeader>
               <CardContent class="pt-0">
-                <p class="text-sm text-foreground">{{ record.staff_name || '未分配' }}</p>
+                <p class="text-sm font-medium text-foreground">{{ record.staff_name || '未分配' }}</p>
               </CardContent>
             </Card>
 
+            <Card v-if="record.labour_fee || record.material_fee || record.travel_fee || record.other_fee || record.total_fee" class="shadow-sm border-border">
+              <CardHeader class="pb-3">
+                <CardTitle class="text-base font-semibold flex items-center gap-2">
+                  <DollarSign class="w-4 h-4 text-primary" /> 费用明细
+                </CardTitle>
+              </CardHeader>
+              <CardContent class="pt-0 space-y-2.5">
+                <div v-if="record.labour_fee" class="flex items-center justify-between py-1">
+                  <span class="text-sm text-muted-foreground">人工费</span>
+                  <span class="text-sm font-medium text-foreground">¥{{ record.labour_fee.toFixed(2) }}</span>
+                </div>
+                <div v-if="record.material_fee" class="flex items-center justify-between py-1">
+                  <span class="text-sm text-muted-foreground">物料费</span>
+                  <span class="text-sm font-medium text-foreground">¥{{ record.material_fee.toFixed(2) }}</span>
+                </div>
+                <div v-if="record.travel_fee" class="flex items-center justify-between py-1">
+                  <span class="text-sm text-muted-foreground">差旅费</span>
+                  <span class="text-sm font-medium text-foreground">¥{{ record.travel_fee.toFixed(2) }}</span>
+                </div>
+                <div v-if="record.other_fee" class="flex items-center justify-between py-1">
+                  <span class="text-sm text-muted-foreground">其他费用</span>
+                  <span class="text-sm font-medium text-foreground">¥{{ record.other_fee.toFixed(2) }}</span>
+                </div>
+                <div class="flex items-center justify-between pt-3 mt-2 border-t border-border/50">
+                  <span class="text-sm font-semibold text-foreground">合计</span>
+                  <span class="text-lg font-bold text-foreground">¥{{ (record.total_fee || 0).toFixed(2) }}</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div class="lg:col-span-2 space-y-4 md:space-y-6">
             <div v-if="record.fault_phenomenon || record.fault_judgment || record.process_result || record.remark" class="space-y-4 md:space-y-6">
               <Card v-if="record.fault_phenomenon" class="shadow-sm border-border">
                 <CardHeader class="pb-3">
@@ -313,7 +358,7 @@ onMounted(fetchDetail)
               <Card v-if="record.remark" class="shadow-sm border-border">
                 <CardHeader class="pb-3">
                   <CardTitle class="text-base font-semibold flex items-center gap-2">
-                    <FileText class="w-4 h-4 text-primary" /> 备注
+                    <FileText class="w-4 h-4 text-primary" /> 备注信息
                   </CardTitle>
                 </CardHeader>
                 <CardContent class="pt-0">
@@ -329,126 +374,43 @@ onMounted(fetchDetail)
                 </CardTitle>
               </CardHeader>
               <CardContent class="pt-0">
-                <div class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-2 md:gap-3">
+                <div v-if="record.work_photos && record.work_photos.length > 0" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 md:gap-3">
                   <div
-                    v-for="(photo, idx) in mockPhotos"
+                    v-for="(photo, idx) in record.work_photos"
                     :key="idx"
-                    class="relative aspect-square rounded-xl overflow-hidden bg-muted group cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-lg"
+                    class="relative aspect-[4/3] rounded-lg overflow-hidden bg-muted group cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
+                    @click="openPhotoViewer(idx)"
                   >
                     <img :src="photo" alt="" class="w-full h-full object-cover" />
-                    <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <ZoomIn class="w-6 h-6 text-white drop-shadow-lg" />
+                    </div>
                   </div>
+                </div>
+                <div v-else class="text-center py-8 text-muted-foreground text-sm">
+                  <ImageIcon class="w-12 h-12 mx-auto mb-2 opacity-30" />
+                  <p>暂无照片</p>
                 </div>
               </CardContent>
             </Card>
           </div>
-
-          <div class="space-y-4 md:space-y-6">
-            <div class="hidden lg:block space-y-4">
-              <Card class="shadow-sm border-border sticky top-20">
-                <CardHeader class="pb-3">
-                  <CardTitle class="text-base font-semibold">操作</CardTitle>
-                </CardHeader>
-                <CardContent class="pt-0 space-y-3">
-                  <Button
-                    variant="outline"
-                    class="w-full h-11"
-                    @click="router.push(`/record/${recordId}/edit`)"
-                  >
-                    <Edit class="w-4 h-4 mr-2" />
-                    编辑工单
-                  </Button>
-                  <Button
-                    v-if="primaryButton"
-                    class="w-full h-11"
-                    @click="handleAction(primaryButton.action)"
-                  >
-                    {{ primaryButton.label }}
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card v-if="record.labour_fee || record.material_fee || record.travel_fee || record.other_fee" class="shadow-sm border-border">
-                <CardHeader class="pb-3">
-                  <CardTitle class="text-base font-semibold flex items-center gap-2">
-                    <DollarSign class="w-4 h-4 text-primary" /> 费用明细
-                  </CardTitle>
-                </CardHeader>
-                <CardContent class="pt-0 space-y-2">
-                  <div v-if="record.labour_fee" class="flex items-center justify-between py-1.5">
-                    <span class="text-sm text-muted-foreground">人工费</span>
-                    <span class="text-sm font-medium text-foreground">¥{{ record.labour_fee.toFixed(2) }}</span>
-                  </div>
-                  <div v-if="record.material_fee" class="flex items-center justify-between py-1.5">
-                    <span class="text-sm text-muted-foreground">物料费</span>
-                    <span class="text-sm font-medium text-foreground">¥{{ record.material_fee.toFixed(2) }}</span>
-                  </div>
-                  <div v-if="record.travel_fee" class="flex items-center justify-between py-1.5">
-                    <span class="text-sm text-muted-foreground">差旅费</span>
-                    <span class="text-sm font-medium text-foreground">¥{{ record.travel_fee.toFixed(2) }}</span>
-                  </div>
-                  <div v-if="record.other_fee" class="flex items-center justify-between py-1.5">
-                    <span class="text-sm text-muted-foreground">其他费用</span>
-                    <span class="text-sm font-medium text-foreground">¥{{ record.other_fee.toFixed(2) }}</span>
-                  </div>
-                  <div class="flex items-center justify-between pt-3 mt-2 border-t border-border/50">
-                    <span class="text-sm font-semibold text-foreground">合计</span>
-                    <span class="text-lg font-bold text-foreground">¥{{ (record.total_fee || 0).toFixed(2) }}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div v-if="record.labour_fee || record.material_fee || record.travel_fee || record.other_fee" class="lg:hidden">
-              <Card class="shadow-sm border-border">
-                <CardHeader class="pb-3">
-                  <CardTitle class="text-base font-semibold flex items-center gap-2">
-                    <DollarSign class="w-4 h-4 text-primary" /> 费用明细
-                  </CardTitle>
-                </CardHeader>
-                <CardContent class="pt-0 space-y-2">
-                  <div v-if="record.labour_fee" class="flex items-center justify-between py-1.5">
-                    <span class="text-sm text-muted-foreground">人工费</span>
-                    <span class="text-sm font-medium text-foreground">¥{{ record.labour_fee.toFixed(2) }}</span>
-                  </div>
-                  <div v-if="record.material_fee" class="flex items-center justify-between py-1.5">
-                    <span class="text-sm text-muted-foreground">物料费</span>
-                    <span class="text-sm font-medium text-foreground">¥{{ record.material_fee.toFixed(2) }}</span>
-                  </div>
-                  <div v-if="record.travel_fee" class="flex items-center justify-between py-1.5">
-                    <span class="text-sm text-muted-foreground">差旅费</span>
-                    <span class="text-sm font-medium text-foreground">¥{{ record.travel_fee.toFixed(2) }}</span>
-                  </div>
-                  <div v-if="record.other_fee" class="flex items-center justify-between py-1.5">
-                    <span class="text-sm text-muted-foreground">其他费用</span>
-                    <span class="text-sm font-medium text-foreground">¥{{ record.other_fee.toFixed(2) }}</span>
-                  </div>
-                  <div class="flex items-center justify-between pt-3 mt-2 border-t border-border/50">
-                    <span class="text-sm font-semibold text-foreground">合计</span>
-                    <span class="text-lg font-bold text-foreground">¥{{ (record.total_fee || 0).toFixed(2) }}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
         </div>
-
-        <div class="h-24 md:hidden"></div>
       </div>
     </div>
 
-    <div v-if="record" class="lg:hidden sticky bottom-0 bg-background/80 backdrop-blur-lg border-t border-border p-4 safe-area-bottom">
+    <div v-if="record" class="lg:hidden sticky bottom-0 bg-background/80 backdrop-blur-lg border-t border-border p-3 safe-area-bottom">
       <div class="flex gap-3">
         <Button
           variant="outline"
-          class="flex-1 h-12 rounded-xl text-sm font-medium"
+          class="flex-1 h-11 rounded-xl text-sm font-medium"
           @click="router.push(`/record/${recordId}/edit`)"
         >
+          <Edit class="w-4 h-4 mr-1.5" />
           编辑
         </Button>
         <Button
           v-if="primaryButton"
-          class="flex-1 h-12 rounded-xl text-sm font-semibold shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
+          class="flex-1 h-11 rounded-xl text-sm font-semibold shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
           @click="handleAction(primaryButton.action)"
         >
           {{ primaryButton.label }}
@@ -456,4 +418,44 @@ onMounted(fetchDetail)
       </div>
     </div>
   </div>
+
+  <Dialog :open="photoViewerOpen" @update:open="photoViewerOpen = $event">
+    <DialogContent class="!p-0 !max-w-5xl w-[95vw] !bg-transparent !border-none !shadow-none">
+      <DialogTitle class="sr-only">照片查看</DialogTitle>
+      <div class="relative w-full flex items-center justify-center">
+        <button
+          class="absolute top-2 right-2 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors"
+          @click="closePhotoViewer"
+        >
+          <X class="w-5 h-5" />
+        </button>
+        <button
+          v-if="record.work_photos && record.work_photos.length > 1"
+          class="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors"
+          @click.stop="prevPhoto"
+        >
+          <ArrowLeft class="w-5 h-5" />
+        </button>
+        <button
+          v-if="record.work_photos && record.work_photos.length > 1"
+          class="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors"
+          @click.stop="nextPhoto"
+        >
+          <ChevronRight class="w-5 h-5" />
+        </button>
+        <img
+          v-if="record.work_photos && record.work_photos[currentPhotoIndex]"
+          :src="record.work_photos[currentPhotoIndex]"
+          alt=""
+          class="max-h-[85vh] max-w-full object-contain rounded-lg"
+        />
+        <div
+          v-if="record.work_photos && record.work_photos.length > 1"
+          class="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-black/60 text-white text-xs"
+        >
+          {{ currentPhotoIndex + 1 }} / {{ record.work_photos.length }}
+        </div>
+      </div>
+    </DialogContent>
+  </Dialog>
 </template>

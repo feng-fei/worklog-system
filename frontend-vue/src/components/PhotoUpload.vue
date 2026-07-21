@@ -41,11 +41,8 @@ const onFileChange = async (e: Event) => {
 
   uploading.value = true
   try {
-    const formData = new FormData()
-    newFiles.forEach(f => formData.append('photos', f))
-
     const { recordsApi } = await import('@/api')
-    const res = await recordsApi.create(formData) as any
+    const res = await recordsApi.uploadPhotos(newFiles)
     if (res.photos && Array.isArray(res.photos)) {
       photos.value = [...photos.value, ...res.photos]
     }

@@ -153,10 +153,8 @@ def create_record():
         else:
             work_photos_val = get_val('work_photos', '')
             if work_photos_val:
-                if isinstance(work_photos_val, list):
-                    photo_paths = [p.get('url') if isinstance(p, dict) else p for p in work_photos_val]
-                elif isinstance(work_photos_val, str):
-                    photo_paths = [p.strip() for p in work_photos_val.split(',') if p.strip()]
+                from ..utils import parse_list_field
+                photo_paths = parse_list_field(work_photos_val)
 
         def get_float(key):
             v = get_val(key, '0')
@@ -205,13 +203,18 @@ def create_record():
         tax_rate_val = get_val('tax_rate', None)
         tax_rate = float(tax_rate_val) if tax_rate_val is not None else 0.03
 
+        from ..utils import parse_list_field, serialize_list_field
+
+        staff_names_val = get_val('staff_names', '')
+        staff_names_str = serialize_list_field(parse_list_field(staff_names_val))
+
         record = WorkRecord(
             customer_name=customer_name,
             contact_name=get_val('contact_name', ''),
             customer_phone=get_val('customer_phone', ''),
             work_address=get_val('work_address', ''),
             staff_name=get_val('staff_name', ''),
-            staff_names=get_val('staff_names', ''),
+            staff_names=staff_names_str,
             temp_staff_details=get_val('temp_staff_details', ''),
             status=status,
             record_type=record_type,
@@ -241,7 +244,7 @@ def create_record():
             tax_amount=0,
             fee_items=json.dumps(fee_items, ensure_ascii=False) if fee_items else '',
             remark=get_val('remark', ''),
-            work_photos=','.join(photo_paths) if photo_paths else None,
+            work_photos=json.dumps(photo_paths, ensure_ascii=False) if photo_paths else None,
             is_completed=is_completed,
             created_by=get_login_user_name(),
             involved_systems=get_val('involved_systems', ''),
@@ -436,9 +439,10 @@ def _sync_project_expenses_and_salary(record, project_id, work_date, fee_items, 
             db.session.add(salary)
     else:
         # 如果没有 staff_list，使用 staff_names 字段
+        from ..utils import parse_list_field
         staff_names_str = get_val('staff_names', get_val('staff_name', ''))
         if staff_names_str:
-            names = [n.strip() for n in staff_names_str.split(',') if n.strip()]
+            names = parse_list_field(staff_names_str)
             total_hours = float(get_val('work_hours', 0) or 0)
             hours_per_staff = total_hours / len(names) if names else 0
 
@@ -509,7 +513,9 @@ def update_record(record_id):
         if get_val('customer_phone') is not None: record.customer_phone = get_val('customer_phone') or ''
         if get_val('work_address'): record.work_address = get_val('work_address')
         if get_val('staff_name'): record.staff_name = get_val('staff_name')
-        if get_val('staff_names') is not None: record.staff_names = get_val('staff_names') or ''
+        if get_val('staff_names') is not None:
+            from ..utils import parse_list_field, serialize_list_field
+            record.staff_names = serialize_list_field(parse_list_field(get_val('staff_names'))) or ''
         _sync_staff_name_from_staff_names(record)
         if get_val('temp_staff_details') is not None: record.temp_staff_details = get_val('temp_staff_details') or ''
         if get_val('record_type'): record.record_type = get_val('record_type')
@@ -595,6 +601,7 @@ def update_record(record_id):
             record.total_fee = round(subtotal_pre, 2)
 
         # 照片处理（配合前端 keep_photos + 新增照片）
+        from ..utils import parse_list_field
         keep_photos_raw = get_val('keep_photos')
         if keep_photos_raw is not None and not (request.content_type and 'multipart/form-data' in request.content_type):
             # JSON 请求：只处理保留/删除照片
@@ -604,13 +611,14 @@ def update_record(record_id):
                 keep_photos = []
             upload_folder = current_app.config['UPLOAD_FOLDER']
             if record.work_photos:
-                for old_photo in record.work_photos.split(','):
+                old_photos = parse_list_field(record.work_photos)
+                for old_photo in old_photos:
                     old_basename = os.path.basename(old_photo)
                     if old_basename not in keep_photos:
                         old_path = os.path.join(upload_folder, old_basename)
                         if os.path.exists(old_path):
                             os.remove(old_path)
-                record.work_photos = ','.join(f'/uploads/{p}' for p in keep_photos) if keep_photos else None
+                record.work_photos = json.dumps([f'/uploads/{p}' for p in keep_photos], ensure_ascii=False) if keep_photos else None
 
         if request.content_type and 'multipart/form-data' in request.content_type:
             keep_photos_raw = get_val('keep_photos')
@@ -626,7 +634,8 @@ def update_record(record_id):
                 upload_folder = current_app.config['UPLOAD_FOLDER']
                 # 删除不再保留的旧照片
                 if record.work_photos:
-                    for old_photo in record.work_photos.split(','):
+                    old_photos = parse_list_field(record.work_photos)
+                    for old_photo in old_photos:
                         old_basename = os.path.basename(old_photo)
                         if old_basename not in keep_photos:
                             old_path = os.path.join(upload_folder, old_basename)
@@ -656,7 +665,7 @@ def update_record(record_id):
                             img.save(os.path.join(upload_folder, thumb_name), quality=70, optimize=True)
                         except: pass
                         photo_paths.append(f'/uploads/{filename}')
-                record.work_photos = ','.join(photo_paths) if photo_paths else None
+                record.work_photos = json.dumps(photo_paths, ensure_ascii=False) if photo_paths else None
 
         record.updated_at = datetime.now()
         
@@ -713,11 +722,12 @@ def update_record(record_id):
         new_status = record.status
         status_labels = {'pending':'待办工单','dispatched':'已派单','in_progress':'进行中','callback':'待回访','settlement':'待结算','completed':'已完成','unable':'无法维修','cancelled':'已取消','rework':'返工'}
         if old_status != new_status:
+            from ..utils import parse_list_field
             notify_users = set()
             if record.created_by:
                 notify_users.add(record.created_by)
             if record.staff_names:
-                for s in record.staff_names.split(','):
+                for s in parse_list_field(record.staff_names):
                     s = s.strip()
                     if s: notify_users.add(s)
             if record.staff_name and record.staff_name not in notify_users:
@@ -755,8 +765,9 @@ def delete_record(record_id):
         title = record.customer_name + ' - ' + (record.order_no or '')
         _log_operation('work_record', record.id, 'delete', snapshot_before, None, title)
         if record.work_photos:
+            from ..utils import parse_list_field
             upload_folder = current_app.config['UPLOAD_FOLDER']
-            for photo in record.work_photos.split(','):
+            for photo in parse_list_field(record.work_photos):
                 photo_path = os.path.join(upload_folder, os.path.basename(photo))
                 thumb_path = os.path.join(upload_folder, os.path.basename(photo).rsplit('.', 1)[0] + '_thumb.' + photo.rsplit('.', 1)[1]) if '.' in os.path.basename(photo) else None
                 if os.path.exists(photo_path):
@@ -1027,7 +1038,9 @@ def _generate_pdf(records):
         
         # ── 照片（4宫格 2x2） ──
         if r.work_photos:
-            photo_files = [os.path.basename(p.strip().strip("/")) for p in r.work_photos.split(',') if p.strip()]
+            from ..utils import parse_list_field
+            photo_list = parse_list_field(r.work_photos)
+            photo_files = [os.path.basename(p.strip().strip("/")) for p in photo_list if p.strip()]
             valid_photos = []
             for pf in photo_files:
                 fpath = os.path.join(upload_dir, pf)
@@ -1316,6 +1329,48 @@ def batch_operation_records():
         return jsonify({'message': f'成功处理 {count} 条记录', 'count': count})
     except Exception as e:
         db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+# ===================== 照片上传 =====================
+
+
+@records_bp.route('/records/upload', methods=['POST'])
+@login_required
+def upload_photos():
+    try:
+        files = request.files.getlist('photos')
+        if not files:
+            return jsonify({'error': '没有上传的照片'}), 400
+
+        upload_folder = current_app.config['UPLOAD_FOLDER']
+        photo_paths = []
+
+        for file in files:
+            if allowed_file(file):
+                filename = safe_filename(file.filename)
+                filepath = os.path.join(upload_folder, filename)
+                file.save(filepath)
+                try:
+                    from PIL import Image, ImageDraw
+                    img = Image.open(filepath)
+                    orig_name = filename.rsplit('.', 1)[0] + '_orig.' + filename.rsplit('.', 1)[1]
+                    img.save(os.path.join(upload_folder, orig_name))
+                    ts = datetime.now().strftime('%Y-%m-%d %H:%M')
+                    draw = ImageDraw.Draw(img)
+                    img_w, img_h = img.size
+                    draw.rectangle([img_w-220, img_h-35, img_w-5, img_h-5], fill=(0,0,0,128))
+                    draw.text((img_w-210, img_h-28), ts, fill=(255,255,255))
+                    img.save(filepath, quality=85)
+                    img.thumbnail((800, 800), Image.LANCZOS)
+                    thumb_name = filename.rsplit('.', 1)[0] + '_thumb.' + filename.rsplit('.', 1)[1]
+                    img.save(os.path.join(upload_folder, thumb_name), quality=70, optimize=True)
+                except Exception as e:
+                    print(f'照片处理失败: {e}')
+                photo_paths.append(f'/uploads/{filename}')
+
+        return jsonify({'photos': photo_paths})
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 

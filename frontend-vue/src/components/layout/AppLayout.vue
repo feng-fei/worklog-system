@@ -114,7 +114,7 @@ onBeforeUnmount(() => {
     <div
       class="flex-1 flex flex-col min-h-0"
       :class="{
-        'md:pl-16 lg:pl-56': showSidebar && !isEmptyLayout,
+        'md:pl-20 lg:pl-56': showSidebar && !isEmptyLayout,
       }"
     >
       <AppHeader v-if="!isEmptyLayout" />

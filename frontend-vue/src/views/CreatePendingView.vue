@@ -154,7 +154,7 @@ const resetForm = () => {
       </div>
     </header>
 
-    <div v-if="step === 1" class="flex-1 px-4 py-4 space-y-5 overflow-y-auto">
+    <div v-if="step === 1" class="flex-1 px-4 py-4 space-y-5 overflow-y-auto pb-24">
       <div v-if="errorMsg" class="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-sm flex items-center gap-2">
         <AlertCircle class="w-4 h-4 flex-shrink-0" />
         <span>{{ errorMsg }}</span>

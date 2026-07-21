@@ -11,6 +11,8 @@ import {
   UserCircle,
   BarChart3,
   User,
+  Wallet,
+  Monitor,
 } from 'lucide-vue-next'
 import { useUserStore } from '@/stores/user'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -26,9 +28,11 @@ const menuItems = [
   { path: '/records', name: '工单', icon: ClipboardList },
   { path: '/pending', name: '待办', icon: Bell },
   { path: '/customers', name: '客户', icon: Users },
-  { path: '/materials', name: '物料', icon: Package },
   { path: '/projects', name: '项目', icon: FolderKanban },
+  { path: '/equipment', name: '设备', icon: Monitor },
+  { path: '/materials', name: '物料', icon: Package },
   { path: '/staffs', name: '团队', icon: UserCircle },
+  { path: '/finance', name: '财务', icon: Wallet },
   { path: '/statistics', name: '统计', icon: BarChart3 },
   { path: '/profile', name: '我的', icon: User },
 ]
@@ -49,16 +53,16 @@ const navigateTo = (path: string) => {
 
 <template>
   <aside
-    class="hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0 md:z-40 md:w-60 border-r border-sidebar-border bg-sidebar/90 backdrop-blur-xl"
+    class="hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0 md:z-40 w-16 hover:w-56 border-r border-sidebar-border bg-sidebar/90 backdrop-blur-xl transition-all duration-300 ease-out group overflow-hidden"
   >
     <div class="absolute top-0 bottom-0 right-0 w-px bg-gradient-to-b from-transparent via-primary/20 to-transparent opacity-60" />
     
-    <div class="flex items-center h-14 px-4 border-b border-sidebar-border relative">
+    <div class="flex items-center justify-center h-14 px-2 border-b border-sidebar-border relative shrink-0">
       <div class="flex items-center gap-2">
-        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-primary-foreground flex items-center justify-center shadow-lg shadow-blue-500/30">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-primary-foreground flex items-center justify-center shadow-lg shadow-blue-500/30 shrink-0">
           <LayoutDashboard class="w-5 h-5" />
         </div>
-        <span class="font-semibold text-sidebar-foreground">工单管理</span>
+        <span class="font-semibold text-sidebar-foreground whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">工单管理</span>
       </div>
     </div>
 
@@ -66,7 +70,7 @@ const navigateTo = (path: string) => {
       <button
         v-for="item in menuItems"
         :key="item.path"
-        class="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative overflow-hidden group"
+        class="flex items-center justify-center group-hover:justify-start gap-3 w-full px-2 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative overflow-hidden group/item"
         :class="
           isActive(item.path)
             ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-primary-foreground shadow-lg shadow-blue-500/25'
@@ -74,22 +78,22 @@ const navigateTo = (path: string) => {
         "
         @click="navigateTo(item.path)"
       >
-        <div v-if="isActive(item.path)" class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white/40 rounded-r-full" />
+        <div v-if="isActive(item.path)" class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white/40 rounded-r-full opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
         <component :is="item.icon" class="w-5 h-5 shrink-0" />
-        <span>{{ item.name }}</span>
+        <span class="whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">{{ item.name }}</span>
       </button>
     </nav>
 
-    <div class="p-3 border-t border-sidebar-border relative">
+    <div class="p-2 border-t border-sidebar-border relative shrink-0">
       <div class="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
       <div
-        class="flex items-center gap-3 p-2.5 rounded-lg hover:bg-sidebar-accent cursor-pointer transition-all duration-200 group"
+        class="flex items-center justify-center group-hover:justify-start gap-3 p-2 rounded-lg hover:bg-sidebar-accent cursor-pointer transition-all duration-200 group/item"
         @click="navigateTo('/profile')"
       >
-        <Avatar class="w-9 h-9 ring-2 ring-primary/20 ring-offset-2 ring-offset-sidebar">
+        <Avatar class="w-9 h-9 ring-2 ring-primary/20 ring-offset-2 ring-offset-sidebar shrink-0">
           <AvatarFallback class="bg-gradient-to-br from-blue-500 to-indigo-600 text-white">{{ userInitial }}</AvatarFallback>
         </Avatar>
-        <div class="flex-1 min-w-0">
+        <div class="flex-1 min-w-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <p class="text-sm font-medium text-sidebar-foreground truncate">
             {{ userStore.user?.staff_name || '用户' }}
           </p>

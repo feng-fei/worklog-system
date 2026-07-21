@@ -581,16 +581,16 @@ def create_app():
             if rule.endpoint != 'static':
                 print(f"   {rule.endpoint}: {rule}")
     
-    # ===== 注册移动端静态路由（必须在PC端之前）=====
+    # ===== 注册前端静态路由（统一响应式）=====
+    web_dir = os.environ.get("FRONTEND_DIR", "")
+    if web_dir and os.path.isdir(web_dir):
+        from .static_handler import setup_static_routes
+        setup_static_routes(app)
+
+    # ===== 兼容旧的移动端路径 /m/（指向同一前端）=====
     mobile_dir = os.environ.get("FRONTEND_MOBILE_DIR", "")
     if mobile_dir and os.path.isdir(mobile_dir):
         from .static_handler import setup_mobile_static_routes
         setup_mobile_static_routes(app)
-    
-    # ===== 如果是有前端文件的环境，注册PC端静态路由 =====
-    web_dir = os.environ.get("FRONTEND_WEB_DIR", "")
-    if web_dir and os.path.isdir(web_dir):
-        from .static_handler import setup_static_routes
-        setup_static_routes(app)
     
     return app

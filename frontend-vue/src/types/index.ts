@@ -23,6 +23,8 @@ export interface ApiError {
 
 export interface PaginatedResponse<T> {
   records: T[]
+  list?: T[]
+  items?: T[]
   total: number
   page: number
   per_page: number
@@ -219,10 +221,14 @@ export interface DashboardStats {
 
 export interface Expense {
   id: number
+  expense_no?: string
   amount: number
   category: string
-  category_id: number
-  category_name: string
+  category_id?: number
+  category_name?: string
+  title?: string
+  supplier?: string
+  handler?: string
   created_at: string
   created_by?: string
   customer_id?: number
@@ -235,8 +241,113 @@ export interface Expense {
   project_id?: number
   project_name?: string
   record_id?: number
+  related_id?: number
+  related_no?: string
+  related_type?: string
   remark?: string
   staff_name?: string
+}
+
+export interface SalaryRecord {
+  id: number
+  salary_no: string
+  staff_id?: number
+  staff_name: string
+  name?: string
+  staff_type: 'fixed' | 'temp'
+  work_date: string
+  month?: string
+  business_type: string
+  business_no?: string
+  business_record_id?: number
+  customer_name?: string
+  work_content?: string
+  salary_type: string
+  daily_wage: number
+  work_units: number
+  hours?: number
+  subsidy: number
+  deduction: number
+  gross_salary?: number
+  payable_amount: number
+  net_salary?: number
+  paid_amount: number
+  record_count?: number
+  status: 'pending' | 'settled'
+  settlement_date?: string
+  payment_method?: string
+  remark?: string
+  note?: string
+  created_at?: string
+}
+
+export interface PaymentRecord {
+  id: number
+  record_id?: number
+  project_id?: number
+  project_name?: string
+  customer_id?: number
+  customer_name: string
+  amount: number
+  payment_date: string
+  payment_method: 'cash' | 'wechat' | 'alipay' | 'bank' | 'other'
+  received_by?: string
+  handler?: string
+  is_invoiced: string
+  status: 'received' | 'pending'
+  order_no?: string
+  record_order_no?: string
+  remark?: string
+  note?: string
+  created_by?: string
+  created_at?: string
+}
+
+export interface CustomerEquipment {
+  id: number
+  customer_name: string
+  equipment_type: string
+  system_type: string
+  brand: string
+  model: string
+  serial_no: string
+  quantity: number
+  install_date?: string
+  warranty_start?: string
+  warranty_end?: string
+  location?: string
+  contact_name?: string
+  contact_phone?: string
+  status: 'normal' | 'faulty' | 'scrapped'
+  last_maintenance?: string
+  next_maintenance?: string
+  maintenance_cycle: number
+  is_warranty?: boolean
+  is_due_maintenance?: boolean
+  remark?: string
+  created_at?: string
+}
+
+export interface MaintenancePlan {
+  id: number
+  plan_name: string
+  plan_type: 'periodic' | 'once'
+  customer_name: string
+  equipment_id?: number
+  system_type: string
+  cycle_type: 'day' | 'week' | 'month' | 'quarter' | 'year'
+  cycle_value: number
+  start_date: string
+  next_date?: string
+  end_date?: string
+  staff_name?: string
+  work_content?: string
+  priority: 'low' | 'normal' | 'high' | 'urgent'
+  status: 'active' | 'paused' | 'completed'
+  last_generated?: string
+  total_count?: number
+  remark?: string
+  created_at?: string
 }
 
 export interface Notification {
@@ -248,4 +359,38 @@ export interface Notification {
   related_type?: string
   related_id?: number
   created_at: string
+}
+
+export interface Project {
+  id: number
+  project_no: string
+  name: string
+  customer_name: string
+  contract_no: string
+  project_type: string
+  project_address: string
+  contact_name: string
+  contact_phone: string
+  start_date: string
+  end_date: string
+  contract_amount: number
+  budget_amount: number
+  actual_amount: number
+  tax_type: string
+  tax_rate: number
+  tax_amount: number
+  status: 'pending' | 'in_progress' | 'completed' | 'settled' | 'cancelled'
+  manager: string
+  description: string
+  remark: string
+  created_by: string
+  created_at: string
+  billing_type: string
+  project_stage: string
+  construction_phase: string
+  actual_start_date: string
+  actual_end_date: string
+  staff_names: string
+  receipt_amount: number
+  warranty_amount: number
 }

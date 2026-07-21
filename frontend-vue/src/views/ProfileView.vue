@@ -19,6 +19,8 @@ import {
   Info,
   Shield,
   Palette,
+  FolderKanban,
+  BarChart3,
 } from 'lucide-vue-next'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { useUserStore } from '@/stores/user'
@@ -61,18 +63,32 @@ const completionRate = computed(() => {
 
 const menuGroups = ref([
   {
-    title: '常用功能',
+    title: '业务管理',
     items: [
-      { label: '我的工单', icon: FileText, badge: '12', route: '/records' },
+      { label: '我的工单', icon: FileText, badge: undefined, route: '/records' },
+      { label: '项目管理', icon: FolderKanban, badge: undefined, route: '/projects' },
       { label: '客户管理', icon: Building2, badge: undefined, route: '/customers' },
+      { label: '设备管理', icon: Monitor, badge: undefined, route: '/equipment' },
       { label: '物料管理', icon: Package, badge: undefined, route: '/materials' },
-      { label: '团队成员', icon: Users, badge: undefined, route: '/staff' },
+    ],
+  },
+  {
+    title: '财务统计',
+    items: [
+      { label: '财务管理', icon: Wallet, badge: undefined, route: '/finance' },
+      { label: '统计概览', icon: BarChart3, badge: undefined, route: '/statistics' },
+    ],
+  },
+  {
+    title: '团队协作',
+    items: [
+      { label: '团队成员', icon: Users, badge: undefined, route: '/staffs' },
+      { label: '消息通知', icon: Bell, badge: '3', route: '/notifications' },
     ],
   },
   {
     title: '设置',
     items: [
-      { label: '消息通知', icon: Bell, badge: '3', route: '/notifications' },
       { label: '账号安全', icon: Shield, badge: undefined, route: '/settings/security' },
       { label: '外观设置', icon: Palette, badge: undefined, action: 'theme' },
       { label: '关于我们', icon: Info, badge: undefined, route: '/about' },
@@ -144,7 +160,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="pb-4">
+  <div class="h-full overflow-y-auto overflow-x-hidden px-4 pt-4">
+    <div class="pb-4">
     <div class="bg-gradient-to-br from-primary via-primary/90 to-primary/80 px-5 pt-8 pb-16 -mx-4 -mt-4 mb-4 safe-area-top">
       <div class="flex items-center gap-4">
         <Avatar class="w-16 h-16 border-2 border-white/30 shadow-lg">
@@ -229,6 +246,7 @@ onMounted(() => {
       <p class="text-center text-xs text-muted-foreground pt-2">
         工单管理系统 v1.0.0
       </p>
+    </div>
     </div>
   </div>
 </template>

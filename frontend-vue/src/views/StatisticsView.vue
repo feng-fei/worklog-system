@@ -74,7 +74,8 @@ onMounted(loadData)
 </script>
 
 <template>
-  <div class="space-y-5 pb-4">
+  <div class="h-full overflow-y-auto overflow-x-hidden px-4 pt-4 pb-4 safe-area-top">
+    <div class="space-y-5">
     <div class="flex items-center justify-between">
       <h1 class="text-xl font-bold text-foreground">统计概览</h1>
     </div>
@@ -140,5 +141,6 @@ onMounted(loadData)
         </div>
       </div>
     </template>
+    </div>
   </div>
 </template>

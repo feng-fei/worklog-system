@@ -11,6 +11,10 @@ const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 
+const showHeader = computed(() => {
+  return route.meta?.showHeader !== false
+})
+
 const pageTitle = computed(() => {
   return (route.meta?.title as string) || ''
 })
@@ -36,7 +40,7 @@ const goToProfile = () => {
     <div class="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent opacity-60" />
     
     <div class="flex items-center gap-2">
-      <h1 class="text-lg font-semibold">{{ pageTitle }}</h1>
+      <h1 v-if="showHeader" class="text-lg font-semibold">{{ pageTitle }}</h1>
     </div>
 
     <div class="flex items-center gap-1">

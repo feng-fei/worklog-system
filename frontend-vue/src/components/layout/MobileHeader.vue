@@ -40,7 +40,7 @@ const goBack = () => {
 </script>
 
 <template>
-  <header class="fixed top-0 left-0 right-0 z-40 safe-area-top bg-background/80 backdrop-blur-xl border-b border-border/50">
+  <header class="relative z-40 safe-area-top bg-background/80 backdrop-blur-xl border-b border-border/50 shrink-0">
     <div class="flex items-center justify-between h-12 px-3">
       <div class="flex items-center gap-2 min-w-0">
         <button

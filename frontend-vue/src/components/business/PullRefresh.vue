@@ -41,11 +41,6 @@ const statusText = computed(() => {
   return props.pullingText
 })
 
-const headStyle = computed(() => ({
-  height: `${Math.min(pullDistance.value, props.threshold * 1.5)}px`,
-  marginTop: `-${props.headHeight}px`,
-}))
-
 const iconRotate = computed(() => {
   const progress = Math.min(pullDistance.value / props.threshold, 1)
   return `rotate(${progress * 360}deg)`
@@ -116,10 +111,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="pull-refresh-wrapper relative w-full" @touchstart="onTouchStart">
+  <div class="pull-refresh-wrapper relative w-full flex-1 min-h-0 flex flex-col overflow-hidden" @touchstart="onTouchStart">
     <div
-      class="pull-refresh-head flex w-full items-center justify-center overflow-hidden transition-all duration-200"
-      :style="headStyle"
+      class="pull-refresh-head absolute top-0 left-0 right-0 flex w-full items-center justify-center overflow-hidden transition-all duration-200 z-10"
+      :style="{
+        height: `${Math.min(pullDistance, threshold * 1.5)}px`,
+      }"
     >
       <div class="flex items-center gap-2 text-sm text-muted-foreground">
         <Check v-if="isSuccess" class="h-4 w-4 text-emerald-500" />
@@ -133,7 +130,7 @@ onUnmounted(() => {
       </div>
     </div>
     <div
-      class="pull-refresh-content transition-transform duration-200"
+      class="pull-refresh-content flex-1 min-h-0 overflow-hidden transition-transform duration-200"
       :style="{ transform: `translateY(${pullDistance}px)` }"
     >
       <slot />

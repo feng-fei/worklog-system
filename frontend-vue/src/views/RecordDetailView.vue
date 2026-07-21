@@ -156,7 +156,7 @@ onMounted(fetchDetail)
       <button class="text-sm text-primary font-medium" @click="fetchDetail">重试</button>
     </div>
 
-    <div v-else-if="record" class="flex-1 overflow-y-auto">
+    <div v-else-if="record" class="flex-1 overflow-y-auto pb-24 lg:pb-0">
       <div class="px-4 py-4 md:px-6 lg:px-8 md:py-6">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
           <div class="lg:col-span-2 space-y-4 md:space-y-6">

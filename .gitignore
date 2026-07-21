@@ -36,3 +36,8 @@ _*.py
 
 # Docker
 docker-compose.override.yml
+
+# 前端构建产物
+backend/static/
+frontend-vue/dist/
+frontend-vue/dist-mobile/

@@ -88,8 +88,8 @@ const handleScroll = (e: Event) => {
 </script>
 
 <template>
-  <div class="flex flex-col h-full">
-    <div class="flex-1 overflow-y-auto px-4 py-3" @scroll="handleScroll">
+  <div class="flex flex-col h-full safe-area-top">
+    <div class="flex-1 min-h-0 overflow-y-auto px-4 py-3 scroll-container" @scroll="handleScroll">
       <div v-if="loading && pendingList.length === 0" class="flex items-center justify-center py-20">
         <Loader2 class="w-8 h-8 animate-spin text-primary" />
       </div>

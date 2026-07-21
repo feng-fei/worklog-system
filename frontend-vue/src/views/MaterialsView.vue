@@ -90,7 +90,7 @@ const handleScroll = (e: Event) => {
 
 <template>
   <div class="flex flex-col h-full">
-    <div class="px-4 py-3 bg-card/80 backdrop-blur-lg border-b border-border sticky top-0 z-10">
+    <div class="px-4 py-3 bg-card/80 backdrop-blur-lg border-b border-border sticky top-0 z-10 safe-area-top">
       <div class="flex items-center gap-2 mb-3">
         <div class="relative flex-1">
           <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -135,7 +135,7 @@ const handleScroll = (e: Event) => {
     </div>
 
     <PullRefresh @refresh="refresh">
-      <div class="flex-1 overflow-y-auto px-4 py-3 space-y-2.5" @scroll="handleScroll">
+      <div class="h-full overflow-y-auto px-4 py-3 space-y-2.5 scroll-container" @scroll="handleScroll">
         <div v-if="loading && materials.length === 0" class="flex items-center justify-center py-20">
           <Loader2 class="w-8 h-8 animate-spin text-primary" />
         </div>

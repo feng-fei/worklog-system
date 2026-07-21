@@ -50,10 +50,17 @@ const typeLabels: Record<string, string> = {
 }
 
 const typeColorCls: Record<string, string> = {
-  construction: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20',
-  maintenance: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20',
-  repair: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20',
-  inspection: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20',
+  construction: 'bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400',
+  maintenance: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
+  repair: 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400',
+  inspection: 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
+}
+
+const statusColorCls: Record<string, string> = {
+  pending: 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400',
+  in_progress: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
+  completed: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
+  cancelled: 'bg-slate-100 text-slate-500 dark:bg-slate-500/10',
 }
 
 const statusLabels: Record<string, string> = {
@@ -61,13 +68,6 @@ const statusLabels: Record<string, string> = {
   in_progress: '进行中',
   completed: '已完成',
   cancelled: '已取消',
-}
-
-const statusColorCls: Record<string, string> = {
-  pending: 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20',
-  in_progress: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20',
-  completed: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20',
-  cancelled: 'bg-slate-500/10 text-slate-500 border border-slate-500/20',
 }
 
 const formatDate = (dateStr?: string) => {
@@ -127,7 +127,7 @@ const handleScroll = (e: Event) => {
 
 <template>
   <div class="flex flex-col h-full relative">
-    <div class="sticky top-0 z-20">
+    <div class="sticky top-0 z-20 safe-area-top">
       <div class="px-4 py-3 md:px-6 lg:px-8 md:py-4 border-b border-border backdrop-blur-xl bg-background/80">
         <div class="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
           <div class="flex items-center gap-2 flex-1">
@@ -192,7 +192,7 @@ const handleScroll = (e: Event) => {
               :class="[
                 'px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-300',
                 activeTab === tab.key
-                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-primary-foreground shadow-lg shadow-blue-500/25'
+                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-primary-foreground shadow-lg shadow-orange-500/25'
                   : 'bg-muted/30 text-muted-foreground hover:bg-muted/60 border border-border hover:border-primary/30'
               ]"
               @click="handleTabChange(tab.key)"
@@ -206,7 +206,7 @@ const handleScroll = (e: Event) => {
     </div>
 
     <PullRefresh @refresh="refresh">
-      <div class="flex-1 overflow-y-auto px-4 py-3 md:px-6 lg:px-8 md:py-4" @scroll="handleScroll">
+      <div class="h-full overflow-y-auto px-4 py-3 md:px-6 lg:px-8 md:py-4 scroll-container" @scroll="handleScroll">
         <div v-if="loading && records.length === 0" class="flex items-center justify-center py-20">
           <Loader2 class="w-8 h-8 animate-spin text-primary" />
         </div>
@@ -222,25 +222,26 @@ const handleScroll = (e: Event) => {
             <Card
               v-for="record in records"
               :key="record.id"
-              class="overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-primary/30 group"
+              class="overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 hover:border-primary/25 group border-border/80"
               @click="goToDetail(record.id)"
             >
-              <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               <CardContent class="p-4 relative">
-                <div class="flex items-start justify-between gap-3 mb-3">
-                  <span :class="['px-2 py-0.5 rounded-full text-xs font-medium', typeColorCls[record.record_type] || typeColorCls.construction]">
+                <div class="flex items-start justify-between gap-2 mb-3">
+                  <span :class="['px-2 py-0.5 rounded-md text-[11px] font-medium', typeColorCls[record.record_type] || typeColorCls.construction]">
                     {{ typeLabels[record.record_type] || record.record_type }}
                   </span>
-                  <span :class="['px-2.5 py-1 rounded-full text-xs font-medium shrink-0', statusColorCls[record.status] || statusColorCls.pending]">
+                  <span :class="['px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0', statusColorCls[record.status] || statusColorCls.pending]">
                     {{ statusLabels[record.status] || record.status }}
                   </span>
                 </div>
-                <h3 class="font-semibold text-foreground text-base mb-1 truncate">{{ record.customer_name }}</h3>
-                <p class="text-xs text-muted-foreground mb-2 font-mono">{{ record.order_no }}</p>
-                <p v-if="record.address" class="text-sm text-muted-foreground mb-3 line-clamp-2 h-10">{{ record.address }}</p>
-                <div class="flex items-center justify-between text-xs text-muted-foreground pt-3 border-t border-border/50">
-                  <span>{{ record.staff_name || '未分配' }}</span>
-                  <span v-if="record.total_fee > 0" class="font-medium text-foreground">
+                <h3 class="font-semibold text-foreground text-sm md:text-base mb-1 truncate">{{ record.customer_name }}</h3>
+                <p class="text-[11px] text-muted-foreground mb-2 font-mono">{{ record.order_no }}</p>
+                <p v-if="record.address" class="text-xs text-muted-foreground mb-3 line-clamp-2 h-8">{{ record.address }}</p>
+                <div class="flex items-center justify-between text-xs text-muted-foreground pt-3 border-t border-border/60">
+                  <div class="flex items-center gap-1 truncate">
+                    <span class="truncate">{{ record.staff_name || '未分配' }}</span>
+                  </div>
+                  <span v-if="record.total_fee > 0" class="font-semibold text-foreground shrink-0">
                     ¥{{ record.total_fee.toFixed(0) }}
                   </span>
                 </div>

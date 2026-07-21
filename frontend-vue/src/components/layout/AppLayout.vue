@@ -50,15 +50,15 @@ const headerTitle = computed(() => {
 </script>
 
 <template>
-  <div class="min-h-screen-safe bg-background">
+  <div class="h-screen-safe flex flex-col bg-background">
     <Sidebar />
 
-    <div class="md:pl-60">
+    <div class="flex-1 md:pl-16 flex flex-col min-h-0">
       <AppHeader />
 
       <MobileHeader
         v-if="showHeader"
-        class="md:hidden"
+        class="md:hidden shrink-0"
         :title="headerTitle"
         :show-notification="route.name === 'dashboard'"
         :show-search="route.name === 'records' || route.name === 'pending'"
@@ -66,21 +66,19 @@ const headerTitle = computed(() => {
       />
 
       <main
-        class="min-h-screen-safe"
+        class="flex-1 min-h-0 overflow-hidden"
         :class="{
-          'pt-12 safe-area-top pb-20 safe-area-bottom md:pt-0 md:pb-0 md:min-h-0': showHeader && showNav,
-          'pt-12 safe-area-top md:pt-0 md:min-h-0': showHeader && !showNav,
-          'pb-20 safe-area-bottom md:pb-0 md:min-h-0': !showHeader && showNav,
+          'pb-20 safe-area-bottom md:pb-0': showNav,
         }"
       >
         <RouterView v-slot="{ Component, route: currentRoute }">
           <transition :name="transitionName" mode="out-in">
-            <component :is="Component" :key="currentRoute.fullPath" />
+            <component :is="Component" :key="currentRoute.fullPath" class="h-full" />
           </transition>
         </RouterView>
       </main>
 
-      <BottomNav v-if="showNav" class="md:hidden" />
+      <BottomNav v-if="showNav" class="md:hidden shrink-0" />
     </div>
   </div>
 </template>

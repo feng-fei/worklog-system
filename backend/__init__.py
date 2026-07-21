@@ -539,6 +539,24 @@ def create_app():
             db.session.rollback()
             print(f'⚠️ v3.9字段迁移跳过: {e}')
         
+        # v3.10 Expense 表 staff_name 和 receipt_photos 字段补充
+        try:
+            from sqlalchemy import inspect
+            insp = inspect(db.engine)
+            def add_col(table, col, ddl):
+                if col not in [c['name'] for c in insp.get_columns(table)]:
+                    db.session.execute(db.text(f'ALTER TABLE {table} ADD COLUMN {ddl}'))
+            
+            add_col('expenses', 'staff_name', "staff_name VARCHAR(100) DEFAULT ''")
+            add_col('expenses', 'receipt_photos', 'receipt_photos TEXT DEFAULT ""')
+            
+            db.session.commit()
+            db.create_all()
+            print('✅ v3.10支出人员和票据字段已检查')
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ v3.10字段迁移跳过: {e}')
+        
         # 创建默认管理员账号
         from .models import WorkerUser
         admin = WorkerUser.query.filter_by(username='admin').first()

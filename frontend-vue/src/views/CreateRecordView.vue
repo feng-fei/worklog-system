@@ -604,7 +604,9 @@ const handleSubmit = async () => {
     if (form.value.contact_name) submitData.append('contact_name', form.value.contact_name)
     if (form.value.customer_phone) submitData.append('customer_phone', form.value.customer_phone)
     if (form.value.work_address) submitData.append('work_address', form.value.work_address)
-    if (form.value.work_date) submitData.append('work_date', form.value.work_date)
+    if (form.value.work_date) {
+      submitData.append('work_date', form.value.work_date.split('T')[0])
+    }
     if (form.value.staff_name) submitData.append('staff_name', form.value.staff_name)
     if (form.value.staff_names && form.value.staff_names.length > 0) {
       submitData.append('staff_names', JSON.stringify(form.value.staff_names))
@@ -831,6 +833,11 @@ const currentTypeConfig = computed(() => typeConfig.find(t => t.key === recordTy
                 </div>
 
                 <div v-if="step === 1" class="space-y-5 md:space-y-6 animate-fade-in">
+                  <div v-if="errorMsg" class="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-sm flex items-center gap-2">
+                    <AlertTriangle class="w-4 h-4 shrink-0" />
+                    <span>{{ errorMsg }}</span>
+                  </div>
+
                   <Card class="card-tech border-border">
                     <CardHeader class="pb-3">
                       <CardTitle class="text-base font-semibold flex items-center gap-2 text-foreground">
@@ -1642,7 +1649,6 @@ const currentTypeConfig = computed(() => typeConfig.find(t => t.key === recordTy
   transition: all 0.35s cubic-bezier(0.23, 1, 0.32, 1);
 }
 :deep([data-slot="card"]:hover) {
-  transform: translateY(-6px) scale(1.01);
   box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.15),
               0 0 50px -10px rgb(245 112 29 / 0.2);
   border-color: rgb(245 112 29 / 0.4) !important;

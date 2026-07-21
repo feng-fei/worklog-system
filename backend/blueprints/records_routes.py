@@ -9,6 +9,15 @@ import json
 from datetime import datetime, date, timedelta
 from sqlalchemy import func, or_, and_
 
+EXPENSE_CATEGORY_MAP = {
+    'material': '材料采购',
+    'equipment': '工具设备',
+    'transport': '运输差旅',
+    'catering': '餐饮住宿',
+    'labor': '人工外包',
+    'other': '其他',
+}
+
 
 @records_bp.route('/records', methods=['GET'])
 @login_required
@@ -25,12 +34,23 @@ def get_records():
         project_id = request.args.get('project_id')
         no_project = request.args.get('no_project')
         has_project = request.args.get('has_project')
+        keyword = request.args.get('keyword')
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 20, type=int)
 
         query = WorkRecord.query
         query = _apply_record_permission(query)
 
+        if keyword:
+            like_kw = f'%{keyword}%'
+            query = query.filter(or_(
+                WorkRecord.customer_name.like(like_kw),
+                WorkRecord.order_no.like(like_kw),
+                WorkRecord.work_address.like(like_kw),
+                WorkRecord.work_content.like(like_kw),
+                WorkRecord.fault_description.like(like_kw),
+                WorkRecord.fault_diagnosis.like(like_kw)
+            ))
         if record_type:
             query = query.filter(WorkRecord.record_type == record_type)
         if payment_status:
@@ -101,7 +121,7 @@ def create_record():
         customer_name = (get_val('customer_name') or '').strip()
         
         work_date_str = get_val('work_date')
-        work_date = datetime.strptime(work_date_str, '%Y-%m-%d') if work_date_str else datetime.now()
+        work_date = parse_work_date(work_date_str)
 
         record_type = get_val('record_type', 'construction')
 
@@ -277,18 +297,31 @@ def create_record():
         current_user = get_login_user_name()
         for exp_item in expense_items:
             try:
-                cat_id = exp_item.get('category_id') or exp_item.get('category')
+                cat_val = exp_item.get('category_id') or exp_item.get('category')
+                cat_id = None
+                cat_name = ''
                 try:
-                    cat_id = int(cat_id) if cat_id else None
-                except:
+                    cat_id = int(cat_val) if cat_val else None
+                except (ValueError, TypeError):
                     cat_id = None
+                if not cat_id:
+                    cat_str = str(cat_val or '').strip()
+                    cat_name = EXPENSE_CATEGORY_MAP.get(cat_str, cat_str)
+                else:
+                    cat_name = exp_item.get('category_name', '') or str(cat_id)
                 exp_amount = float(exp_item.get('amount', 0) or 0)
                 exp_date_str = exp_item.get('expense_date')
                 exp_date = parse_date(exp_date_str) if exp_date_str else (work_date.date() if hasattr(work_date, 'date') else work_date)
                 exp_desc = exp_item.get('description', '') or exp_item.get('remark', '') or exp_item.get('title', '')
+                exp_staff = exp_item.get('staff_name', '') or exp_item.get('handler', '')
+                exp_photos = exp_item.get('receipt_photos', [])
+                if isinstance(exp_photos, list):
+                    exp_photos_json = json.dumps(exp_photos, ensure_ascii=False)
+                else:
+                    exp_photos_json = str(exp_photos or '')
                 expense = Expense(
                     category_id=cat_id,
-                    category=exp_item.get('category_name', '') or (str(cat_id) if cat_id else ''),
+                    category=cat_name,
                     title=exp_item.get('title', '') or exp_desc[:50],
                     amount=exp_amount,
                     expense_date=exp_date,
@@ -298,7 +331,10 @@ def create_record():
                     customer_name=record.customer_name,
                     created_by=current_user,
                     expense_type='project' if record.project_id else 'daily',
-                    is_invoiced='uninvoiced'
+                    is_invoiced='uninvoiced',
+                    handler=exp_staff,
+                    staff_name=exp_staff,
+                    receipt_photos=exp_photos_json
                 )
                 db.session.add(expense)
             except Exception as e:
@@ -313,17 +349,36 @@ def create_record():
 
         db.session.commit()
 
-        if (record_type == 'repair' and repair_result == 'incomplete' and get_val('convert_to_pending', False)) or (status == 'pending' and not is_completed):
+        should_create_pending = False
+        pending_title = ''
+        pending_todo_type = '待办工单'
+        pending_content = ''
+        if record_type == 'repair' and repair_result == 'incomplete':
+            convert_flag = get_val('convert_to_pending', 'true')
+            if convert_flag and str(convert_flag).lower() not in ('false', '0', 'no'):
+                should_create_pending = True
+                pending_title = f'未完成维修：{customer_name} - {get_val("work_subtype", "维修")}'
+                pending_todo_type = '未完成维修'
+                pending_content = f'故障描述: {get_val("fault_description", "")}\n维修过程: {get_val("repair_process", "")}\n未完成原因: {incomplete_reason_type or "未分类"} - {incomplete_reason}'
+        
+        explicit_create_pending = get_val('create_pending', '')
+        if explicit_create_pending and str(explicit_create_pending).lower() in ('true', '1', 'yes'):
+            should_create_pending = True
+            if not pending_title:
+                pending_title = f'待办工单：{customer_name} - {get_val("work_subtype", "施工")}'
+            pending_content = pending_content or get_val('work_content', '')
+
+        if should_create_pending:
             pending = PendingWork(
-                title=f'待办工单：{customer_name} - {get_val("title", get_val("work_subtype", "维修" if record_type == "repair" else "施工"))}',
+                title=pending_title,
                 customer_name=customer_name,
                 contact_name=get_val('contact_name', ''),
                 contact_phone=get_val('customer_phone', ''),
                 work_address=get_val('work_address', ''),
-                staff_name=get_val('staff_names', get_val('staff_name', '')),
-                todo_type='未完成维修' if repair_result == 'incomplete' else '待办工单',
+                staff_name=get_val('staff_name', '') or (get_val('staff_names', '').split(',')[0] if get_val('staff_names') else ''),
+                todo_type=pending_todo_type,
                 priority=get_val('priority', 'normal'),
-                work_content=get_val('work_content', '') if record_type != 'repair' else f'故障描述: {get_val("fault_description", "")}\n维修过程: {get_val("repair_process", "")}\n未完成原因: {incomplete_reason_type or "未分类"} - {incomplete_reason}',
+                work_content=pending_content,
                 reminder_date=work_date,
                 related_record_type=record_type,
                 related_record_id=record.id
@@ -536,7 +591,7 @@ def update_record(record_id):
         if get_val('incomplete_reason') is not None: record.incomplete_reason = get_val('incomplete_reason') or ''
         if record.record_type == 'repair' and record.repair_result == 'pending' and not (record.incomplete_reason or '').strip():
             return jsonify({'error': '未维修完成时必须填写原因说明'}), 400
-        if get_val('work_date'): record.work_date = datetime.strptime(get_val('work_date'), '%Y-%m-%d')
+        if get_val('work_date'): record.work_date = parse_work_date(get_val('work_date'))
         if get_val('start_time') is not None: record.start_time = get_val('start_time') or ''
         if get_val('end_time') is not None: record.end_time = get_val('end_time') or ''
         if get_val('work_hours') is not None: record.work_hours = float(get_val('work_hours') or 0)
@@ -685,18 +740,31 @@ def update_record(record_id):
             current_user = get_login_user_name()
             for exp_item in expense_items:
                 try:
-                    cat_id = exp_item.get('category_id') or exp_item.get('category')
+                    cat_val = exp_item.get('category_id') or exp_item.get('category')
+                    cat_id = None
+                    cat_name = ''
                     try:
-                        cat_id = int(cat_id) if cat_id else None
-                    except:
+                        cat_id = int(cat_val) if cat_val else None
+                    except (ValueError, TypeError):
                         cat_id = None
+                    if not cat_id:
+                        cat_str = str(cat_val or '').strip()
+                        cat_name = EXPENSE_CATEGORY_MAP.get(cat_str, cat_str)
+                    else:
+                        cat_name = exp_item.get('category_name', '') or str(cat_id)
                     exp_amount = float(exp_item.get('amount', 0) or 0)
                     exp_date_str = exp_item.get('expense_date')
                     exp_date = parse_date(exp_date_str) if exp_date_str else (record.work_date.date() if hasattr(record.work_date, 'date') else record.work_date)
                     exp_desc = exp_item.get('description', '') or exp_item.get('remark', '') or exp_item.get('title', '')
+                    exp_staff = exp_item.get('staff_name', '') or exp_item.get('handler', '')
+                    exp_photos = exp_item.get('receipt_photos', [])
+                    if isinstance(exp_photos, list):
+                        exp_photos_json = json.dumps(exp_photos, ensure_ascii=False)
+                    else:
+                        exp_photos_json = str(exp_photos or '')
                     expense = Expense(
                         category_id=cat_id,
-                        category=exp_item.get('category_name', '') or (str(cat_id) if cat_id else ''),
+                        category=cat_name,
                         title=exp_item.get('title', '') or exp_desc[:50],
                         amount=exp_amount,
                         expense_date=exp_date,
@@ -706,7 +774,10 @@ def update_record(record_id):
                         customer_name=record.customer_name,
                         created_by=current_user,
                         expense_type='project' if record.project_id else 'daily',
-                        is_invoiced='uninvoiced'
+                        is_invoiced='uninvoiced',
+                        handler=exp_staff,
+                        staff_name=exp_staff,
+                        receipt_photos=exp_photos_json
                     )
                     db.session.add(expense)
                 except Exception as e:

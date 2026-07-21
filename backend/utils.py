@@ -16,7 +16,7 @@ import uuid
 
 __all__ = [
     'ALLOWED_EXTENSIONS', 'ALLOWED_MIMETYPES', 'MAX_FILE_SIZE',
-    'escape_like_keyword', 'parse_date', 'paginate_query',
+    'escape_like_keyword', 'parse_date', 'parse_work_date', 'paginate_query',
     'allowed_file', 'safe_filename',
     'parse_list_field', 'serialize_list_field',
     'get_login_user_name',
@@ -70,6 +70,26 @@ def parse_date(date_str):
         return datetime.strptime(str(date_str)[:10], '%Y-%m-%d').date()
     except (ValueError, TypeError):
         return None
+
+
+def parse_work_date(s):
+    """解析工单日期，兼容多种格式：YYYY-MM-DD、YYYY-MM-DDTHH:MM、YYYY-MM-DD HH:MM 等"""
+    if not s:
+        return datetime.now()
+    if isinstance(s, datetime):
+        return s
+    if isinstance(s, date):
+        return datetime.combine(s, datetime.min.time())
+    s = str(s).strip().replace('T', ' ')
+    for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%d'):
+        try:
+            return datetime.strptime(s[:19] if len(s) > 10 else s, fmt)
+        except ValueError:
+            continue
+    try:
+        return datetime.strptime(s[:10], '%Y-%m-%d')
+    except ValueError:
+        return datetime.now()
 
 
 def paginate_query(query, page, per_page, to_dict_method='to_dict'):

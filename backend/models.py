@@ -1000,15 +1000,27 @@ class Expense(db.Model):
     customer_name = db.Column(db.String(100), default='')
     supplier = db.Column(db.String(100), default='')
     handler = db.Column(db.String(100), default='')
+    staff_name = db.Column(db.String(100), default='')
     payment_method = db.Column(db.String(20), default='cash')
     is_invoiced = db.Column(db.String(20), default='uninvoiced')
+    receipt_photos = db.Column(db.Text, default='')
     remark = db.Column(db.Text, default='')
     created_by = db.Column(db.String(100), default='')
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
     def to_dict(self):
+        import json as _json
         invoiced_val = _normalize_invoiced_status(self.is_invoiced)
+        receipt_list = []
+        if self.receipt_photos:
+            try:
+                if self.receipt_photos.startswith('['):
+                    receipt_list = _json.loads(self.receipt_photos)
+                else:
+                    receipt_list = [p.strip() for p in self.receipt_photos.split(',') if p.strip()]
+            except:
+                receipt_list = []
         return {
             'id': self.id,
             'expense_type': self.expense_type or 'other',
@@ -1027,10 +1039,11 @@ class Expense(db.Model):
             'customer_id': self.customer_id,
             'customer_name': self.customer_name or '',
             'supplier': self.supplier or '',
-            'handler': self.handler or '',
-            'staff_name': self.handler or '',
+            'handler': self.handler or self.staff_name or '',
+            'staff_name': self.staff_name or self.handler or '',
             'payment_method': self.payment_method or 'cash',
             'is_invoiced': invoiced_val,
+            'receipt_photos': receipt_list,
             'remark': self.remark or '',
             'note': self.remark or '',
             'created_by': self.created_by or '',
